@@ -441,6 +441,7 @@ rename_map_2015 <- c(
   violence_pimp = "F2_5 Who inflicted violence? - Pimp/manager of apartment",
   violence_fsw = "F2_8 Who inflicted violence? - Girls from among FSW",
   violence_rape_12m = "F4. In the last 12 months have you ever been forced to provide sexual services for clients without any remuneration?",
+  violence_support_ngo = "F3_1 Have you addressed any where or to anyone for help? - To NGO/ crisis center",
   hiv_tested_lifetime = "G5. I am not asking now about the test result, but have you ever had an HIV- test?",
   hiv_tested_12m = "G8. Let's be more precise. Was it within the last 12 months?",
   hiv_tested_result = "G11. I am not asking you about the result, but did you get your result of the last test?",
@@ -521,38 +522,114 @@ sw_data_2015_clean <- sw_data_2015_clean %>%
       alcohol_30d_num >= 1 ~ "Yes",
       alcohol_30d_num == 0 ~ "No",
       TRUE ~ NA_character_
+    ),
+    violence_rape_ever = case_when(
+      `F2.1_7 If “yes”, how? - Raped` == "Yes" |
+      `F2.1_8 If “yes”, how? - Forced to provide sexual services in the form of perversion` == "Yes" ~ "Yes",
+      
+      `F2.1_7 If “yes”, how? - Raped` == "No" &
+      `F2.1_8 If “yes”, how? - Forced to provide sexual services in the form of perversion` == "No" ~ "No",
+      
+      `F2.1_7 If “yes”, how? - Raped` == "No question asked" &
+      `F2.1_8 If “yes”, how? - Forced to provide sexual services in the form of perversion` == "No question asked" ~ "No question asked",
+      
+      TRUE ~ NA_character_
+    ),
+    drugs_30d_bin = case_when(
+      `C2_1 Have you used drugs non-injectably (smoked, sniffed, swallowed, etc.) in the past 30 days (last month)?` == "Yes" |
+      `idu_30d_bin` == "Yes" ~ "Yes",
+      
+      `C2_1 Have you used drugs non-injectably (smoked, sniffed, swallowed, etc.) in the past 30 days (last month)?` == "No" &
+      `idu_30d_bin` == "No" ~ "No",
+      
+      `C2_1 Have you used drugs non-injectably (smoked, sniffed, swallowed, etc.) in the past 30 days (last month)?` == "No question asked" &
+      `idu_30d_bin` == "No question asked" ~ "No question asked",
+      
+      TRUE ~ NA_character_
+    ),
+    drugs_30d_num = as.numeric(`C2_1_1 Have you used drugs non-injectably in the past 30 days (last month)? If yes, how many times?`) + 
+                as.numeric(idu_30d_num),
+   sex_with_drugs_30d = case_when(
+      `С5_2 How often did you use the following during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration? Narcotic substances` == "Never" ~ "No",
+      `С5_2 How often did you use the following during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration? Narcotic substances` %in% c("Always (100%)", "In the majority of cases (75%)", "In half of cases (50%)", "Sometimes (25%)", "Rarely (less than 10%)") ~ "Yes",
+      `С5_2 How often did you use the following during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration? Narcotic substances` == "Did not use in the last 30 days" ~ "Did not use drugs",
+      TRUE ~ NA_character_
+    ),
+    sex_with_alcohol_30d = case_when(
+      `С5_1 How often did you use the following during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration? Alcohol` == "Never" ~ "No",
+      `С5_1 How often did you use the following during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration? Alcohol` %in% c("Always (100%)", "In the majority of cases (75%)", "In half of cases (50%)", "Sometimes (25%)", "Rarely (less than 10%)") ~ "Yes",
+      `С5_1 How often did you use the following during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration? Alcohol` == "Did not use in the last 30 days" ~ "Did not use alcohol",
+      TRUE ~ NA_character_
+    ),
+    sex_with_drugs_and_alcohol_30d = case_when(
+      `С5_3 How often did you use the following during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration? Alcohol + drugs` == "Never" ~ "No",
+      `С5_3 How often did you use the following during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration? Alcohol + drugs` %in% c("Always (100%)", "In the majority of cases (75%)", "In half of cases (50%)", "Sometimes (25%)", "Rarely (less than 10%)") ~ "Yes",
+      `С5_3 How often did you use the following during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration? Alcohol + drugs` == "Did not use in the last 30 days" ~ "Did not use substances",
+      TRUE ~ NA_character_
+    ),
+     violence_support_any = case_when(
+      violence_support_ngo == "Yes" |
+      `F3_2 Have you addressed any where or to anyone for help? - To relatives (parents, husband/cohabitant, friend)` == "Yes" |
+      `F3_3 Have you addressed any where or to anyone for help? - To other client, whom I provide sexual services` == "Yes" |
+      `F3_4 Have you addressed any where or to anyone for help? - To police` == "Yes" |
+      `F3_5 Have you addressed any where or to anyone for help? - To other girl/woman who provide sexual services` == "Yes" |
+      `F3_6 Have you addressed any where or to anyone for help? - To pimp/”mom”` == "Yes" |
+      `F3_7 Have you addressed any where or to anyone for help? - Other` == "Yes" ~ "Yes",
+      
+      `F3_8 Have you addressed any where or to anyone for help? - Did not address for help` == "Yes" ~ "No",
+      
+      `F3_9 Have you addressed any where or to anyone for help? - Difficult to answer/refusal to answer` == "Yes" ~ "Refuse to answer",
+      
+      TRUE ~ NA_character_
+    ),             
+    primary_drug_30m = case_when(
+      `С4.1_1 Which of the injecting drugs do you consider a primary one for you? - Hanka` == "Yes" ~ "Hanka",
+      `С4.1_2 Which of the injecting drugs do you consider a primary one for you? - Pervitin` == "Yes" ~ "Pervitin",
+      `С4.1_3 Which of the injecting drugs do you consider a primary one for you? - Stimulants` == "Yes" ~ "Stimulants",
+      `С4.1_4 Which of the injecting drugs do you consider a primary one for you? - Methadone` == "Yes" ~ "Methadone",
+      `С4.1_5 Which of the injecting drugs do you consider a primary one for you? - Nalbuphine` == "Yes" ~ "Nalbuphine",
+      `С4.1_6 Which of the injecting drugs do you consider a primary one for you? - Salt` == "Yes" ~ "Salt",
+      `С4.1_7 Which of the injecting drugs do you consider a primary one for you? - Opium` == "Yes" ~ "Opium",
+      `С4.1_8 Which of the injecting drugs do you consider a primary one for you? - Diphenhydramine` == "Yes" ~ "Diphenhydramine",
+      `С4.1_9 Which of the injecting drugs do you consider a primary one for you? - Amphetamine` == "Yes" ~ "Amphetamine",
+      `С4.1_10 Which of the injecting drugs do you consider a primary one for you? - Subutex` == "Yes" ~ "Subutex",
+      `С4.1_11 Which of the injecting drugs do you consider a primary one for you? - Methamphetamine (crystal)` == "Yes" ~ "Methamphetamine (crystal)",
+      
+      # If all are "No", then no primary drug
+      if_all(c(
+        `С4.1_1 Which of the injecting drugs do you consider a primary one for you? - Hanka`,
+        `С4.1_2 Which of the injecting drugs do you consider a primary one for you? - Pervitin`,
+        `С4.1_3 Which of the injecting drugs do you consider a primary one for you? - Stimulants`,
+        `С4.1_4 Which of the injecting drugs do you consider a primary one for you? - Methadone`,
+        `С4.1_5 Which of the injecting drugs do you consider a primary one for you? - Nalbuphine`,
+        `С4.1_6 Which of the injecting drugs do you consider a primary one for you? - Salt`,
+        `С4.1_7 Which of the injecting drugs do you consider a primary one for you? - Opium`,
+        `С4.1_8 Which of the injecting drugs do you consider a primary one for you? - Diphenhydramine`,
+        `С4.1_9 Which of the injecting drugs do you consider a primary one for you? - Amphetamine`,
+        `С4.1_10 Which of the injecting drugs do you consider a primary one for you? - Subutex`,
+        `С4.1_11 Which of the injecting drugs do you consider a primary one for you? - Methamphetamine (crystal)`
+      ), ~ . == "No") ~ "No drug use",
+      
+      # If all are "No question asked"
+      if_all(c(
+        `С4.1_1 Which of the injecting drugs do you consider a primary one for you? - Hanka`,
+        `С4.1_2 Which of the injecting drugs do you consider a primary one for you? - Pervitin`,
+        `С4.1_3 Which of the injecting drugs do you consider a primary one for you? - Stimulants`,
+        `С4.1_4 Which of the injecting drugs do you consider a primary one for you? - Methadone`,
+        `С4.1_5 Which of the injecting drugs do you consider a primary one for you? - Nalbuphine`,
+        `С4.1_6 Which of the injecting drugs do you consider a primary one for you? - Salt`,
+        `С4.1_7 Which of the injecting drugs do you consider a primary one for you? - Opium`,
+        `С4.1_8 Which of the injecting drugs do you consider a primary one for you? - Diphenhydramine`,
+        `С4.1_9 Which of the injecting drugs do you consider a primary one for you? - Amphetamine`,
+        `С4.1_10 Which of the injecting drugs do you consider a primary one for you? - Subutex`,
+        `С4.1_11 Which of the injecting drugs do you consider a primary one for you? - Methamphetamine (crystal)`
+      ), ~ . == "No question asked") ~ "No question asked",
+      
+      TRUE ~ NA_character_
     )
 )
 
 
-
-
-
-
-drugs_30d_bin C2_1 Have you used drugs non-injectably (smoked, sniffed, swallowed, etc.) in the past 30 days (last month)?
-drugs_30d_num C2_1_1 Have you used drugs non-injectably in the past 30 days (last month)? If yes, how many times?
-
-sex_with_drugs_30d С5_2 How often did you use the following during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration? Narcotic substances
-sex_with_alcohol_30d С5_1 How often did you use the following during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration? Alcohol
-sex_with_drugs_and_alcohol_30d С5_3 How often did you use the following during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration? Alcohol + drugs
-
-violence_rape_ever F2.1_7 If “yes”, how? - Raped
-F2.1_8 If “yes”, how? - Forced to provide sexual services in the form of perversion
-
-violence_support
-
-primary_drug_30m
-С4.1_1 Which of the injecting drugs do you consider a primary one for you? - Hanka
-С4.1_2 Which of the injecting drugs do you consider a primary one for you? - Pervitin
-С4.1_3 Which of the injecting drugs do you consider a primary one for you? - Stimulants
-С4.1_4 Which of the injecting drugs do you consider a primary one for you? - Methadone
-С4.1_5 Which of the injecting drugs do you consider a primary one for you? - Nalbuphine
-С4.1_6 Which of the injecting drugs do you consider a primary one for you? - Salt
-С4.1_7 Which of the injecting drugs do you consider a primary one for you? - Opium
-С4.1_8 Which of the injecting drugs do you consider a primary one for you? - Diphenhydramine
-С4.1_9 Which of the injecting drugs do you consider a primary one for you? - Amphetamine
-С4.1_10 Which of the injecting drugs do you consider a primary one for you? - Subutex
-С4.1_11 Which of the injecting drugs do you consider a primary one for you? - Methamphetamine (crystal)
 
 # recategorise
 
