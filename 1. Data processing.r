@@ -471,23 +471,63 @@ sw_data_2015_clean <- sw_data_2015_clean %>%
       TRUE ~ NA_character_
     ),
     partners_sw_30d = as.numeric(`Number of irregular clients from whom you RECEIVED COMPENSATION [money or other] for providing sexual services in the LAST 30 DAYS.`) + 
-                      as.numeric(`Number of regular clients from whom you RECEIVED COMPENSATION [money or other] for providing sexual services in the LAST 30 DAYS.`)
-  )
+                      as.numeric(`Number of regular clients from whom you RECEIVED COMPENSATION [money or other] for providing sexual services in the LAST 30 DAYS.`),
+    partners_nonsw_30d = as.numeric(`Number of regular sexual partners from whom you did NOT RECEIVE COMPENSATION [money or other] in the LAST 30 DAYS.`) + 
+                        as.numeric(`Number of casual sexual partners from whom you did NOT RECEIVE COMPENSATION [money or other] in the LAST 30 DAYS.`),                      
+    client_condom_bin_30d = case_when(
+    `В9.1. Please think of the last 30 DAYS once again. Was there a case when you DID NOT use a condom with your client during vaginal sex?` == "Yes, there was such a case" |
+    `В8.1. Please think of the last 30 DAYS once again. Was there a case when you DID NOT use a condom with your client during anal sex?` == "Yes, there was such a case" ~ "No",
+    
+    `В9.1. Please think of the last 30 DAYS once again. Was there a case when you DID NOT use a condom with your client during vaginal sex?` == "Always used" &
+    `В8.1. Please think of the last 30 DAYS once again. Was there a case when you DID NOT use a condom with your client during anal sex?` == "Always used" ~ "Yes",
+    
+    TRUE ~ NA_character_
+    ),
+    client_condom_freq_30d = case_when(
+    `B9. How often have you used a condom during vaginal sex?` == "Always (100%)" &
+    `B10. How often have you used a condom during anal sex?` == "Always (100%)" ~ "Always (100%)",
+    
+    `B9. How often have you used a condom during vaginal sex?` == "Always (100%)" &
+    `B10. How often have you used a condom during anal sex?` == "I didn't have such sex" ~ "Always (100%)",
+    
+    `B9. How often have you used a condom during vaginal sex?` == "I didn't have such sex" &
+    `B10. How often have you used a condom during anal sex?` == "Always (100%)" ~ "Always (100%)",
+    
+    `B9. How often have you used a condom during vaginal sex?` %in% c("In the majority of cases (75%)", "Always (100%)") &
+    `B10. How often have you used a condom during anal sex?` %in% c("In the majority of cases (75%)", "Always (100%)", "I didn't have such sex") ~ "In the majority of cases (75%)",
+    
+    `B9. How often have you used a condom during vaginal sex?` %in% c("In half of cases (50%)", "In the majority of cases (75%)", "Always (100%)") &
+    `B10. How often have you used a condom during anal sex?` %in% c("In half of cases (50%)", "In the majority of cases (75%)", "Always (100%)", "I didn't have such sex") ~ "In half of cases (50%)",
+    
+    `B9. How often have you used a condom during vaginal sex?` %in% c("Sometimes (25%)", "In half of cases (50%)", "In the majority of cases (75%)", "Always (100%)") &
+    `B10. How often have you used a condom during anal sex?` %in% c("Sometimes (25%)", "In half of cases (50%)", "In the majority of cases (75%)", "Always (100%)", "I didn't have such sex") ~ "Sometimes (25%)",
+    
+    `B9. How often have you used a condom during vaginal sex?` != "Never" &
+    `B10. How often have you used a condom during anal sex?` != "Never" &
+    (`B9. How often have you used a condom during vaginal sex?` == "Rarely (less than 10%)" |
+    `B10. How often have you used a condom during anal sex?` == "Rarely (less than 10%)") ~ "Rarely (less than 10%)",
+    
+    `B9. How often have you used a condom during vaginal sex?` == "Never" |
+    `B10. How often have you used a condom during anal sex?` == "Never" ~ "Never",
+    
+    TRUE ~ NA_character_
+  ),
+    alcohol_30d_daily_bin = case_when(
+      alcohol_30d_num >= 30 ~ "Yes",
+      alcohol_30d_num < 30 ~ "No",
+      TRUE ~ NA_character_
+    ),
+    alcohol_30d_bin = case_when(
+      alcohol_30d_num >= 1 ~ "Yes",
+      alcohol_30d_num == 0 ~ "No",
+      TRUE ~ NA_character_
+    )
+)
 
-partners_sw_30d
-Number of irregular clients from whom you RECEIVED COMPENSATION [money or other] for providing sexual services in the LAST 30 DAYS.
-Number of regular clients from whom you RECEIVED COMPENSATION [money or other] for providing sexual services in the LAST 30 DAYS.
 
-partners_nonsw_30d
-Number of regular sexual partners from whom you did NOT RECEIVE COMPENSATION [money or other] in the LAST 30 DAYS.
-Number of casual sexual partners from whom you did NOT RECEIVE COMPENSATION [money or other] in the LAST 30 DAYS.
 
-client_condom_bin_30d
-client_condom_freq_30d
 
-alcohol_30d_bin
-С1. How often did you use alcohol or Alco pops in the LAST MONTH [30 days]?
-alcohol_30d_daily_bin
+
 
 drugs_30d_bin C2_1 Have you used drugs non-injectably (smoked, sniffed, swallowed, etc.) in the past 30 days (last month)?
 drugs_30d_num C2_1_1 Have you used drugs non-injectably in the past 30 days (last month)? If yes, how many times?
