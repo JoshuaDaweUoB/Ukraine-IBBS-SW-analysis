@@ -191,7 +191,7 @@ rename_map_2011 <- c(
   age_first_sex = "В1. At what age did you have sexual relations for the first time?",
   age_first_sw = "В2. How old were you when you provided sexual services for a fee (money or other) for the first time?",
   city = "City",
-  partners_sw_7d = "А12. В4.1 During THE RECENT (WORKING) WEEK, how many persons listed below were among your sexual partners [clients]? Partners [clients] who you RECEIVED A FEE [money or other] from",
+  partners_sw_7d = "В4.1 During THE RECENT (WORKING) WEEK, how many persons listed below were among your sexual partners [clients]? Partners [clients] who you RECEIVED A FEE [money or other] from",
   partners_nonsw_perm_7d = "В4.2 During THE RECENT (WORKING) WEEK, how many persons listed below were among your sexual partners [clients]? Permanent partners who you RECEIVED NO FEE [money or other] from",
   partners_nonsw_cas_7d = "В4.3 During THE RECENT (WORKING) WEEK, how many persons listed below were among your sexual partners [clients]? Casual partners who you RECEIVED NO FEE [money or other] fromе]",
   partners_total_7d = "В4.4 How MANY DIFFERENT sexual partners in total did you have during the recent (working) week, including your husband or your permanent sexual partner with whom you live?",
@@ -212,7 +212,7 @@ rename_map_2011 <- c(
   primary_drug_3m = "С3.4 What drug listed in the previous question do you consider the primary one for you?",
   violence_any_ever = "V1. Have you ever been subjected to violence while providing sexual services? For example, you were verbally or physically humiliated / beaten / forced to provide sexual services for free?",
   hiv_tested_lifetime = "F6. I am not asking you about the result but I want to ask if you underwent HIV testing",
-  hiv_tested_12m = "F8. Let's specify if that was during the RECENT 12 MONTHS",
+  hiv_tested_12m = "F8. Let’s specify if that was during the RECENT 12 MONTHS",
   hiv_tested_result = "F11. I am not asking you about the result, but did you receive your last test result?",
   hiv_status_selfreport = "F13.1 HIV status",
   art_current = "F15. Are you participating in ART program?",
@@ -257,8 +257,8 @@ sw_data_2011_clean <- sw_data_2011_clean %>%
       `D5. What help or services did you receive from non-governmental organizations in the LAST 12 MONTHS? Attending mutual support groups` == "Yes" |
       `D5. What help or services did you receive from non-governmental organizations in the LAST 12 MONTHS? Attending consultations on safe injecting drug use` == "Yes" |
       `D5. What help or services did you receive from non-governmental organizations in the LAST 12 MONTHS? Attending consultations on HIV/AIDS, STI, and ways of their prevention` == "Yes" |
-      `D5. What help or services did you receive from non-governmental organizations in the LAST 12 MONTHS? Lawyer's consultations` == "Yes" |
-      `D5. What help or services did you receive from non-governmental organizations in the LAST 12 MONTHS? Psychologist's consultations` == "Yes" |
+      `D5. What help or services did you receive from non-governmental organizations in the LAST 12 MONTHS? Lawyer’s consultations` == "Yes" |
+      `D5. What help or services did you receive from non-governmental organizations in the LAST 12 MONTHS? Psychologist’s consultations` == "Yes" |
       `D5. What help or services did you receive from non-governmental organizations in the LAST 12 MONTHS? Peer-to-peer consultations` == "Yes" |
       `D5. What help or services did you receive from non-governmental organizations in the LAST 12 MONTHS? Free HIV/AIDS testing` == "Yes" |
       `D5. What help or services did you receive from non-governmental organizations in the LAST 12 MONTHS? Free testing for venereal diseases (testing and counseling)` == "Yes" |
@@ -279,225 +279,242 @@ sw_data_2011_clean <- sw_data_2011_clean %>%
     )
   )
 
-# recategorise
+# load 2013 data
+sw_data_2013_raw <- read_excel("2013_IBBS_FSW_TLS AND RDS_Data.xlsx")
 
-# Assume your data is called df
-sw_data_2008_clean <- sw_data_2008_clean %>%
+# variables to rename
+rename_map_2013 <- c(
+  sw_freq_7d = "А19. How many days in the LAST WEEK [7 days] did you provide sexual services?",
+  education = "А6. What is your educational level?",
+  residence_30d = "А8. What has been your permanent place of residence in the last month (30 days)?",
+  marital_status = "А12. Choose from the suggested alternatives the one corresponding to your marital status at the moment",
+  income_30d_cat = "А17. Tell me please, what has been your PERSONAL income in the last 30 days?",
+  age = "I2. Your age",
+  age_first_sex = "В1.At what age did you start sexual relations for the first time?",
+  age_first_sw = "В2. How old were you when you provided sexual services for a fee (money or other) for the first time?",
+  city = "City",
+  city_travel_12m = "А11. Have you ever left this city for more than 1 month [30 days] during THE LAST 12 MONTHS to provide sexual services?",
+  partners_sw_30d = "B.4.1_2 Number of sexual partners in the PAST MONTH (30 days) Clients from which you RECEIVED A FEE [money or other] for sexual services",
+  partners_nonsw_perm_30d = "B.4.2_2 Number of sexual partners in the PAST MONTH (30 days) Permanent from which you RECEIVED NO FEE [money or other]",
+  partners_nonsw_cas_30d = "B.4.3_2 Number of sexual partners in the PAST MONTH (30 days) Casual partners from which you RECEIVED NO FEE [money or other])",
+  partners_total_30d = "В4.4 How MANY DIFFERENT sexual partners in total did you have during the past month  (30 days), including your husband or your permanent sexual partner with whom you live?",
+  partners_sw_24h = "В5. How many different CLIENTS whom you provided sexual services for a fee you had FOR THE LAST WORKING DAY (24 HOURS)?",
+  partners_age_30d = "В3.4. Among the age groups you indicated, representatives of which one have you met most often in the LAST month (30 days)?",
+  client_condom_lastsex = "В6.1 Remember your sexual contact with your LAST CLIENT. Did you use a condom?",
+  client_condom_bin_30d = "В8.1.Please think of the last 30 DAYS once again. Was there a case when you DID NOT use a condom with your client during oral sex?",
+  client_condom_freq_30d = "B8. Remember all your sexual contacts with CLIENTS from whom you have RECEIVED REMUNERATION for the LAST [30 days]. How often have you used a condom during oral sex?",
+  perm_partner_condom_lastsex = "В15. Remember your last sexual contact with a PERMANENT partner from whom you received no remuneration. Did you used a condom?",
+  perm_client_condom_lastsex = "В12. Remember your last sexual contact with a PERMANENT CLIENT. Did you or your partner use a condom?",
+  cas_partner_condom_lastsex = "В21.Remember your last sexual contact with a CASUAL partner from whom you received no remuneration. Did you used a condom?",
+  group_sex_30d = "В30. Have you practiced GROUP SEX in the last 30 days?",
+  condom_access_12m = "D2. Did you receive condoms free of charge in the LAST 12 MONTHS (e.g. in NGOs, counseling centers, centers of social services for family, children and youth, during actions, etc.)?",
+  typology_primary_30d = "B3.7 . Please tell me, among the following ways to find your clients what is the PRIMARY for you?",
+  aids_center_bin = "G14. Please say if you are registered in the AIDS centre?",
+  alcohol_30d_num = "С1. How often did you use alcohol or Alco pops in the LAST MONTH [30 days]?",
+  drugs_30d_bin = "С2. Some people try to use various drugs. Do you use / Did you use any drugs?",
+  idu_12m_bin = "С3. Have you injected drugs (withthesyringe) in the last 12 months?",
+  idu_30d_bin = "С4. Have you injected drugs in the last 30 days (last month)?",
+  used_syringe_30d_bin = "С4.2. Did you inject a drug with the injecting equipment (syringe, needle) previously used by another person or drugs that were prepared in the common pot or you don’t know how the syringe has been filled?",
+  sex_with_drugs_30d = "С6_2 How often did you use the following during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration Narcotic substances",
+  sex_with_alcohol_30d = "С6_1. How often did you use the following during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration Alcohol, alco pops",
+  sex_with_drugs_and_alcohol_30d = "С6_3 How often did you use the following during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration Alcohol + drugs",
+  primary_drug_inj_30d = "С4.1. Which of the injecting drugs do you consider a primary one for you?",
+  ngo_access_lifetime = "D3.Are you a client of any non-governmental organization (have a card or an individual code) that works with female sex workers?",
+  violence_any_ever = "F1. Did you suffer violence at time of sexual services?",
+  violence_rape_ever = "F1_2_1 If “yes”, how? Raped",
+  violence_beaten_ever = "F1_2_3 If “yes”, how? Beaten",
+  violence_humiliated_ever = "F1_2_2 If “yes”, how? Humiliated morally ( verbally )",
+  violence_physical_abuse_ever = "F1_2_4 If “yes”, how? Physically abused",
+  violence_client = "F2_1 Who inflicted violence? Clients",
+  violence_perm_partner = "F2_2 Who inflicted violence? Permanent sexual partner",
+  violence_casual_partner = "F2_3 Who inflicted violence? Casual sexual partner",
+  violence_police = "F2_4 Who inflicted violence? Law enforcement officer",
+  violence_pimp = "F2_5 Who inflicted violence? Pimp/manager of apartment",
+  violence_fsw = "F2_8 Who inflicted violence? Girls from among FSW",
+  violence_support_ngo = "F3_1. Have you addressed anywhere or to anyone for help? To NGO/ crisis centre",
+  hiv_tested_lifetime = "G5. I am not asking now about the test result, but have you ever had an HIV- test?",
+  hiv_tested_12m = "G8. Let's be more precise. Was it within the last 12 months?",
+  hiv_tested_result = "G11. I am not asking you about the result, but did you get your result of the last test?",
+  hiv_status_selfreport = "G13.1.If «yes», it was:",
+  art_current = "С5. Are you participating in the antiretroviral therapy program (ART)?",
+  hiv_test_rslt = "Т2. Indicate the result of respondent's HIV-test."
+)
+
+# map to vars
+sw_data_2013_clean <- sw_data_2013_raw %>%
+  rename(!!!setNames(rename_map_2013, names(rename_map_2013)))
+
+# derived variables
+sw_data_2013_clean <- sw_data_2013_clean %>%
   mutate(
-
-    ## ---- EDUCATION ----
-    education_rec = case_when(
-      education == "Primary (incomplete 7 years)" ~ 0,
-      education == "Basic (incomplete) secondary (complete 9 years)" ~ 1,
-      education == "Complete general secondary (or vocational) (11 years etc.)" ~ 2,
-      education == "Basic higher (technical school, higher educational institutions of accreditation levels I and II)" ~ 3,
-      education == "incomplete higher" ~ 4,
-      education == "Complete higher education (higher educational institutions of accreditation levels III and IV)" ~ 5,
-      TRUE ~ 6 # Other or No answer
+    alcohol_30d_daily_bin = case_when(
+      alcohol_30d_num == c("20-39 times","40 times and more") ~ "Yes",
+      alcohol_30d_num %in% c("Never", "1-2 times", "3-5 times", "6-9 times", "10-19 times") ~ "No",
+      TRUE ~ NA_character_
     ),
-    education_rec = factor(
-      education_rec,
-      levels = 0:6,
-      labels = c(
-        "Primary education",
-        "Basic secondary education",
-        "Secondary education",
-        "Basic higher education",
-        "Incomplete higher education",
-        "Completed higher education",
-        "Don't know"
-      )
+    alcohol_30d_bin = case_when(
+      alcohol_30d_num %in% c("1-2 times", "3-5 times", "6-9 times", "10-19 times", "20-39 times", "40 times and more") ~ "Yes",
+      alcohol_30d_num == "Never" ~ "No",
+      TRUE ~ NA_character_
     ),
-
-    ## ---- MARITAL STATUS ----
-    marital_status_rec = case_when(
-      marital_status == "Unmarried and not living with a sexual partner" ~ 0,
-      marital_status == "Officially unmarried but living with a permanent sexual partner" ~ 1,
-      marital_status == "Married but living with some other sexual partner" ~ 2,
-      marital_status == "Married but living neither with my husband nor with some other sexual partner" ~ 3,
-      TRUE ~ NA_real_
+    violence_support_any = case_when(
+      violence_support_ngo == "Yes" |
+      `F3_2. Have you addressed anywhere or to anyone for help? To relatives (parents, husband/cohabitant, friend)` == "Yes" |
+      `F3_3. Have you addressed anywhere or to anyone for help? To other client, whom I provide sexual services` == "Yes" |
+      `F3_4. Have you addressed anywhere or to anyone for help? To police` == "Yes" |
+      `F3_5. Have you addressed anywhere or to anyone for help? To other girl/woman who provide sexual services` == "Yes" |
+      `F3_6. Have you addressed anywhere or to anyone for help? To pimp/”mom”` == "Yes" |
+      `F3_7. Have you addressed anywhere or to anyone for help? Other` == "Yes" ~ "Yes",
+      
+      `F3_8. Have you addressed anywhere or to anyone for help? Did not address for help` == "Yes" ~ "No",
+      
+      `F3_9. Have you addressed anywhere or to anyone for help? Difficult to answer/refusal to answer` == "Yes" ~ "Refuse to answer",
+      
+      TRUE ~ NA_character_
     ),
-    marital_status_rec = factor(
-      marital_status_rec,
-      levels = 0:3,
-      labels = c(
-        "Single and have no regular sexual partner",
-        "Single but have regular sexual partner(s)",
-        "Married but have other regular sexual partner(s)",
-        "Married but do not live with wife/husband"
-      )
-    ),
-
-    ## ---- CITY ----
-    city_rec = case_when(
-      city == "Dnipro" ~ 4,
-      city == "Donetsk" ~ 5,
-      city == "Kyiv" ~ 11,
-      city == "Kropyvnytskyi" ~ 10,
-      city == "Luhansk" ~ 12,
-      city == "Lutsk" ~ 14,
-      city == "Lviv" ~ 13,
-      city == "Mykolayiv" ~ 16,
-      city == "Odesa" ~ 17,
-      city == "Poltava" ~ 18,
-      city == "Simferopol" ~ 21,
-      city == "Sumy" ~ 22,
-      city == "Kharkiv" ~ 7,
-      city == "Kherson" ~ 8,
-      city == "Khmelnytskyi" ~ 9,
-      city == "Cherkasy" ~ 1,
-      TRUE ~ NA_real_
-    ),
-    city_rec = factor(
-      city_rec,
-      levels = c(1,4,5,7,8,9,10,11,12,13,14,16,17,18,21,22),
-      labels = c("Cherkasy", "Dnipro", "Donetsk", "Kharkiv", "Kherson", "Khmelnytskyi",
-                 "Kropyvnytskyi", "Kyiv", "Luhansk", "Lviv", "Lutsk", "Mykolayiv",
-                 "Odesa", "Poltava", "Simferopol", "Sumy")
-    ),
-
-    ## ---- CITY TRAVEL 12M ----
-    city_travel_12m_rec = case_when(
-      city_travel_12m == "No" ~ 0,
-      city_travel_12m == "Yes" ~ 1,
-      TRUE ~ NA_real_
-    ),
-    city_travel_12m_rec = factor(
-      city_travel_12m_rec,
-      levels = c(0,1),
-      labels = c("No, I haven't", "Yes, to another city or country")
-    ),
-
-    ## ---- CLIENT CONDOM LAST SEX ----
-    client_condom_lastsex_rec = case_when(
-      client_condom_lastsex == "No" ~ 0,
-      client_condom_lastsex == "Yes" ~ 1,
-      client_condom_lastsex == "Difficult to answer" ~ 3,
-      TRUE ~ 2  # No answer/refusal
-    ),
-    client_condom_lastsex_rec = factor(
-      client_condom_lastsex_rec,
-      levels = 0:3,
-      labels = c("No", "Yes", "Refusal to answer", "Don't know/don't remember")
-    ),
-
-    ## ---- CONDOM ACCESS 12M ----
-    condom_access_12m_rec = case_when(
-      condom_access_12m == "No" ~ 0,
-      condom_access_12m == "Yes" ~ 1,
-      condom_access_12m == "Difficult to answer/ Do not remember" ~ 3,
-      TRUE ~ 2
-    ),
-    condom_access_12m_rec = factor(
-      condom_access_12m_rec,
-      levels = 0:3,
-      labels = c("No", "Yes", "Refusal to answer", "Don't know/don't remember")
-    ),
-
-    ## ---- ALCOHOL 30D (binary) ----
-    alcohol_30d_bin_rec = case_when(
-      alcohol_30d_bin == "No" ~ 0,
-      alcohol_30d_bin == "Yes" ~ 1,
-      TRUE ~ 2
-    ),
-    alcohol_30d_bin_rec = factor(
-      alcohol_30d_bin_rec,
-      levels = 0:2,
-      labels = c("No", "Yes", "No question asked")
-    ),
-
-    ## ---- DRUGS 30D (binary) ----
-    drugs_30d_bin_rec = case_when(
-      drugs_30d_bin == "No" ~ 0,
-      drugs_30d_bin == "Yes" ~ 1,
-      drugs_30d_bin == "I used before, now I don’t" ~ 1,
-      TRUE ~ 2
-    ),
-    drugs_30d_bin_rec = factor(
-      drugs_30d_bin_rec,
-      levels = 0:2,
-      labels = c("No", "Yes", "No question asked")
-    ),
-
-    ## ---- IDU 12M ----
-    idu_12m_bin_rec = case_when(
-      idu_12m_bin == "No" ~ 0,
-      idu_12m_bin == "Yes" ~ 1,
-      idu_12m_bin == "Used in the past, but not in the last 12 months" ~ 1,
-      TRUE ~ 2
-    ),
-    idu_12m_bin_rec = factor(
-      idu_12m_bin_rec,
-      levels = 0:2,
-      labels = c("No", "Yes", "No question asked")
-    ),
-
-    ## ---- NGO ACCESS 12M ----
-    ngo_access_12m_rec = case_when(
-      ngo_access_12m == "No" ~ 0,
-      ngo_access_12m == "Yes" ~ 1,
-      TRUE ~ 2
-    ),
-    ngo_access_12m_rec = factor(
-      ngo_access_12m_rec,
-      levels = 0:2,
-      labels = c("No", "Yes", "No question asked")
-    ),
-
-    ## ---- HIV TESTED 12M ----
-    hiv_tested_12m_rec = case_when(
-      hiv_tested_12m == "No, it was earlier than 12 months ago" ~ 0,
-      hiv_tested_12m == "Yes, it was during the recent 12 months" ~ 1,
-      hiv_tested_12m == "No answer" ~ 2,
-      hiv_tested_12m == "Difficult to answer" ~ 4,
-      TRUE ~ 3
-    ),
-    hiv_tested_12m_rec = factor(
-      hiv_tested_12m_rec,
-      levels = 0:4,
-      labels = c("No", "Yes", "No question asked", "Refusal to answer", "Don't know/don't remember")
-    ),
-
-    ## ---- HIV STATUS SELF-REPORT ----
-    hiv_status_selfreport_rec = case_when(
-      hiv_status_selfreport == "HIV negative" ~ 0,
-      hiv_status_selfreport == "HIV positive" ~ 1,
-      TRUE ~ 2
-    ),
-    hiv_status_selfreport_rec = factor(
-      hiv_status_selfreport_rec,
-      levels = 0:2,
-      labels = c("Yes, HIV-negative", "Yes, HIV-positive", "No answer")
-    ),
-
-    ## ---- HIV TEST RESULT ----
-    hiv_test_rslt_rec = case_when(
-      hiv_test_rslt == "Negative" ~ 0,
-      hiv_test_rslt == "Positive" ~ 1,
-      TRUE ~ 2
-    ),
-    hiv_test_rslt_rec = factor(
-      hiv_test_rslt_rec,
-      levels = 0:2,
-      labels = c("Negative", "Positive", "No answer")
-    ),
-
-    ## ---- SYPHILIS TEST RESULT ----
-    syphilis_test_rslt_rec = case_when(
-      syphilis_test_rslt == "Negative" ~ 0,
-      syphilis_test_rslt == "Positive" ~ 1,
-      TRUE ~ 2
-    ),
-    syphilis_test_rslt_rec = factor(
-      syphilis_test_rslt_rec,
-      levels = 0:2,
-      labels = c("Negative", "Positive", "No answer")
+    ngo_access_12m = case_when(
+      `D6_1 What help or services did you receive from NGO in the LAST 12 MONTHS? Free treatment of venereal diseases` == "Yes" |
+      `D6_2 What help or services did you receive from NGO in the LAST 12 MONTHS? Free testing for venereal diseases` == "Yes" |
+      `D6_3 What help or services did you receive from NGO in the LAST 12 MONTHS? Free HIV/AIDS testing` == "Yes" |
+      `D6_4 What help or services did you receive from NGO in the LAST 12 MONTHS? Free testing for Hepatitis C` == "Yes" |
+      `D6_5 What help or services did you receive from NGO in the LAST 12 MONTHS? Attending groups of mutual support` == "Yes" |
+      `D6_6 What help or services did you receive from NGO in the LAST 12 MONTHS? Attending consultations on HIV/AIDS, sexually transmitted diseases, and ways of their prevention` == "Yes" |
+      `D6_7 What help or services did you receive from NGO in the LAST 12 MONTHS? Attending consultations on safe injecting drug use` == "Yes" |
+      `D6_8 What help or services did you receive from NGO in the LAST 12 MONTHS?  Peer-to-peer consultations` == "Yes" |
+      `D6_9 What help or services did you receive from NGO in the LAST 12 MONTHS? Psychologist’s consultations` == "Yes" |
+      `D6_10 What help or services did you receive from NGO in the LAST 12 MONTHS?  Lawyer’s consultations` == "Yes" |
+      `D6_11 What help or services did you receive from NGO in the LAST 12 MONTHS?  Helpline service` == "Yes" |
+      `D6_12 What help or services did you receive from NGO in the LAST 12 MONTHS?  Syringe exchange` == "Yes" |
+      `D6_13 What help or services did you receive from NGO in the LAST 12 MONTHS?  Obtaining disinfecting solutions` == "Yes" |
+      `D6_14 What help or services did you receive from NGO in the LAST 12 MONTHS?  Obtaining information booklets or brochures` == "Yes" |
+      `D6_15 What help or services did you receive from NGO in the LAST 12 MONTHS? Obtaining hygienic means` == "Yes" |
+      `D6_16 What help or services did you receive from NGO in the LAST 12 MONTHS?  Obtaining condoms` == "Yes" |
+      `D6_17 What help or services did you receive from NGO in the LAST 12 MONTHS? Other` == "Yes" ~ "Yes",
+      
+      `D6_18 What help or services did you receive from NGO in the LAST 12 MONTHS?  Did not receive help or services` == "Yes" ~ "No",
+      
+      TRUE ~ NA_character_
     )
   )
 
+# load 2015 data
+sw_data_2015_raw <- read_excel("2015_IBBS_SW_TLS AND RDS_Data.xlsx")
 
+# variables to rename
+rename_map_2015 <- c(
+  gender = "Gender",
+  education = "А7. What is your educational level?",
+  marital_status = "А13. Choose from the suggested alternatives the one corresponding to your marital status at the moment:",
+  income_30d_cat = "А18. Tell me please, what has been your PERSONAL income in the last 30 days?",
+  age = "F5.1. Specify your age",
+  age_first_sex = "В1.At what age did you start sexual relations for the first time?",
+  age_first_sw = "В2. How old were you when you provided sexual services for a fee (money or other) for the first time?",
+  city = "City",
+  city_travel_12m = "А12. Have you ever left this city for more than 1 month [30 days] during THE LAST 12 MONTHS to provide sexual services?",
+  country_travel_12m = "A12_2 Where have you been? In another country",
+  sw_freq_7d = "А20. How many days in the LAST WEEK [7 days] did you provide sexual services?",
+  partners_total_30d = "Total number of different sexual partners in the LAST 30 DAYS.",
+  partners_sw_24h = "В5. How many different CLIENTS whom you provided sexual services for a fee you had FOR THE LAST WORKING DAY (24 HOURS)?",
+  partners_age_30d = "В3.4. Among the age groups you indicated, representatives of which one have you met most often in the LAST month (30 days)",
+  client_condom_lastsex = "В6.1. Remember your sexual contact with your LAST CLIENT. Did you use a condom?",
+  perm_partner_condom_lastsex = "В15. Remember your last sexual contact with a PERMANENT partner from whom you received no remuneration. Did you used a condom?",
+  cas_partner_condom_lastsex = "В21. Remember your last sexual contact with a CASUAL partner from whom you received no remuneration. Did you used a condom?",
+  group_sex_30d = "В30.Have you practiced GROUP SEX in the last 30 days?",
+  condom_access_12m = "D2. Did you receive condoms free of charge in the LAST 12 MONTHS (e.g. in NGOs, counseling centers, centers of social services for family, children and youth, during actions, etc.)?",
+  typology_primary_30d = "B3.7 . Please tell me , among the following ways to find your clients what is the PRIMARY for you?",
+  aids_center_bin = "G14. Please say if you are registered in the AIDS center?",
+  alcohol_30d_num = "С1. How often did you use alcohol or Alco pops in the LAST MONTH [30 days]?",
+  idu_30d_bin = "С4. Have you injected drugs in the last 30 days (last month)?",
+  idu_30d_num = "С4_1. Have you injected drugs in the last 30 days (last month)? - If “yes”, how often?",
+  used_syringe_last = "С4.2. Did you used sterile syringe and needle when you last injected drug?",
+  ngo_access_lifetime = "D3. Are you a client of any non-governmental organization (have a card or an individual code) that works with sex workers",
+  ngo_access_6m = "D4_2 Have you received female condoms from a representative of this NGO in the past 6 months?",
+  harm_reduction_12m = "F7. Your access to prevention materials (e.g. syringes, condoms) and counseling in the past 12 months:",
+  violence_any_ever = "F1. Did you suffer violence at time of sexual services?",
+  violence_beaten_ever = "F2.1_4 If “yes”, how? - Beaten",
+  violence_humiliated_ever = "F2.1_1 If “yes”, how? - Humiliated morally (verbally)",
+  violence_physical_abuse_ever = "F2.1_5 If “yes”, how? - Physically abused",
+  violence_client = "F2_1 Who inflicted violence? - Clients",
+  violence_perm_partner = "F2_2 Who inflicted violence? - Permanent sexual partner",
+  violence_casual_partner = "F2_3 Who inflicted violence? - Casual sexual partner",
+  violence_police = "F2_4 Who inflicted violence? - Law enforcement officer",
+  violence_pimp = "F2_5 Who inflicted violence? - Pimp/manager of apartment",
+  violence_fsw = "F2_8 Who inflicted violence? - Girls from among FSW",
+  violence_rape_12m = "F4. In the last 12 months have you ever been forced to provide sexual services for clients without any remuneration?",
+  hiv_tested_lifetime = "G5. I am not asking now about the test result, but have you ever had an HIV- test?",
+  hiv_tested_12m = "G8. Let's be more precise. Was it within the last 12 months?",
+  hiv_tested_result = "G11. I am not asking you about the result, but did you get your result of the last test?",
+  hiv_status_selfreport = "G13.1.If «yes», it was",
+  art_current = "G15. Are you participating in the antiretroviral therapy program (ART)?",
+  blood_screen_bin = "Т1. Did a respondent have pre-test counseling?",
+  hiv_test_rslt = "Т2_1. Indicate the results of respondent's tests: HIV",
+  hiv_vl = "VL_result",
+  syphilis_test_rslt = "Т2_4. Indicate the results of respondent's tests: yphilis"
+)
 
+# map to vars
+sw_data_2015_clean <- sw_data_2015_raw %>%
+  rename(!!!setNames(rename_map_2015, names(rename_map_2015)))
 
+# derived variables
+sw_data_2015_clean <- sw_data_2015_clean %>%
+  mutate(
+    residence_30d = case_when(
+      `А9_1 What has been your permanent place of residence in the last month (30 days) - My own apartment` == "Yes" ~ "Own apartment",
+      `А9_2 What has been your permanent place of residence in the last month (30 days) - The apartment of my relatives / friends (do not pay rent)` == "Yes" ~ "Relatives/friends apartment",
+      `А9_3 What has been your permanent place of residence in the last month (30 days) - Rented apartment (rent alone or together with someone)` == "Yes" ~ "Rented apartment",
+      `А9_4 What has been your permanent place of residence in the last month (30 days) - Hostel` == "Yes" ~ "Hostel",
+      `А9_5 What has been your permanent place of residence in the last month (30 days) - Shelter, children’s home, boarding house` == "Yes" ~ "Shelter/boarding house",
+      `А9_6 What has been your permanent place of residence in the last month (30 days) - Nowhere to live (frequent change of the place of residence)` == "Yes" ~ "Unstable housing",
+      `А9_7 What has been your permanent place of residence in the last month (30 days) - Street, abandoned apartments,basement or attic, railway stations (homeless)` == "Yes" ~ "Homeless",
+      `А9_8 What has been your permanent place of residence in the last month (30 days) - Other` == "Yes" ~ "Other",
+      TRUE ~ NA_character_
+    ),
+    partners_sw_30d = as.numeric(`Number of irregular clients from whom you RECEIVED COMPENSATION [money or other] for providing sexual services in the LAST 30 DAYS.`) + 
+                      as.numeric(`Number of regular clients from whom you RECEIVED COMPENSATION [money or other] for providing sexual services in the LAST 30 DAYS.`)
+  )
+
+partners_sw_30d
+Number of irregular clients from whom you RECEIVED COMPENSATION [money or other] for providing sexual services in the LAST 30 DAYS.
+Number of regular clients from whom you RECEIVED COMPENSATION [money or other] for providing sexual services in the LAST 30 DAYS.
+
+partners_nonsw_30d
+Number of regular sexual partners from whom you did NOT RECEIVE COMPENSATION [money or other] in the LAST 30 DAYS.
+Number of casual sexual partners from whom you did NOT RECEIVE COMPENSATION [money or other] in the LAST 30 DAYS.
+
+client_condom_bin_30d
+client_condom_freq_30d
+
+alcohol_30d_bin
+С1. How often did you use alcohol or Alco pops in the LAST MONTH [30 days]?
+alcohol_30d_daily_bin
+
+drugs_30d_bin C2_1 Have you used drugs non-injectably (smoked, sniffed, swallowed, etc.) in the past 30 days (last month)?
+drugs_30d_num C2_1_1 Have you used drugs non-injectably in the past 30 days (last month)? If yes, how many times?
+
+sex_with_drugs_30d С5_2 How often did you use the following during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration? Narcotic substances
+sex_with_alcohol_30d С5_1 How often did you use the following during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration? Alcohol
+sex_with_drugs_and_alcohol_30d С5_3 How often did you use the following during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration? Alcohol + drugs
+
+violence_rape_ever F2.1_7 If “yes”, how? - Raped
+F2.1_8 If “yes”, how? - Forced to provide sexual services in the form of perversion
+
+violence_support
+
+primary_drug_30m
+С4.1_1 Which of the injecting drugs do you consider a primary one for you? - Hanka
+С4.1_2 Which of the injecting drugs do you consider a primary one for you? - Pervitin
+С4.1_3 Which of the injecting drugs do you consider a primary one for you? - Stimulants
+С4.1_4 Which of the injecting drugs do you consider a primary one for you? - Methadone
+С4.1_5 Which of the injecting drugs do you consider a primary one for you? - Nalbuphine
+С4.1_6 Which of the injecting drugs do you consider a primary one for you? - Salt
+С4.1_7 Which of the injecting drugs do you consider a primary one for you? - Opium
+С4.1_8 Which of the injecting drugs do you consider a primary one for you? - Diphenhydramine
+С4.1_9 Which of the injecting drugs do you consider a primary one for you? - Amphetamine
+С4.1_10 Which of the injecting drugs do you consider a primary one for you? - Subutex
+С4.1_11 Which of the injecting drugs do you consider a primary one for you? - Methamphetamine (crystal)
+
+# recategorise
 
 
 
