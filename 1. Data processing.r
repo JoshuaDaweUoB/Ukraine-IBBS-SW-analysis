@@ -629,15 +629,701 @@ sw_data_2015_clean <- sw_data_2015_clean %>%
     )
 )
 
+# load 2017 data
+sw_data_2017_raw <- read_excel("2017-2018_IBBS_SW_TLS AND RDS_Data.xlsx")
 
+# variables to rename
+rename_map_2017 <- c(
+  gender = "A1. Respondent’ gender",
+  sw_freq_7d = "А17. How many days in the LAST WEEK [7 days] did you provide sexual services?",
+  sw_num_30d = "B6. Please remember sexual intercourses with all clients during last month (30 days)/ How many sexual intercourses did you have during last month (including vaginal, anal and oral intercourses)?",
+  education = "А9. What is your educational level?",
+  marital_status = "А13. Choose from the suggested alternatives the one corresponding to your marital status at the moment:",
+  income_30d = "А15. Tell me please, what has been your PERSONAL income in the last 30 days? UAN",
+  age_first_sex = "В1.At what age did you start sexual relations for the first time?",
+  age_first_sw = "В2. How old were you when you provided sexual services for a fee (money or other) for the first time?",
+  city = "City",
+  city_travel_12m = "А12. Have you ever left this city for more than 1 month [30 days] during THE LAST 12 MONTHS to provide sexual services?",
+  partners_total_30d = "В4.6 How MANY DIFFERENT sexual partners in total did you have during the past 30 days, including your permanent sexual partner with whom you live?",
+  partners_sw_24h = "В5. How many different CLIENTS whom you provided sexual services for a fee you had FOR THE LAST WORKING DAY (24 HOURS)?",
+  partners_age_30d = "В3.4. Among the age groups you indicated, representatives of which one have you met most often in the LAST month (30 days)?",
+  client_condom_lastsex = "В8. Remember your sexual contact with your LAST CLIENT. Did you use a condom?",
+  client_condom_bin_7d = "B14. Think about your LAST WORKING WEEK (7 days), when you provided sexual services for remuneration. Were there cases of not using a condom?",
+  perm_partner_condom_lastsex = "В19. Remember your last sexual contact with a PERMANENT partner from whom you received no remuneration. Did you used a condom?",
+  cas_partner_condom_lastsex = "B22 Remember your last sexual contact with a CASUAL partner from whom you received no remuneration. Did you used a condom?",
+  group_sex_30d = "В25. Have you practiced GROUP SEX in the last 30 days?",
+  condom_access_12m = "F1. Did you receive condoms for free during last 12 months? (from NGO, medical staff, at the parties etc.)",
+  typology_primary_30d = "B3.7 . Please tell me, among the following ways to find your clients what is the PRIMARY for you?",
+  aids_center_bin = "G12. Please say if you are registered in the AIDS center?",
+  alcohol_30d_num = "С1. How many times in the last 30 days have you used alcohol drinks?",
+  drugs_12m_bin = "С2. Some people try to use various drugs. Do you use / Did you use any non-injection drugs?",
+  idu_12m_bin = "C4. Have you injected drugs (with the syringe)?",
+  used_syringe_last = "С6. Did you used sterile syringe and needle when you last injected drug?",
+  ngo_access_lifetime = "F2. Are you a client of any non-governmental organization (have a card or individual code), that provides prevention services for SW",
+  prep_12m = "F10. Have you used PrEP in the last 12 months?",
+  harm_reduction_12m = "F6. Your access to prevention materials (e.g. syringes, condoms) and counseling in the past 12 months:",
+  violence_any_ever = "H1. Did you suffer violence at time of sexual services?",
+  violence_beaten_ever = "H1_3 If “yes”, how?  - Beaten",
+  violence_humiliated_ever = "H1_1 If “yes”, how? - Humiliated morally (verbally)",
+  violence_physical_abuse_ever = "H1_4 If “yes”, how?  - Physically abused",
+  violence_client = "H2_1 Who inflicted violence? - Clients",
+  violence_perm_partner = "H2_2 Who inflicted violence? - Permanent sexual partner",
+  violence_casual_partner = "H2_3 Who inflicted violence? - Casual sexual partner",
+  violence_police = "H2_4 Who inflicted violence? - Law enforcement officer",
+  violence_pimp = "H2_5 Who inflicted violence? - Pimp/manager of apartment",
+  violence_fsw = "H2_8 Who inflicted violence? - Girls from among FSW",
+  violence_support_ngo = "H3_1 Have you addressed anywhere or to anyone for help?  - To NGO/ crisis center",
+  violence_rape_12m = "H4.Were any situations when you was forced to provide sexual services without remuneration during the last 12 months?",
+  hiv_tested_lifetime = "G3.  I don’t ask about the result, but have ever been tested for HIV?",
+  hiv_tested_12m = "G7. Let's be more precise. Was it within the last 12 months?",
+  hiv_tested_result = "G9. Did you get your result of the last test?",
+  hiv_status_selfreport = "G11.1. If «yes», it was",
+  art_current = "G14. Are you using the antiretroviral therapy (ART)?",
+  blood_screen_bin = "Т1. Did a respondent have pre-test counselling?",
+  hiv_test_rslt = "T5_1 Yes, the result was",
+  hiv_vl = "VL result",
+  hiv_recent_infection = "Recent infection test in lab"
+)
+
+# map to vars
+sw_data_2017_clean <- sw_data_2017_raw %>%
+  rename(!!!setNames(rename_map_2017, names(rename_map_2017)))
+
+# derived variables
+sw_data_2017_clean <- sw_data_2017_clean %>%
+  mutate(
+  age = dplyr::if_else(
+    is.na(`Interview date`) | is.na(`А6. Specify your year of birth`),
+    NA_integer_,
+    as.integer(format(as.Date(`Interview date`, format = "%d/%m/%Y"), "%Y")) -
+      as.integer(`А6. Specify your year of birth`)
+  ),
+  partners_sw_30d = case_when(
+  is.na(`B4_1_1 Number in the PAST MONTH (30 days) Permanent clients from which you RECEIVED A FEE [money or other] for sexual services`) & 
+  is.na(`B4_2_1 Number in the PAST MONTH (30 days) Casual clients from which you RECEIVED FEE [money or other]`) ~ NA_real_,
+  
+  TRUE ~ (`B4_1_1 Number in the PAST MONTH (30 days) Permanent clients from which you RECEIVED A FEE [money or other] for sexual services` %||% 0) + 
+         (`B4_2_1 Number in the PAST MONTH (30 days) Casual clients from which you RECEIVED FEE [money or other]` %||% 0)
+  ),
+  partners_nonsw_30d = case_when(
+    is.na(`B4_3_1 Number in the PAST MONTH (30 days) Permanent partners from which you RECEIVED NO FEE [money or other])`) & 
+    is.na(`B4_4_1 Number in the PAST MONTH (30 days) Casual partners from which you RECEIVED NO FEE [money or other]`) ~ NA_real_,
+    
+    TRUE ~ (`B4_3_1 Number in the PAST MONTH (30 days) Permanent partners from which you RECEIVED NO FEE [money or other])` %||% 0) + 
+          (`B4_4_1 Number in the PAST MONTH (30 days) Casual partners from which you RECEIVED NO FEE [money or other]` %||% 0)
+  ),
+  residence_90d = case_when(
+    `А11_1 What has been your permanent place of residence in the last 3 months (90 days) - My own apartment` == "Yes" ~ "Own apartment",
+    `А11_2 What has been your permanent place of residence in the last 3 months (90 days)  - The apartment of my relatives / friends (do not pay rent)` == "Yes" ~ "Relatives/friends apartment",
+    `А11_3 What has been your permanent place of residence in the last 3 months (90 days)  - Rented apartment (rent alone or together with someone)` == "Yes" ~ "Rented apartment",
+    `А11_4 What has been your permanent place of residence in the last 3 months (90 days)  - Hostel` == "Yes" ~ "Hostel",
+    `А11_5 What has been your permanent place of residence in the last 3 months (90 days)  - Shelter, children’s home, boarding house` == "Yes" ~ "Shelter/boarding house",
+    `А11_6 What has been your permanent place of residence in the last 3 months (90 days)  - Nowhere to live (frequent change of the place of residence)` == "Yes" ~ "Unstable housing",
+    `А11_7 What has been your permanent place of residence in the last 3 months (90 days)  - Street, abandoned apartments,basement or attic, railway stations (homeless)` == "Yes" ~ "Homeless",
+    `А11_8 What has been your permanent place of residence in the last 3 months (90 days)  - Other without information` == "Yes" ~ "Other",
+    `А11_9 What has been your permanent place of residence in the last 3 months (90 days)  - Just released from incarceration (Other)` == "Yes" ~ "Released from incarceration",
+    TRUE ~ NA_character_
+  ),
+  client_condom_bin_30d = dplyr::case_when(
+    `B16. Remember all your sexual contacts with CLIENTS from whom you have RECEIVED REMUNERATION for the LAST [30 days]. How often have you used a condom during vaginal sex?` == "Always (100%)" &
+    `B17. Remember all your sexual contacts with CLIENTS from whom you have RECEIVED REMUNERATION for the LAST [30 days]. How often have you used a condom during anal  sex?` == "Always (100%)" ~ "Yes",
+
+    `B16. Remember all your sexual contacts with CLIENTS from whom you have RECEIVED REMUNERATION for the LAST [30 days]. How often have you used a condom during vaginal sex?` == "Always (100%)" &
+    `B17. Remember all your sexual contacts with CLIENTS from whom you have RECEIVED REMUNERATION for the LAST [30 days]. How often have you used a condom during anal  sex?` == "No such contact" ~ "Yes",
+
+    `B16. Remember all your sexual contacts with CLIENTS from whom you have RECEIVED REMUNERATION for the LAST [30 days]. How often have you used a condom during vaginal sex?` == "No such contact" &
+    `B17. Remember all your sexual contacts with CLIENTS from whom you have RECEIVED REMUNERATION for the LAST [30 days]. How often have you used a condom during anal  sex?` == "Always (100%)" ~ "Yes",
+
+    `B16. Remember all your sexual contacts with CLIENTS from whom you have RECEIVED REMUNERATION for the LAST [30 days]. How often have you used a condom during vaginal sex?` == "No such contact" &
+    `B17. Remember all your sexual contacts with CLIENTS from whom you have RECEIVED REMUNERATION for the LAST [30 days]. How often have you used a condom during anal  sex?` == "No such contact" ~ "No such contact",
+
+    TRUE ~ "No"
+  ),
+  client_condom_freq_30d = case_when(
+    `B16. Remember all your sexual contacts with CLIENTS from whom you have RECEIVED REMUNERATION for the LAST [30 days]. How often have you used a condom during vaginal sex?` == "Always (100%)" &
+    `B17. Remember all your sexual contacts with CLIENTS from whom you have RECEIVED REMUNERATION for the LAST [30 days]. How often have you used a condom during anal  sex?` == "Always (100%)" ~ "Always (100%)",
+    
+    `B16. Remember all your sexual contacts with CLIENTS from whom you have RECEIVED REMUNERATION for the LAST [30 days]. How often have you used a condom during vaginal sex?` == "Always (100%)" &
+    `B17. Remember all your sexual contacts with CLIENTS from whom you have RECEIVED REMUNERATION for the LAST [30 days]. How often have you used a condom during anal  sex?` == "No such contact" ~ "Always (100%)",
+    
+    `B16. Remember all your sexual contacts with CLIENTS from whom you have RECEIVED REMUNERATION for the LAST [30 days]. How often have you used a condom during vaginal sex?` == "No such contact" &
+    `B17. Remember all your sexual contacts with CLIENTS from whom you have RECEIVED REMUNERATION for the LAST [30 days]. How often have you used a condom during anal  sex?` == "Always (100%)" ~ "Always (100%)",
+    
+    `B16. Remember all your sexual contacts with CLIENTS from whom you have RECEIVED REMUNERATION for the LAST [30 days]. How often have you used a condom during vaginal sex?` %in% c("In the majority of cases (75%)", "Always (100%)") &
+    `B17. Remember all your sexual contacts with CLIENTS from whom you have RECEIVED REMUNERATION for the LAST [30 days]. How often have you used a condom during anal  sex?` %in% c("In the majority of cases (75%)", "Always (100%)", "No such contact") ~ "In the majority of cases (75%)",
+    
+    `B16. Remember all your sexual contacts with CLIENTS from whom you have RECEIVED REMUNERATION for the LAST [30 days]. How often have you used a condom during vaginal sex?` %in% c("In half of cases (50%)", "In the majority of cases (75%)", "Always (100%)") &
+    `B17. Remember all your sexual contacts with CLIENTS from whom you have RECEIVED REMUNERATION for the LAST [30 days]. How often have you used a condom during anal  sex?` %in% c("In half of cases (50%)", "In the majority of cases (75%)", "Always (100%)", "No such contact") ~ "In half of cases (50%)",
+    
+    `B16. Remember all your sexual contacts with CLIENTS from whom you have RECEIVED REMUNERATION for the LAST [30 days]. How often have you used a condom during vaginal sex?` %in% c("Sometimes (25%)", "In half of cases (50%)", "In the majority of cases (75%)", "Always (100%)") &
+    `B17. Remember all your sexual contacts with CLIENTS from whom you have RECEIVED REMUNERATION for the LAST [30 days]. How often have you used a condom during anal  sex?` %in% c("Sometimes (25%)", "In half of cases (50%)", "In the majority of cases (75%)", "Always (100%)", "No such contact") ~ "Sometimes (25%)",
+    
+    `B16. Remember all your sexual contacts with CLIENTS from whom you have RECEIVED REMUNERATION for the LAST [30 days]. How often have you used a condom during vaginal sex?` != "Never" &
+    `B17. Remember all your sexual contacts with CLIENTS from whom you have RECEIVED REMUNERATION for the LAST [30 days]. How often have you used a condom during anal  sex?` != "Never" &
+    (`B16. Remember all your sexual contacts with CLIENTS from whom you have RECEIVED REMUNERATION for the LAST [30 days]. How often have you used a condom during vaginal sex?` == "Rarely (less than 10%)" |
+    `B17. Remember all your sexual contacts with CLIENTS from whom you have RECEIVED REMUNERATION for the LAST [30 days]. How often have you used a condom during anal  sex?` == "Rarely (less than 10%)") ~ "Rarely (less than 10%)",
+    
+    `B16. Remember all your sexual contacts with CLIENTS from whom you have RECEIVED REMUNERATION for the LAST [30 days]. How often have you used a condom during vaginal sex?` == "Never" |
+    `B17. Remember all your sexual contacts with CLIENTS from whom you have RECEIVED REMUNERATION for the LAST [30 days]. How often have you used a condom during anal  sex?` == "Never" ~ "Never",
+    
+    TRUE ~ NA_character_
+  ),
+  alcohol_30d_bin = case_when(
+    alcohol_30d_num >= 1 ~ "Yes",
+    alcohol_30d_num == 0 ~ "No",
+    TRUE ~ NA_character_
+  ),
+  alcohol_30d_daily_bin = case_when(
+    alcohol_30d_num >= 28 ~ "Yes",
+    alcohol_30d_num < 28 ~ "No",
+    TRUE ~ NA_character_
+  ),
+  primary_drug_30d = case_when(
+    `С5_1 Which of the injecting drugs have you used most often during last 12 months? - Amphetamine in powder form (“fen”)` == "Yes" ~ "Amphetamine in powder form (“fen”)",
+    `С5_2 Which of the injecting drugs have you used most often during last 12 months? - Liquid opium extract (“shyrka”, “chorna”)` == "Yes" ~ "Liquid opium extract (“shyrka”, “chorna”)",
+    `С5_3 Which of the injecting drugs have you used most often during last 12 months? - Heroin` == "Yes" ~ "Heroin",
+    `С5_4 Which of the injecting drugs have you used most often during last 12 months? - Methadone` == "Yes" ~ "Methadone",
+    `С5_5 Which of the injecting drugs have you used most often during last 12 months? - Subitex` == "Yes" ~ "Subitex",
+    `С5_6 Which of the injecting drugs have you used most often during last 12 months? - Buprenorphine` == "Yes" ~ "Buprenorphine",
+    `С5_7 Which of the injecting drugs have you used most often during last 12 months? - Methamphetamine solution (“vint”, “pervintin”)` == "Yes" ~ "Methamphetamine solution (“vint”, “pervintin”)",
+    `С5_8 Which of the injecting drugs have you used most often during last 12 months? - Desomorphine` == "Yes" ~ "Desomorphine",
+    `С5_9 Which of the injecting drugs have you used most often during last 12 months? - Poppy (poppy straw, seeds)` == "Yes" ~ "Poppy (poppy straw, seeds)",
+    `С5_10 Which of the injecting drugs have you used most often during last 12 months? - Opiates` == "Yes" ~ "Opiates",
+    `С5_11 Which of the injecting drugs have you used most often during last 12 months? - Bath salt` == "Yes" ~ "Bath salt",
+    `С5_12 Which of the injecting drugs have you used most often during last 12 months? - Methylenedioxymethamphetamine (ecstasy, MDMA)` == "Yes" ~ "Methylenedioxymethamphetamine (ecstasy, MDMA)",
+    `С5_13 Which of the injecting drugs have you used most often during last 12 months? - Marijuana (hashish, weed)` == "Yes" ~ "Marijuana (hashish, weed)",
+    `С5_14 Which of the injecting drugs have you used most often during last 12 months? - Stimulants` == "Yes" ~ "Stimulants",
+    `С5_15 Which of the injecting drugs have you used most often during last 12 months? - Nalbuphine` == "Yes" ~ "Nalbuphine",
+    `С5_16 Which of the injecting drugs have you used most often during last 12 months? - Diphenhydramine` == "Yes" ~ "Diphenhydramine",
+    `С5_17 Which of the injecting drugs have you used most often during last 12 months? -  Difficult to answer / don’t remember` == "Yes" ~ "Difficult to answer / don’t remember",
+    `С5_18 Which of the injecting drugs have you used most often during last 12 months? - Pharmaceutical drugs` == "Yes" ~ "Pharmaceutical drugs",
+
+    if_all(c(
+      `С5_1 Which of the injecting drugs have you used most often during last 12 months? - Amphetamine in powder form (“fen”)`,
+      `С5_2 Which of the injecting drugs have you used most often during last 12 months? - Liquid opium extract (“shyrka”, “chorna”)`,
+      `С5_3 Which of the injecting drugs have you used most often during last 12 months? - Heroin`,
+      `С5_4 Which of the injecting drugs have you used most often during last 12 months? - Methadone`,
+      `С5_5 Which of the injecting drugs have you used most often during last 12 months? - Subitex`,
+      `С5_6 Which of the injecting drugs have you used most often during last 12 months? - Buprenorphine`,
+      `С5_7 Which of the injecting drugs have you used most often during last 12 months? - Methamphetamine solution (“vint”, “pervintin”)`,
+      `С5_8 Which of the injecting drugs have you used most often during last 12 months? - Desomorphine`,
+      `С5_9 Which of the injecting drugs have you used most often during last 12 months? - Poppy (poppy straw, seeds)`,
+      `С5_10 Which of the injecting drugs have you used most often during last 12 months? - Opiates`,
+      `С5_11 Which of the injecting drugs have you used most often during last 12 months? - Bath salt`,
+      `С5_12 Which of the injecting drugs have you used most often during last 12 months? - Methylenedioxymethamphetamine (ecstasy, MDMA)`,
+      `С5_13 Which of the injecting drugs have you used most often during last 12 months? - Marijuana (hashish, weed)`,
+      `С5_14 Which of the injecting drugs have you used most often during last 12 months? - Stimulants`,
+      `С5_15 Which of the injecting drugs have you used most often during last 12 months? - Nalbuphine`,
+      `С5_16 Which of the injecting drugs have you used most often during last 12 months? - Diphenhydramine`,
+      `С5_17 Which of the injecting drugs have you used most often during last 12 months? -  Difficult to answer / don’t remember`,
+      `С5_18 Which of the injecting drugs have you used most often during last 12 months? - Pharmaceutical drugs`
+    ), ~ . == "No") ~ "No drug use",
+
+    if_all(c(
+      `С5_1 Which of the injecting drugs have you used most often during last 12 months? - Amphetamine in powder form (“fen”)`,
+      `С5_2 Which of the injecting drugs have you used most often during last 12 months? - Liquid opium extract (“shyrka”, “chorna”)`,
+      `С5_3 Which of the injecting drugs have you used most often during last 12 months? - Heroin`,
+      `С5_4 Which of the injecting drugs have you used most often during last 12 months? - Methadone`,
+      `С5_5 Which of the injecting drugs have you used most often during last 12 months? - Subitex`,
+      `С5_6 Which of the injecting drugs have you used most often during last 12 months? - Buprenorphine`,
+      `С5_7 Which of the injecting drugs have you used most often during last 12 months? - Methamphetamine solution (“vint”, “pervintin”)`,
+      `С5_8 Which of the injecting drugs have you used most often during last 12 months? - Desomorphine`,
+      `С5_9 Which of the injecting drugs have you used most often during last 12 months? - Poppy (poppy straw, seeds)`,
+      `С5_10 Which of the injecting drugs have you used most often during last 12 months? - Opiates`,
+      `С5_11 Which of the injecting drugs have you used most often during last 12 months? - Bath salt`,
+      `С5_12 Which of the injecting drugs have you used most often during last 12 months? - Methylenedioxymethamphetamine (ecstasy, MDMA)`,
+      `С5_13 Which of the injecting drugs have you used most often during last 12 months? - Marijuana (hashish, weed)`,
+      `С5_14 Which of the injecting drugs have you used most often during last 12 months? - Stimulants`,
+      `С5_15 Which of the injecting drugs have you used most often during last 12 months? - Nalbuphine`,
+      `С5_16 Which of the injecting drugs have you used most often during last 12 months? - Diphenhydramine`,
+      `С5_17 Which of the injecting drugs have you used most often during last 12 months? -  Difficult to answer / don’t remember`,
+      `С5_18 Which of the injecting drugs have you used most often during last 12 months? - Pharmaceutical drugs`
+    ), ~ . == "No question asked") ~ "No question asked",
+    TRUE ~ NA_character_
+  ),
+  sex_with_drugs_30d = case_when(
+    `С7_2 How often did you use the Narcotic substances during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration?` == "Never" ~ "No",
+    `С7_2 How often did you use the Narcotic substances during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration?` %in% c("Always (100%)", "In the majority of cases (75%)", "In half of cases (50%)", "Sometimes (25%)", "Rarely (less than 10%)") ~ "Yes",
+    `С7_2 How often did you use the Narcotic substances during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration?` == "Didn’t use during last 30 days" ~ "Did not use drugs",
+    TRUE ~ NA_character_
+  ),
+
+  sex_with_alcohol_30d = case_when(
+    `С7_1 How often did you use the Alcohol during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration?` == "Never" ~ "No",
+    `С7_1 How often did you use the Alcohol during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration?` %in% c("Always (100%)", "In the majority of cases (75%)", "In half of cases (50%)", "Sometimes (25%)", "Rarely (less than 10%)") ~ "Yes",
+    `С7_1 How often did you use the Alcohol during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration?` == "Didn’t use during last 30 days" ~ "Did not use alcohol",
+    TRUE ~ NA_character_
+  ),
+
+  sex_with_drugs_and_alcohol_30d = case_when(
+    `С7_2 How often did you use the Alcohol + drugs during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration?` == "Never" ~ "No",
+    `С7_2 How often did you use the Alcohol + drugs during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration?` %in% c("Always (100%)", "In the majority of cases (75%)", "In half of cases (50%)", "Sometimes (25%)", "Rarely (less than 10%)") ~ "Yes",
+    `С7_2 How often did you use the Alcohol + drugs during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration?` == "Didn’t use during last 30 days" ~ "Did not use substances",
+    TRUE ~ NA_character_
+  ),
+  ngo_access_6m = case_when(
+    `F5_1 Have you received condoms from representatives of this NGO during the last 6 months? - Male condoms` == "Yes" |
+    `F5_2 Have you received condoms from representatives of this NGO during the last 6 months? - Female condoms` == "Yes" ~ "Yes",
+
+    `F5_1 Have you received condoms from representatives of this NGO during the last 6 months? - Male condoms` == "No" &
+    `F5_2 Have you received condoms from representatives of this NGO during the last 6 months? - Female condoms` == "No" ~ "No",
+
+    `F5_1 Have you received condoms from representatives of this NGO during the last 6 months? - Male condoms` == "No question asked" &
+    `F5_2 Have you received condoms from representatives of this NGO during the last 6 months? - Female condoms` == "No question asked" ~ "No question asked",
+
+    TRUE ~ NA_character_
+  ),
+  violence_rape_ever = case_when(
+    `H1_6 If “yes”, how?  - Raped` == "Yes" |
+    `H1_7 If “yes”, how?  - Forced to provide sexual services in the form of perversion` == "Yes" ~ "Yes",
+
+    `H1_6 If “yes”, how?  - Raped` == "No" &
+    `H1_7 If “yes”, how?  - Forced to provide sexual services in the form of perversion` == "No" ~ "No",
+
+    `H1_6 If “yes”, how?  - Raped` == "No question asked" &
+    `H1_7 If “yes”, how?  - Forced to provide sexual services in the form of perversion` == "No question asked" ~ "No question asked",
+
+    TRUE ~ NA_character_
+  ),
+  violence_support = case_when(
+
+    if_any(c(
+      violence_support_ngo,
+      `H3_2 Have you addressed anywhere or to anyone for help? - To relatives (parents, husband/cohabitant, friend)`,
+      `H3_3 Have you addressed anywhere or to anyone for help? - To other client, whom I provide sexual services`,
+      `H3_4 Have you addressed anywhere or to anyone for help? - To police`,
+      `H3_5 Have you addressed anywhere or to anyone for help? - To other girl/woman who provide sexual services`,
+      `H3_6 Have you addressed anywhere or to anyone for help? - To pimp/”mom”`,
+      `H3_7 Have you addressed anywhere or to anyone for help? - Other`
+    ), ~ . == "Yes") ~ "Yes",
+
+    `H3_8 Have you addressed anywhere or to anyone for help? - Did not address for help` == "Yes" ~ "No",
+    if_any(c(
+      `H3_9 Have you addressed anywhere or to anyone for help? - Difficult to answer`,
+      `H3_10 Have you addressed anywhere or to anyone for help? - Refusal to answer`
+    ), ~ . == "Yes") ~ NA_character_,
+   
+    if_all(c(
+      violence_support_ngo,
+      `H3_2 Have you addressed anywhere or to anyone for help? - To relatives (parents, husband/cohabitant, friend)`,
+      `H3_3 Have you addressed anywhere or to anyone for help? - To other client, whom I provide sexual services`,
+      `H3_4 Have you addressed anywhere or to anyone for help? - To police`,
+      `H3_5 Have you addressed anywhere or to anyone for help? - To other girl/woman who provide sexual services`,
+      `H3_6 Have you addressed anywhere or to anyone for help? - To pimp/”mom”`,
+      `H3_7 Have you addressed anywhere or to anyone for help? - Other`,
+      `H3_8 Have you addressed anywhere or to anyone for help? - Did not address for help`
+    ), ~ . == "No") ~ "No",
+
+    TRUE ~ NA_character_
+  )
+)
+
+# load 2021 data
+sw_data_2021_raw <- read_excel("2021_IBBS_SW_TLS_Data.xlsx")
+
+# variables to rename
+rename_map_2021 <- c(
+  gender = "a7 Respondent’s gender",
+  sw_freq_7d = "b18_1 How many days during the last week (days) you Provided commercial sex services",
+  education = "a9 What is your education level",
+  residence_12m = "a11 What place of residence have you had for the last 12 months",
+  marital_status = "a12 From the proposed options, choose the one that reflects your marital status at the moment",
+  income_30d = "a14 What was your personal income within the last 30 days UAN",
+  age = "a6 Specify your age (full years)",
+  age_first_sex = "b1_1 How old were you, when you for the first time Had sexual relations",
+  age_first_sw = "b1_2 How old were you, when you for the first time Provided commercial sex services",
+  city = "City",
+  city_travel_12m = "a16 Have you left this city for more than one month (30 days) in the last 12 months to provide commercial sex services or not",
+  travel_soldiers_2014 = "b45 Have you traveled since 2014 to the territory of hostilities in eastern Ukraine (to checkpoints, uncontrolled cities) to provide commercial sex services for Ukrainian soldiers?",
+  partners_sw_7d = "b20 How many sexual contacts with clients you had during these days?",
+  partners_total_30d = "b2_5 Total number of partners within the last month (30 days)",
+  partners_sw_24h = "b22 How many different clients have you had for the past working day (24 hours)?",
+  partners_age_30d = "b7 Among the representatives of age groups indicated by you, whom you come across most often in the last month (30 days)?",
+  client_condom_lastsex = "b24 Did you use condom during the last sex or not?",
+  group_sex_30d = "b42 Have you had sex with several partners at once (group sex) in the last month (30 days)?",
+  condom_access_12m = "f1_1 Have you received condoms for free (from a representative of NGO, a medical worker, in nightclubs, at parties, etc.) In 12 months",
+  condom_access_30d = "f1_2 Have you received condoms for free (from a representative of NGO, a medical worker, in nightclubs, at parties, etc.) In 30 days",
+  typology_primary_30d = "b10 What method of search do you consider the main one for yourself",
+  aids_center_bin = "k2 Were you registered as person living with HIV in a medical facility (e.g.  AIDS Center?)",
+  alcohol_30d_num = "c4 How many times during the last month (30 days) did you use alcohol drinks?",
+  used_syringe_last = "c9 Did you use a sterile needle and syringe during your last injecting drug use or not?",
+  accessed_syringe_12m = "f6_10 Have you received following free items, from NGO or social worker within the last 12 months? - Sterile needles/syringes",
+  age_inject = "c10_2 At what age did you try injectable drugs  for the first time",
+  mental_health = "g0 PHQ9 level",
+  anxiety = "g1 GAD7 level",
+  ngo_access_lifetime = "f2 Are you a client of a non-governmental organization that works on HIV prevention among sex workers, or not?",
+  prep_12m = "f15 Have you taken pre-exposure prophylaxis (PrEP) drugs within the last 12 months?",
+  violence_any_ever = "h1 Have you ever experienced violence (for example, beatings, rapes, verbal humiliation, extortion, etc.) during your involvement in commercial sexual services?",
+  violence_beaten_ever = "h2_2 If yes, in what way? Beaten",
+  violence_humiliated_ever = "h2_1 If yes, in what way? Verbally humiliated",
+  violence_physical_abuse_ever = "h2_4 If yes, in what way? Harassed physically",
+  violence_perm_partner = "h3_3 Who was the perpetrator? Permanent sexual partner",
+  violence_casual_partner = "h3_4 Who was the perpetrator? Casual sexual partner",
+  violence_police = "h3_5 Who was the perpetrator? Law enforcement officer",
+  violence_pimp = "h3_6 Who was the perpetrator? Pimp/apartment administrator",
+  violence_fsw = "h3_9 Who was the perpetrator? Other sex workers",
+  violence_support_ngo = "h4_1 Have you contacted any person or facility after the violence incident? - To NGO/crisis center",
+  avoided_healthcare_12m_stigma = "i11_1 Have you ever avoided seeking HEALTH-CARE in the last 12 months due to - Fear of or concern about stigma (insult, rejection, gossip, and condemnation of behavior)",
+  avoided_healthcare_12m_disclosure = "i11_2 Have you ever avoided seeking HEALTH-CARE in the last 12 months due to - Fear or concern someone may learn you provide sexual services for a fee",
+  avoided_healthcare_12m_violence = "i11_3 Have you ever avoided seeking HEALTH-CARE in the last 12 months due to - Fear of or concern about or experienced violence?",
+  avoided_healthcare_12m_police = "i11_4 Have you ever avoided seeking HEALTH-CARE in the last 12 months due to - Fear of or concern about or experienced police harassment or arrest",
+  avoided_hiv_test_12m_stigma = "i12_1 Have you ever avoided seeking HIV TESTING in the last 12 months due to - Fear of or concern about stigma (insult, rejection, gossip, and condemnation of behavior)",
+  avoided_hiv_test_12m_disclosure = "i12_2 Have you ever avoided seeking HIV TESTING in the last 12 months due to - Fear or concern someone may learn you provide sexual services for a fee",
+  avoided_hiv_test_12m_violence = "i12_3 Have you ever avoided seeking HIV TESTING in the last 12 months due to - Fear of or concern about or experienced violence",
+  avoided_hiv_test_12m_police = "i12_4 Have you ever avoided seeking HIV TESTING in the last 12 months due to - Fear of or concern about or experienced police harassment or arrest",
+  avoided_hiv_care_12m_stigma = "k10_1 Have you ever avoided seeking HIV MEDICAL CARE in the last 12 months due to Fear of or concern about stigma (insult, rejection, gossip, and condemnation of behavior)",
+  avoided_hiv_care_12m_disclosure = "k10_2 Have you ever avoided seeking HIV MEDICAL CARE in the last 12 months due to Fear or concern someone may learn you provide sexual services for a fee",
+  avoided_hiv_care_12_violence = "k10_3 Have you ever avoided seeking HIV MEDICAL CARE in the last 12 months due to Fear of or concern about or experienced violence",
+  avoided_hiv_care_12m_police = "k10_4 Have you ever avoided seeking HIV MEDICAL CARE in the last 12 months due to Fear of or concern about or experienced police harassment or arrest",
+  avoided_hiv_treat_12m_stigma = "k11_1 Have you ever avoided seeking HIV TREATMENT  in the last 12 months due to Fear of or concern about stigma (insult, rejection, gossip, and condemnation of behavior)",
+  avoided_hiv_treat_12m_disclosure = "k11_2 Have you ever avoided seeking HIV TREATMENT  in the last 12 months due to Fear or concern someone may learn you provide sexual services for a fee",
+  avoided_hiv_treat_12m_violence = "k11_3 Have you ever avoided seeking HIV TREATMENT  in the last 12 months due to Fear of or concern about or experienced violence",
+  avoided_hiv_treat_12m_police = "k11_4 Have you ever avoided seeking HIV TREATMENT  in the last 12 months due to Fear of or concern about or experienced police harassment or arrest",
+  hiv_tested_lifetime = "i3 I am not asking you about the test result, but have you ever been tested for HIV?",
+  hiv_tested_result = "i9 I am not asking you about the test result, but did you receive it or not?",
+  hiv_status_selfreport = "k1 Could you tell me your HIV status?",
+  art_current = "FINAL ON ART (self + medical records + AIDSCenter)",
+  hiv_test_rslt = "Rapid test: HIV test result",
+  hiv_vl = "FINAL LAB Viral Load Result (copies/ml)",
+  hiv_recent_infection = "LAB: RECENTLY INFECTION TEST",
+  syphilis_test_rslt = "Rapid test: SYPHILIS test result",
+  prep_start = "PREP Start of PREP"
+)
+
+# map to vars
+sw_data_2021_clean <- sw_data_2021_raw %>%
+  rename(!!!setNames(rename_map_2021, names(rename_map_2021)))
+
+# derived variables
+sw_data_2021_clean <- sw_data_2021_clean %>%
+  mutate(
+  partners_sw_30d = case_when(
+    is.na(`b2_1_1 How many partners with whom you had sexual contact within the last 30 days belonged to Regular client`) &
+    is.na(`b2_2_1 How many partners with whom you had sexual contact within the last 30 days belonged to Non-regular client`) ~ NA_real_,
+    TRUE ~
+      coalesce(as.numeric(`b2_1_1 How many partners with whom you had sexual contact within the last 30 days belonged to Regular client`), 0) +
+      coalesce(as.numeric(`b2_2_1 How many partners with whom you had sexual contact within the last 30 days belonged to Non-regular client`), 0)
+  ),
+
+  partners_nonsw_30d = case_when(
+    is.na(`b2_3_1 How many partners with whom you had sexual contact within the last 30 days belonged to Permanent sexual partner`) &
+    is.na(`b2_4_1 How many partners with whom you had sexual contact within the last 30 days belonged to Casual sexual partner`) ~ NA_real_,
+    TRUE ~
+      coalesce(as.numeric(`b2_3_1 How many partners with whom you had sexual contact within the last 30 days belonged to Permanent sexual partner`), 0) +
+      coalesce(as.numeric(`b2_4_1 How many partners with whom you had sexual contact within the last 30 days belonged to Casual sexual partner`), 0)
+  ),
+  client_condom_bin_30d = case_when(
+    `b12 During VAGINAL sex during the last 30 days?` == "Always (100%)" &
+    `b13 And during ANAL sex during the last 30 days?` == "Always (100%)" ~ "Yes",
+
+    `b12 During VAGINAL sex during the last 30 days?` == "Always (100%)" &
+    `b13 And during ANAL sex during the last 30 days?` == "No such contacts" ~ "Yes",
+
+    `b12 During VAGINAL sex during the last 30 days?` == "No such contacts" &
+    `b13 And during ANAL sex during the last 30 days?` == "Always (100%)" ~ "Yes",
+
+    `b12 During VAGINAL sex during the last 30 days?` == "No such contacts" &
+    `b13 And during ANAL sex during the last 30 days?` == "No such contacts" ~ "No such contacts",
+
+    TRUE ~ "No"
+  ),
+  client_condom_freq_30d = case_when(
+    `b12 During VAGINAL sex during the last 30 days?` == "Always (100%)" &
+    `b13 And during ANAL sex during the last 30 days?` == "Always (100%)" ~ "Always (100%)",
+    
+    `b12 During VAGINAL sex during the last 30 days?` == "Always (100%)" &
+    `b13 And during ANAL sex during the last 30 days?` == "No such contacts" ~ "Always (100%)",
+    
+    `b12 During VAGINAL sex during the last 30 days?` == "No such contacts" &
+    `b13 And during ANAL sex during the last 30 days?` == "Always (100%)" ~ "Always (100%)",
+    
+    `b12 During VAGINAL sex during the last 30 days?` %in% c("In most cases (75%)", "Always (100%)") &
+    `b13 And during ANAL sex during the last 30 days?` %in% c("In most cases (75%)", "Always (100%)", "No such contacts") ~ "In most cases (75%)",
+    
+    `b12 During VAGINAL sex during the last 30 days?` %in% c("In half of the cases (50%)", "In most cases (75%)", "Always (100%)") &
+    `b13 And during ANAL sex during the last 30 days?` %in% c("In half of the cases (50%)", "In most cases (75%)", "Always (100%)", "No such contacts") ~ "In half of the cases (50%)",
+    
+    `b12 During VAGINAL sex during the last 30 days?` %in% c("Sometimes (25%)", "In half of the cases (50%)", "In most cases (75%)", "Always (100%)") &
+    `b13 And during ANAL sex during the last 30 days?` %in% c("Sometimes (25%)", "In half of the cases (50%)", "In most cases (75%)", "Always (100%)", "No such contacts") ~ "Sometimes (25%)",
+    
+    `b12 During VAGINAL sex during the last 30 days?` != "Never" &
+    `b13 And during ANAL sex during the last 30 days?` != "Never" &
+    (`b12 During VAGINAL sex during the last 30 days?` == "Rare (10%)" |
+    `b13 And during ANAL sex during the last 30 days?` == "Rare (10%)") ~ "Rare (10%)",
+    
+    `b12 During VAGINAL sex during the last 30 days?` == "Never" |
+    `b13 And during ANAL sex during the last 30 days?` == "Never" ~ "Never",
+    
+    TRUE ~ NA_character_
+  ),
+   perm_partner_condom_lastsex = case_when(
+    `b33 During VAGINAL sex during the last 30 days?` %in% c("No question asked", "Refusal to answer") |
+      `b34 And during ANAL sex during the last 30 days?` %in% c("No question asked", "Refusal to answer") ~ "No question asked",
+    `b33 During VAGINAL sex during the last 30 days?` == "No such contacts" &
+      `b34 And during ANAL sex during the last 30 days?` == "No such contacts" ~ "No such contacts",
+    `b33 During VAGINAL sex during the last 30 days?` %in% c("Never", "Rare (10%)", "Sometimes (25%)", "In half of the cases (50%)", "In most cases (75%)") |
+      `b34 And during ANAL sex during the last 30 days?` %in% c("Never", "Rare (10%)", "Sometimes (25%)", "In half of the cases (50%)", "In most cases (75%)") ~ "No condom",
+    `b33 During VAGINAL sex during the last 30 days?` %in% c("Always (100%)", "No such contacts") &
+      `b34 And during ANAL sex during the last 30 days?` %in% c("Always (100%)", "No such contacts") ~ "Condom",
+    TRUE ~ NA_character_
+  ),
+  cas_partner_condom_lastsex = case_when(
+    `b39 During VAGINAL sex during the last 30 days?` %in% c("No question asked", "Refusal to answer") |
+      `b40 And during ANAL sex during the last 30 days?` %in% c("No question asked", "Refusal to answer") ~ "No question asked",
+    `b39 During VAGINAL sex during the last 30 days?` == "No such contacts" &
+      `b40 And during ANAL sex during the last 30 days?` == "No such contacts" ~ "No such contacts",
+    `b39 During VAGINAL sex during the last 30 days?` %in% c("Never", "Rare (10%)", "Sometimes (25%)", "In half of the cases (50%)", "In most cases (75%)") |
+      `b40 And during ANAL sex during the last 30 days?` %in% c("Never", "Rare (10%)", "Sometimes (25%)", "In half of the cases (50%)", "In most cases (75%)") ~ "No condom",
+    `b39 During VAGINAL sex during the last 30 days?` %in% c("Always (100%)", "No such contacts") &
+      `b40 And during ANAL sex during the last 30 days?` %in% c("Always (100%)", "No such contacts") ~ "Condom",
+    TRUE ~ NA_character_
+  ),
+  alcohol_30d_bin = case_when(
+    `c1 How often do you have a drink containing alcohol?` %in% c("Never") ~ "No",
+    `c1 How often do you have a drink containing alcohol?` %in% c("2-4 times a month", "2-3 times a week", "4 or more times a week", "Monthly or less") ~ "Yes",
+    `c1 How often do you have a drink containing alcohol?` %in% c("Don't know/don't remember", "Refusal to answer") ~ "No answer",
+    TRUE ~ NA_character_
+  ),
+  alcohol_30d_daily_bin = case_when(
+    alcohol_30d_num %in% c("Used, don't remember the amount") ~ "don't remember",
+    alcohol_30d_num %in% c("Refusal to answer") ~ "Refuse to answer",
+    alcohol_30d_num %in% c("Not used in the last 30 days") ~ "No",
+    suppressWarnings(as.numeric(alcohol_30d_num)) >= 28 ~ "Yes",
+    suppressWarnings(as.numeric(alcohol_30d_num)) < 28 ~ "No",
+    TRUE ~ NA_character_
+  ),
+  drugs_12m_bin = case_when(
+    `c5 Some people try different drugs. Have you used any non-injectable drugs (smoked, sniffed, swallowed, etc.) or not?` %in% c(
+      "Yes, I have been using them for the last 30 days",
+      "Yes, I've been using them for the last 12 months (but not for 30 days)",
+      "Так, я вживав/ла протягом останніх 12 місяців (але не протягом 30 днів)"
+    ) |
+    `c6 Have you used any injectable drugs (with a syringe) or not?` %in% c(
+      "Yes, I have been using them for the last 30 days",
+      "Yes, I've been using them for the last 12 months (but not for 30 days)",
+      "Так, я вживав/ла протягом останніх 12 місяців (але не протягом 30 днів)"
+    ) ~ "Yes",
+    `c5 Some people try different drugs. Have you used any non-injectable drugs (smoked, sniffed, swallowed, etc.) or not?` %in% c("Don't know/don't remember", "Refusal to answer") &
+    `c6 Have you used any injectable drugs (with a syringe) or not?` %in% c("Don't know/don't remember", "Refusal to answer") ~ "No answer",
+    `c5 Some people try different drugs. Have you used any non-injectable drugs (smoked, sniffed, swallowed, etc.) or not?` %in% c("Never used or never even tried", "Yes, I used it, but more than 12 months ago") &
+    `c6 Have you used any injectable drugs (with a syringe) or not?` %in% c("Never used or never even tried", "Yes, I used it, but more than 12 months ago", "Don't know/don't remember", "Refusal to answer") ~ "No",
+    `c6 Have you used any injectable drugs (with a syringe) or not?` %in% c("Never used or never even tried", "Yes, I used it, but more than 12 months ago") &
+    `c5 Some people try different drugs. Have you used any non-injectable drugs (smoked, sniffed, swallowed, etc.) or not?` %in% c("Never used or never even tried", "Yes, I used it, but more than 12 months ago", "Don't know/don't remember", "Refusal to answer") ~ "No",
+    TRUE ~ NA_character_
+  ),
+  idu_12m_bin = case_when(
+    `c6 Have you used any injectable drugs (with a syringe) or not?` %in% c(
+      "Yes, I have been using them for the last 30 days",
+      "Yes, I've been using them for the last 12 months (but not for 30 days)",
+      "Так, я вживав/ла протягом останніх 12 місяців (але не протягом 30 днів)"
+    ) ~ "Yes",
+    `c6 Have you used any injectable drugs (with a syringe) or not?` %in% c(
+      "Never used or never even tried",
+      "Yes, I used it, but more than 12 months ago"
+    ) ~ "No",
+    `c6 Have you used any injectable drugs (with a syringe) or not?` %in% c(
+      "Don't know/don't remember",
+      "Refusal to answer"
+    ) ~ "No answer",
+    TRUE ~ NA_character_
+  ),
+  sex_with_alcohol_30d = case_when(
+    `c12_1 How often in the last month (30 days) before sexual intercourse with the client, you used ALCOHOL` == "Never" ~ "No",
+    `c12_1 How often in the last month (30 days) before sexual intercourse with the client, you used ALCOHOL` %in% c(
+      "Always (100%)", "In most cases (75%)", "In half of the cases (50%)", "Sometimes (25%)", "Rarely (10%)"
+    ) ~ "Yes",
+    `c12_1 How often in the last month (30 days) before sexual intercourse with the client, you used ALCOHOL` == "Has not used for the last 30 days" ~ "Did not use alcohol",
+    `c12_1 How often in the last month (30 days) before sexual intercourse with the client, you used ALCOHOL` == "Don't know/don't remember" ~ NA_character_,
+    TRUE ~ NA_character_
+  ),
+  sex_with_drugs_30d = case_when(
+    `c12_2 How often in the last month (30 days) before sexual intercourse with the client, you used DRUGS` == "Never" ~ "No",
+    `c12_2 How often in the last month (30 days) before sexual intercourse with the client, you used DRUGS` %in% c(
+      "Always (100%)", "In most cases (75%)", "In half of the cases (50%)", "Sometimes (25%)", "Rarely (10%)"
+    ) ~ "Yes",
+    `c12_2 How often in the last month (30 days) before sexual intercourse with the client, you used DRUGS` == "Has not used for the last 30 days" ~ "Did not use drugs",
+    `c12_2 How often in the last month (30 days) before sexual intercourse with the client, you used DRUGS` == "Don't know/don't remember" ~ NA_character_,
+    TRUE ~ NA_character_
+  ),
+  sex_with_drugs_and_alcohol_30d = case_when(
+    `c12_3 How often in the last month (30 days) before sexual intercourse with the client, you used ALCOHOL+DRUGS` == "Never" ~ "No",
+    `c12_3 How often in the last month (30 days) before sexual intercourse with the client, you used ALCOHOL+DRUGS` %in% c(
+      "Always (100%)", "In most cases (75%)", "In half of the cases (50%)", "Sometimes (25%)", "Rarely (10%)"
+    ) ~ "Yes",
+    `c12_3 How often in the last month (30 days) before sexual intercourse with the client, you used ALCOHOL+DRUGS` == "Has not used for the last 30 days" ~ "Did not use substances",
+    `c12_3 How often in the last month (30 days) before sexual intercourse with the client, you used ALCOHOL+DRUGS` == "Don't know/don't remember" ~ NA_character_,
+    TRUE ~ NA_character_
+  ),
+  ngo_access_12m = case_when(
+    if_any(
+      c(
+        `f6_1 Have you received following free items, from NGO or social worker within the last 12 months? - Male condoms`,
+        `f6_2 Have you received following free items, from NGO or social worker within the last 12 months? - Female condoms`,
+        `f6_3 Have you received following free items, from NGO or social worker within the last 12 months? - Lubricants`,
+        `f6_4 Have you received following free items, from NGO or social worker within the last 12 months? - Social worker consultation`,
+        `f6_5 Have you received following free items, from NGO or social worker within the last 12 months? - HIV testing`,
+        `f6_6 Have you received following free items, from NGO or social worker within the last 12 months? - Hepatitis B testing`,
+        `f6_7 Have you received following free items, from NGO or social worker within the last 12 months? - Hepatitis C testing`,
+        `f6_8 Have you received following free items, from NGO or social worker within the last 12 months? - Syphilis testing`,
+        `f6_9 Have you received following free items, from NGO or social worker within the last 12 months? - TB screening`,
+        accessed_syringe_12m,
+        `f6_11 Have you received following free items, from NGO or social worker within the last 12 months? - Information materials`,
+        `f6_12 Have you received following free items, from NGO or social worker within the last 12 months? - Case management by a social worker`,
+      ),
+      ~ . == "Yes"
+    ) ~ "Yes",
+    if_all(
+      c(
+        `f6_1 Have you received following free items, from NGO or social worker within the last 12 months? - Male condoms`,
+        `f6_2 Have you received following free items, from NGO or social worker within the last 12 months? - Female condoms`,
+        `f6_3 Have you received following free items, from NGO or social worker within the last 12 months? - Lubricants`,
+        `f6_4 Have you received following free items, from NGO or social worker within the last 12 months? - Social worker consultation`,
+        `f6_5 Have you received following free items, from NGO or social worker within the last 12 months? - HIV testing`,
+        `f6_6 Have you received following free items, from NGO or social worker within the last 12 months? - Hepatitis B testing`,
+        `f6_7 Have you received following free items, from NGO or social worker within the last 12 months? - Hepatitis C testing`,
+        `f6_8 Have you received following free items, from NGO or social worker within the last 12 months? - Syphilis testing`,
+        `f6_9 Have you received following free items, from NGO or social worker within the last 12 months? - TB screening`,
+        accessed_syringe_12m,
+        `f6_11 Have you received following free items, from NGO or social worker within the last 12 months? - Information materials`,
+        `f6_12 Have you received following free items, from NGO or social worker within the last 12 months? - Case management by a social worker`,
+      ),
+      ~ . %in% c("No", "Never")
+    ) ~ "No",
+    if_any(
+      c(
+        `f6_1 Have you received following free items, from NGO or social worker within the last 12 months? - Male condoms`,
+        `f6_2 Have you received following free items, from NGO or social worker within the last 12 months? - Female condoms`,
+        `f6_3 Have you received following free items, from NGO or social worker within the last 12 months? - Lubricants`,
+        `f6_4 Have you received following free items, from NGO or social worker within the last 12 months? - Social worker consultation`,
+        `f6_5 Have you received following free items, from NGO or social worker within the last 12 months? - HIV testing`,
+        `f6_6 Have you received following free items, from NGO or social worker within the last 12 months? - Hepatitis B testing`,
+        `f6_7 Have you received following free items, from NGO or social worker within the last 12 months? - Hepatitis C testing`,
+        `f6_8 Have you received following free items, from NGO or social worker within the last 12 months? - Syphilis testing`,
+        `f6_9 Have you received following free items, from NGO or social worker within the last 12 months? - TB screening`,
+        accessed_syringe_12m,
+        `f6_11 Have you received following free items, from NGO or social worker within the last 12 months? - Information materials`,
+        `f6_12 Have you received following free items, from NGO or social worker within the last 12 months? - Case management by a social worker`,
+      ),
+      ~ . == "Don't know/don’t remember"
+    ) ~ "Don’t know/don’t remember",
+    TRUE ~ NA_character_
+  ),
+  ngo_sti_12m = case_when(
+    `f6_8 Have you received following free items, from NGO or social worker within the last 12 months? - Syphilis testing` == "Yes" ~ "Yes",
+    `f6_8 Have you received following free items, from NGO or social worker within the last 12 months? - Syphilis testing` %in% c("No", "Never") ~ "No",
+    `f6_8 Have you received following free items, from NGO or social worker within the last 12 months? - Syphilis testing` == "Don't know/don’t remember" ~ "Don’t know/don’t remember",
+    TRUE ~ NA_character_
+  ),
+  harm_reduction_12m = case_when(
+    accessed_syringe_12m == "Yes" |
+      `f6_1 Have you received following free items, from NGO or social worker within the last 12 months? - Male condoms` == "Yes" |
+      `f6_2 Have you received following free items, from NGO or social worker within the last 12 months? - Female condoms` == "Yes" ~ "Yes",
+    accessed_syringe_12m == "No" &
+      `f6_1 Have you received following free items, from NGO or social worker within the last 12 months? - Male condoms` == "No" &
+      `f6_2 Have you received following free items, from NGO or social worker within the last 12 months? - Female condoms` == "No" ~ "No",
+    accessed_syringe_12m == "Don't know/don’t remember" |
+      `f6_1 Have you received following free items, from NGO or social worker within the last 12 months? - Male condoms` == "Don't know/don’t remember" |
+      `f6_2 Have you received following free items, from NGO or social worker within the last 12 months? - Female condoms` == "Don't know/don’t remember" ~ "Don’t know/don’t remember",
+    TRUE ~ NA_character_
+  ),
+  violence_rape_ever = case_when(
+      `h2_5 If yes, in what way? Forced to provide free sexual services` == "Yes" | `h2_6 If yes, in what way? Raped` == "Yes" ~ "Yes",
+      `h2_5 If yes, in what way? Forced to provide free sexual services` == "No" & `h2_6 If yes, in what way? Raped` == "No" ~ "No",
+      `h2_5 If yes, in what way? Forced to provide free sexual services` == "No question asked" | `h2_6 If yes, in what way? Raped` == "No question asked" ~ "No question asked",
+      TRUE ~ NA_character_
+  ),
+  violence_client = case_when(
+      `h3_1 Who was the perpetrator? Regular client` == "Yes" | `h3_2 Who was the perpetrator? Non-regular client` == "Yes" ~ "Yes",
+      `h3_1 Who was the perpetrator? Regular client` == "No" & `h3_2 Who was the perpetrator? Non-regular client` == "No" ~ "No",
+      `h3_1 Who was the perpetrator? Regular client` == "No question asked" | `h3_2 Who was the perpetrator? Non-regular client` == "No question asked" ~ "No question asked",
+      TRUE ~ NA_character_
+  ),
+  violence_support_any = case_when(
+      violence_support_ngo == "Yes" |
+      `h4_2 Have you contacted any person or facility after the violence incident? - To a close person (parents, husband/roommate, girlfriend)` == "Yes" |
+      `h4_3 Have you contacted any person or facility after the violence incident? - To another client to whom I provide sexual services` == "Yes" |
+      `h4_4 Have you contacted any person or facility after the violence incident? - To the police` == "Yes" |
+      `h4_5 Have you contacted any person or facility after the violence incident? - To another sex worker` == "Yes" |
+      `h4_6 Have you contacted any person or facility after the violence incident? - To the pimp/administrator of the apartment` == "Yes" |
+      `h4_7 Have you contacted any person or facility after the violence incident? - Other` == "Yes" ~ "Yes",
+      
+      `h4_8 Have you contacted any person or facility after the violence incident? - Did not ask for help` == "Yes" ~ "No",
+      
+      `h4_9 Have you contacted any person or facility after the violence incident? - Don't know/don't remember` == "Yes" |
+      `h4_10 Have you contacted any person or facility after the violence incident? - Refusal to answer` == "Yes" ~ "Refuse to answer",
+      
+      TRUE ~ NA_character_
+  ),
+  hiv_tested_12m = case_when(
+      hiv_tested_lifetime == "No" ~ "No",
+      `i8 Please, try to recall when was the last time you were tested?` == "More than 12 months ago" ~ "No",
+      `i8 Please, try to recall when was the last time you were tested?` %in% c("Within the last 6 months", "Within the last 6-12 months") ~ "Yes",
+      `i8 Please, try to recall when was the last time you were tested?` == "Don't know/don't remember" ~ "Don't know/don't remember",
+      TRUE ~ NA_character_
+  ),
+  avoided_healthcare_12m_bin = case_when(
+      avoided_healthcare_12m_stigma == "Yes" |
+      avoided_healthcare_12m_disclosure == "Yes" |
+      avoided_healthcare_12m_violence == "Yes" |
+      avoided_healthcare_12m_police == "Yes" ~ "Yes",
+      avoided_healthcare_12m_stigma == "No question asked" |
+      avoided_healthcare_12m_disclosure == "No question asked" |
+      avoided_healthcare_12m_violence == "No question asked" |
+      avoided_healthcare_12m_police == "No question asked" ~ "No question asked",
+      TRUE ~ "No"
+  ),
+  avoided_hiv_test_12m_bin = case_when(
+      avoided_hiv_test_12m_stigma == "Yes" |
+      avoided_hiv_test_12m_disclosure == "Yes" |
+      avoided_hiv_test_12m_violence == "Yes" |
+      avoided_hiv_test_12m_police == "Yes" ~ "Yes",
+      avoided_hiv_test_12m_stigma == "No question asked" |
+      avoided_hiv_test_12m_disclosure == "No question asked" |
+      avoided_hiv_test_12m_violence == "No question asked" |
+      avoided_hiv_test_12m_police == "No question asked" ~ "No question asked",
+      TRUE ~ "No"
+  ),
+  avoided_hiv_care_12m_bin = case_when(
+      avoided_hiv_care_12m_stigma == "Yes" |
+      avoided_hiv_care_12m_disclosure == "Yes" |
+      avoided_hiv_care_12_violence == "Yes" |
+      avoided_hiv_care_12m_police == "Yes" ~ "Yes",
+      avoided_hiv_care_12m_stigma == "No question asked" |
+      avoided_hiv_care_12m_disclosure == "No question asked" |
+      avoided_hiv_care_12_violence == "No question asked" |
+      avoided_hiv_care_12m_police == "No question asked" ~ "No question asked",
+      TRUE ~ "No"
+  ),
+  avoided_hiv_treat_12m_bin = case_when(
+      avoided_hiv_treat_12m_stigma == "Yes" |
+      avoided_hiv_treat_12m_disclosure == "Yes" |
+      avoided_hiv_treat_12m_violence == "Yes" |
+      avoided_hiv_treat_12m_police == "Yes" ~ "Yes",
+      avoided_hiv_treat_12m_stigma == "No question asked" |
+      avoided_hiv_treat_12m_disclosure == "No question asked" |
+      avoided_hiv_treat_12m_violence == "No question asked" |
+      avoided_hiv_treat_12m_police == "No question asked" ~ "No question asked",
+      TRUE ~ "No"
+  )
+)
 
 # recategorise
 
 
 
+vars <- c("partners_sw_30d", "partners_nonsw_30d", "client_condom_bin_30d", "client_condom_freq_30d", "perm_partner_condom_lastsex", "alcohol_30d_daily_bin", "drugs_12m_bin", "idu_12m_bin", "sex_with_drugs_and_alcohol_30d", "sex_with_alcohol_30d", "sex_with_drugs_30d", "ngo_access_12m", "violence_rape_ever", "violence_client", "violence_support_any", "hiv_tested_12m", "avoided_healthcare_12m_bin", "avoided_hiv_test_12m_bin", "avoided_hiv_care_12m_bin", "avoided_hiv_treat_12m_bin")
 
+present_vars <- intersect(vars, names(sw_data_2021_clean))
 
+cat_tabs_2021 <- setNames(lapply(present_vars, function(v) {
+  tbl <- table(sw_data_2021_clean[[v]], sw_data_2021_clean$hiv_test_rslt, useNA = "ifany")
+  list(
+    counts  = addmargins(tbl),
+    row_pct = round(100 * prop.table(tbl, 1), 1)   # within category level
+  )
+}), present_vars)
 
+cat_tabs_2021
 
 
 
