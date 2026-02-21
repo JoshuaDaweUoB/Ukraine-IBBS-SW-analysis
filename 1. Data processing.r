@@ -40,18 +40,15 @@ rename_map_2008 <- c(
   city = "City",
   city_travel_12m = "A6.1. Over the past 12 months, have you left this city for more than one month [30 days] to provide sexual services in other cities or regions of Ukraine?",
   country_travel_12m = "A6.2. Over the past 12 months, have you left this city for more than one month [30 days] to provide sexual services in other countries?",
+  sw_partners_clients_7d_raw = "sw_partners_clients_7d_raw",
+  sw_partners_nonclients_7d_raw = "sw_partners_nonclients_7d_raw",
+  sw_partners_total_7d_raw = "sw_partners_total_7d_raw",
   sw_partners_clients_7d = "sw_partners_clients_7d",
   sw_partners_clients_30d = "sw_partners_clients_30d",
-  sw_partners_clients_7d_5cat = "sw_partners_clients_7d_5cat",
-  sw_partners_clients_30d_5cat = "sw_partners_clients_30d_5cat",
   sw_partners_nonclients_7d = "sw_partners_nonclients_7d",
   sw_partners_nonclients_30d = "sw_partners_nonclients_30d",
-  sw_partners_nonclients_7d_5cat = "sw_partners_nonclients_7d_5cat",
-  sw_partners_nonclients_30d_5cat = "sw_partners_nonclients_30d_5cat",
   sw_partners_total_7d = "sw_partners_total_7d",
   sw_partners_total_30d = "sw_partners_total_30d",
-  sw_partners_total_7d_5cat = "sw_partners_total_7d_5cat",
-  sw_partners_total_30d_5cat = "sw_partners_total_30d_5cat",
   sw_partners_total_24h = "B4. How many different clients did you provide sexual services to for compensation on your last working day (24 hours)?",
   client_condom_lastsex = "B5. During your last sex with a client, did you use a condom?",
   client_condom_freq_30d = "B8. Recall all your sex with clients in the LAST MONTH (30 days). How often did you use a condom?",
@@ -95,31 +92,37 @@ if (length(missing_renamed) == 0) {
 # load 2009 data
 sw_data_2009_raw <- read_excel("2009_IBBS_FSW_TLS AND RDS_Data.xlsx")
 
+# derive volume variables
+sw_data_2009_raw <- sw_data_2009_raw %>%
+  mutate(
+    sw_partners_clients_7d_raw = `В4.1 During THE RECENT (WORKING) WEEK, how many persons listed below were among your sexual partners [clients]? Partners [clients] who you RECEIVED A FEE [money or other] from`,
+    sw_partners_perm_7d_raw = `В4.2 During THE RECENT (WORKING) WEEK, how many persons listed below were among your sexual partners [clients]? Permanent partners who you RECEIVED NO FEE [money or other] from`,
+    sw_partners_nonperm_7d_raw = `В4.3 During THE RECENT (WORKING) WEEK, how many persons listed below were among your sexual partners [clients]? Casual partners who you RECEIVED NO FEE [money or other] from`,
+    sw_partners_total_7d_raw = `В4.4 How MANY DIFFERENT sexual partners in total did you have during the recent (working) week, including your husband or your permanent sexual partner with whom you live?`
+  )
 
-table(sw_data_2008_raw$sw_partners_clients_30d_5cat, useNA = "ifany")
-table(sw_data_2008_raw$sw_partners_clients_7d_5cat, useNA = "ifany")
-table(sw_data_2008_raw$sw_partners_nonclients_30d_5cat, useNA = "ifany")
-table(sw_data_2008_raw$sw_partners_nonclients_7d_5cat, useNA = "ifany")
-table(sw_data_2008_raw$sw_partners_total_30d_5cat, useNA = "ifany")
-table(sw_data_2008_raw$sw_partners_total_7d_5cat, useNA = "ifany")
+sw_data_2009_raw <- sw_data_2009_raw %>%
+  mutate(
+  sw_partners_clients_7d = as.numeric(ifelse(sw_partners_clients_7d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999), NA, sw_partners_clients_7d_raw)),
+  sw_partners_clients_30d = sw_partners_clients_7d*days_in_month,
 
+  sw_partners_perm_7d = as.numeric(ifelse(sw_partners_perm_7d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999), NA, sw_partners_perm_7d_raw)),
+  sw_partners_perm_30d = sw_partners_perm_7d*days_in_month,
 
-mean_val <- mean(sw_data_2008_raw$sw_partners_nonclients_30d, na.rm = TRUE)
-range_val <- range(sw_data_2008_raw$sw_partners_nonclients_30d, na.rm = TRUE)
-q1_val <- quantile(sw_data_2008_raw$sw_partners_nonclients_30d, 0.25, na.rm = TRUE)
-q3_val <- quantile(sw_data_2008_raw$sw_partners_nonclients_30d, 0.75, na.rm = TRUE)
+  sw_partners_nonperm_7d = as.numeric(ifelse(sw_partners_nonperm_7d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999), NA, sw_partners_nonperm_7d_raw)),
+  sw_partners_nonperm_30d = sw_partners_nonperm_7d*days_in_month,
 
-cat("Mean:", mean_val, "\n")
-cat("Range:", range_val[1], "-", range_val[2], "\n")
-cat("Q1:", q1_val, "\n")
-cat("Q3:", q3_val, "\n")
+  sw_partners_nonclients_7d = sw_partners_perm_7d+sw_partners_nonperm_7d,
+  sw_partners_nonclients_30d = sw_partners_nonclients_7d*days_in_month,
 
-
+  sw_partners_total_7d = as.numeric(ifelse(sw_partners_total_7d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999), NA, sw_partners_total_7d_raw)),
+  sw_partners_total_30d = sw_partners_total_7d*days_in_month,
+  )
 
 # variables to rename
 rename_map_2009 <- c(
   sw_freq_6m = "А11. How often have your provided sexual services for a fee in THE LAST 6 MONTHS?",
-  sw_freq_7d = "А12. How many days DURING THE LAST WEEK [7 days] have you provided sexual services for a fee?",
+  sw_days_total_7d = "А12. How many days DURING THE LAST WEEK [7 days] have you provided sexual services for a fee?",
   education = "А1. Your education",
   residence = "А3. Where do you live in this city?",
   marital_status = "А8. Choose from the suggested options one corresponding to your marital status at the moment:",
@@ -128,10 +131,20 @@ rename_map_2009 <- c(
   age_first_sw = "В2. How old were you when you provided sexual services for a fee (money or other) for the first time?",
   city = "І7.1 City",
   city_travel_12m = "А5. Have you ever left this city [CITY OF SURVEY] for more than 1 month [30 days] in THE LAST 12 MONTHS to provide sexual services?",
-  partners_sw_7d = "В4.1 During THE RECENT (WORKING) WEEK, how many persons listed below were among your sexual partners [clients]? Partners [clients] who you RECEIVED A FEE [money or other] from",
-  partners_nonsw_perm_7d = "В4.2 During THE RECENT (WORKING) WEEK, how many persons listed below were among your sexual partners [clients]? Permanent partners who you RECEIVED NO FEE [money or other] from",
-  partners_nonsw_cas_7d = "В4.3 During THE RECENT (WORKING) WEEK, how many persons listed below were among your sexual partners [clients]? Casual partners who you RECEIVED NO FEE [money or other] from",
-  partners_total_7d = "В4.4 How MANY DIFFERENT sexual partners in total did you have during the recent (working) week, including your husband or your permanent sexual partner with whom you live?",
+  sw_partners_clients_7d_raw = "sw_partners_clients_7d_raw",
+  sw_partners_perm_7d_raw = "sw_partners_perm_7d_raw",
+  sw_partners_nonperm_7d_raw = "sw_partners_nonperm_7d_raw",
+  sw_partners_total_7d_raw = "sw_partners_total_7d_raw",
+  sw_partners_clients_7d = "sw_partners_clients_7d",
+  sw_partners_clients_30d = "sw_partners_clients_30d",
+  sw_partners_perm_7d = "sw_partners_perm_7d",
+  sw_partners_perm_30d = "sw_partners_perm_30d",
+  sw_partners_nonperm_7d = "sw_partners_nonperm_7d",
+  sw_partners_nonperm_30d = "sw_partners_nonperm_30d",
+  sw_partners_nonclients_7d = "sw_partners_nonclients_7d",
+  sw_partners_nonclients_30d = "sw_partners_nonclients_30d",
+  sw_partners_total_7d = "sw_partners_total_7d",
+  sw_partners_total_30d = "sw_partners_total_30d",
   partners_sw_24h = "В5. How many different CLIENTS whom you provided sexual services for a fee did you have FOR THE LAST WORKING DAY (24 HOURS)?",
   client_condom_lastsex = "В6. Remember your sexual contact with your MOST RECENT CLIENT. Did you use a condom?",
   client_condom_bin_30d = "В16.2.2 Think again about events of the LAST 30 DAYS. Did you have a case of NOT using a condom with a  CLIENT during vaginal sex?",
@@ -171,10 +184,37 @@ if (length(missing_renamed) == 0) {
 # load 2011 data
 sw_data_2011_raw <- read_excel("2011_IBBS_FSW_TLS AND RDS_Data.xlsx")
 
+# derive volume variables
+sw_data_2011_raw <- sw_data_2011_raw %>%
+  mutate(
+    sw_partners_clients_7d_raw = `В4.1 During THE RECENT (WORKING) WEEK, how many persons listed below were among your sexual partners [clients]? Partners [clients] who you RECEIVED A FEE [money or other] from`,
+    sw_partners_perm_7d_raw = `В4.2 During THE RECENT (WORKING) WEEK, how many persons listed below were among your sexual partners [clients]? Permanent partners who you RECEIVED NO FEE [money or other] from`,
+    sw_partners_nonperm_7d_raw = `В4.3 During THE RECENT (WORKING) WEEK, how many persons listed below were among your sexual partners [clients]? Casual partners who you RECEIVED NO FEE [money or other] fromе]`,
+    sw_partners_total_7d_raw = `В4.4 How MANY DIFFERENT sexual partners in total did you have during the recent (working) week, including your husband or your permanent sexual partner with whom you live?`
+  )
+
+sw_data_2011_raw <- sw_data_2011_raw %>%
+  mutate(
+  sw_partners_clients_7d = as.numeric(ifelse(sw_partners_clients_7d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999), NA, sw_partners_clients_7d_raw)),
+  sw_partners_clients_30d = sw_partners_clients_7d*days_in_month,
+
+  sw_partners_perm_7d = as.numeric(ifelse(sw_partners_perm_7d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999), NA, sw_partners_perm_7d_raw)),
+  sw_partners_perm_30d = sw_partners_perm_7d*days_in_month,
+
+  sw_partners_nonperm_7d = as.numeric(ifelse(sw_partners_nonperm_7d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999), NA, sw_partners_nonperm_7d_raw)),
+  sw_partners_nonperm_30d = sw_partners_nonperm_7d*days_in_month,
+
+  sw_partners_nonclients_7d = sw_partners_perm_7d+sw_partners_nonperm_7d,
+  sw_partners_nonclients_30d = sw_partners_nonclients_7d*days_in_month,
+
+  sw_partners_total_7d = as.numeric(ifelse(sw_partners_total_7d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999), NA, sw_partners_total_7d_raw)),
+  sw_partners_total_30d = sw_partners_total_7d*days_in_month,
+  )
+
 # variables to rename
 rename_map_2011 <- c(
   sw_freq_6m = "А11. How often have your provided sexual services for a fee in THE LAST 6 MONTHS?",
-  sw_freq_7d = "А12. How many days DURING THE LAST WEEK [7 days] have you provided sexual services for a fee?",
+  sw_days_total_7d = "А12. How many days DURING THE LAST WEEK [7 days] have you provided sexual services for a fee?",
   education = "А1. Your education",
   residence = "А3. Where do you live in this city?",
   marital_status = "А8. Choose from the suggested options one corresponding to your marital status at the moment",
@@ -183,10 +223,20 @@ rename_map_2011 <- c(
   age_first_sw = "В2. How old were you when you provided sexual services for a fee (money or other) for the first time?",
   city = "City",
   city_travel_12m = "А5. Have you ever left this city [CITY OF SURVEY] for more than 1 month [30 days] in THE LAST 12 MONTHS to provide sexual services?",
-  partners_sw_7d = "В4.1 During THE RECENT (WORKING) WEEK, how many persons listed below were among your sexual partners [clients]? Partners [clients] who you RECEIVED A FEE [money or other] from",
-  partners_nonsw_perm_7d = "В4.2 During THE RECENT (WORKING) WEEK, how many persons listed below were among your sexual partners [clients]? Permanent partners who you RECEIVED NO FEE [money or other] from",
-  partners_nonsw_cas_7d = "В4.3 During THE RECENT (WORKING) WEEK, how many persons listed below were among your sexual partners [clients]? Casual partners who you RECEIVED NO FEE [money or other] fromе]",
-  partners_total_7d = "В4.4 How MANY DIFFERENT sexual partners in total did you have during the recent (working) week, including your husband or your permanent sexual partner with whom you live?",
+  sw_partners_clients_7d_raw = "sw_partners_clients_7d_raw",
+  sw_partners_perm_7d_raw = "sw_partners_perm_7d_raw",
+  sw_partners_nonperm_7d_raw = "sw_partners_nonperm_7d_raw",
+  sw_partners_total_7d_raw = "sw_partners_total_7d_raw",  
+  sw_partners_clients_7d = "sw_partners_clients_7d",
+  sw_partners_clients_30d = "sw_partners_clients_30d",
+  sw_partners_perm_7d = "sw_partners_perm_7d",
+  sw_partners_perm_30d = "sw_partners_perm_30d",
+  sw_partners_nonperm_7d = "sw_partners_nonperm_7d",
+  sw_partners_nonperm_30d = "sw_partners_nonperm_30d",
+  sw_partners_nonclients_7d = "sw_partners_nonclients_7d",
+  sw_partners_nonclients_30d = "sw_partners_nonclients_30d",
+  sw_partners_total_7d = "sw_partners_total_7d",
+  sw_partners_total_30d = "sw_partners_total_30d",
   partners_sw_24h = "В5. How many different CLIENTS whom you provided sexual services for a fee did you have FOR THE LAST WORKING DAY (24 HOURS)?",
   partners_age_6m = "В3.Б2. Among the age groups you indicated, representatives of which one have you met most often?",
   client_condom_lastsex = "В6.1 Remember your sexual contact with your MOST RECENT CLIENT. Did you use a condom?",
@@ -217,12 +267,65 @@ rename_map_2011 <- c(
 sw_data_2011_clean <- sw_data_2011_raw %>%
   rename(!!!setNames(rename_map_2011, names(rename_map_2011)))
 
+# check variables are all present
+renamed_vars <- names(rename_map_2011)
+missing_renamed <- setdiff(renamed_vars, names(sw_data_2011_clean))
+if (length(missing_renamed) == 0) {
+  cat("All renamed variables are present in sw_data_2011_clean.\n")
+} else {
+  cat("Missing renamed variables:\n")
+  print(missing_renamed)
+}
+
 # load 2013 data
 sw_data_2013_raw <- read_excel("2013_IBBS_FSW_TLS AND RDS_Data.xlsx")
 
+# derive volume variables
+sw_data_2013_raw <- sw_data_2013_raw %>%
+  mutate(
+    sw_partners_clients_30d_raw = `B.4.1_2 Number of sexual partners in the PAST MONTH (30 days) Clients from which you RECEIVED A FEE [money or other] for sexual services`,
+    sw_partners_perm_30d_raw = `B.4.2_2 Number of sexual partners in the PAST MONTH (30 days) Permanent from which you RECEIVED NO FEE [money or other]`,
+    sw_partners_nonperm_30d_raw = `B.4.3_2 Number of sexual partners in the PAST MONTH (30 days) Casual partners from which you RECEIVED NO FEE [money or other])`,
+    sw_partners_total_30d_raw = `В4.4 How MANY DIFFERENT sexual partners in total did you have during the past month  (30 days), including your husband or your permanent sexual partner with whom you live?`
+  )
+
+sw_data_2013_raw <- sw_data_2013_raw %>%
+  mutate(
+    sw_partners_clients_30d = as.numeric(case_when(
+      sw_partners_clients_30d_raw %in% c("No answer", "Do not remember", "Refusal to answer", 998, 999) ~ NA_real_,
+      sw_partners_clients_30d_raw == "No question asked" ~ 0,
+      TRUE ~ as.numeric(sw_partners_clients_30d_raw)
+    )),
+    sw_partners_clients_7d = sw_partners_clients_30d / days_in_month,
+
+    sw_partners_perm_30d = as.numeric(case_when(
+      sw_partners_perm_30d_raw %in% c("No answer", "Do not remember", "Refusal to answer", 997, 998, 999) ~ NA_real_,
+      sw_partners_perm_30d_raw == "No question asked" ~ 0,
+      TRUE ~ as.numeric(sw_partners_perm_30d_raw)
+    )),
+    sw_partners_perm_7d = sw_partners_perm_30d / days_in_month,
+
+    sw_partners_nonperm_30d = as.numeric(case_when(
+      sw_partners_nonperm_30d_raw %in% c("No answer", "Do not remember", "Refusal to answer", 997, 998, 999) ~ NA_real_,
+      sw_partners_nonperm_30d_raw == "No question asked" ~ 0,
+      TRUE ~ as.numeric(sw_partners_nonperm_30d_raw)
+    )),
+    sw_partners_nonperm_7d = sw_partners_nonperm_30d / days_in_month,
+
+    sw_partners_nonclients_30d = sw_partners_perm_30d + sw_partners_nonperm_30d,
+    sw_partners_nonclients_7d = sw_partners_nonclients_30d / days_in_month,
+
+    sw_partners_total_30d = as.numeric(case_when(
+      sw_partners_total_30d_raw %in% c("No answer", "Do not remember", "Refusal to answer", 998, 999) ~ NA_real_,
+      sw_partners_total_30d_raw == "No question asked" ~ 0,
+      TRUE ~ as.numeric(sw_partners_total_30d_raw)
+    )),
+    sw_partners_total_7d = sw_partners_total_30d / days_in_month
+  )
+
 # variables to rename
 rename_map_2013 <- c(
-  sw_freq_7d = "А19. How many days in the LAST WEEK [7 days] did you provide sexual services?",
+  sw_days_total_7d = "А19. How many days in the LAST WEEK [7 days] did you provide sexual services?",
   education = "А6. What is your educational level?",
   residence_30d = "А8. What has been your permanent place of residence in the last month (30 days)?",
   marital_status = "А12. Choose from the suggested alternatives the one corresponding to your marital status at the moment",
@@ -232,10 +335,20 @@ rename_map_2013 <- c(
   age_first_sw = "В2. How old were you when you provided sexual services for a fee (money or other) for the first time?",
   city = "City",
   city_travel_12m = "А11. Have you ever left this city for more than 1 month [30 days] during THE LAST 12 MONTHS to provide sexual services?",
-  partners_sw_30d = "B.4.1_2 Number of sexual partners in the PAST MONTH (30 days) Clients from which you RECEIVED A FEE [money or other] for sexual services",
-  partners_nonsw_perm_30d = "B.4.2_2 Number of sexual partners in the PAST MONTH (30 days) Permanent from which you RECEIVED NO FEE [money or other]",
-  partners_nonsw_cas_30d = "B.4.3_2 Number of sexual partners in the PAST MONTH (30 days) Casual partners from which you RECEIVED NO FEE [money or other])",
-  partners_total_30d = "В4.4 How MANY DIFFERENT sexual partners in total did you have during the past month  (30 days), including your husband or your permanent sexual partner with whom you live?",
+  sw_partners_clients_30d_raw = "sw_partners_clients_30d_raw",
+  sw_partners_perm_30d_raw = "sw_partners_perm_30d_raw",
+  sw_partners_nonperm_30d_raw = "sw_partners_nonperm_30d_raw",
+  sw_partners_total_30d_raw = "sw_partners_total_30d_raw",
+  sw_partners_clients_7d = "sw_partners_clients_7d",
+  sw_partners_clients_30d = "sw_partners_clients_30d",
+  sw_partners_perm_7d = "sw_partners_perm_7d",
+  sw_partners_perm_30d = "sw_partners_perm_30d",
+  sw_partners_nonperm_7d = "sw_partners_nonperm_7d",
+  sw_partners_nonperm_30d = "sw_partners_nonperm_30d",
+  sw_partners_nonclients_7d = "sw_partners_nonclients_7d",
+  sw_partners_nonclients_30d = "sw_partners_nonclients_30d",
+  sw_partners_total_7d = "sw_partners_total_7d",
+  sw_partners_total_30d = "sw_partners_total_30d",
   partners_sw_24h = "В5. How many different CLIENTS whom you provided sexual services for a fee you had FOR THE LAST WORKING DAY (24 HOURS)?",
   partners_age_30d = "В3.4. Among the age groups you indicated, representatives of which one have you met most often in the LAST month (30 days)?",
   client_condom_lastsex = "В6.1 Remember your sexual contact with your LAST CLIENT. Did you use a condom?",
@@ -295,6 +408,85 @@ if (length(missing_renamed) == 0) {
 # load 2015 data
 sw_data_2015_raw <- read_excel("2015_IBBS_SW_TLS AND RDS_Data.xlsx")
 
+# derive volume variables
+sw_data_2015_raw <- sw_data_2015_raw %>%
+  mutate(
+    sw_partners_reg_clients_30d_raw = `Number of regular clients from whom you RECEIVED COMPENSATION [money or other] for providing sexual services in the LAST 30 DAYS.`,
+    sw_partners_irreg_clients_30d_raw = `Number of irregular clients from whom you RECEIVED COMPENSATION [money or other] for providing sexual services in the LAST 30 DAYS.`,    
+    sw_partners_perm_30d_raw = `Number of regular sexual partners from whom you did NOT RECEIVE COMPENSATION [money or other] in the LAST 30 DAYS.`,
+    sw_partners_nonperm_30d_raw = `Number of casual sexual partners from whom you did NOT RECEIVE COMPENSATION [money or other] in the LAST 30 DAYS.`,
+    sw_partners_total_30d_raw = `Total number of different sexual partners in the LAST 30 DAYS.`
+  )
+
+sw_data_2015_raw <- sw_data_2015_raw %>%
+  mutate(
+    sw_partners_reg_clients_30d = as.numeric(case_when(
+      sw_partners_reg_clients_30d_raw %in% c("No answer", "Do not remember", "Refusal to answer", 998, 999) ~ NA_real_,
+      sw_partners_reg_clients_30d_raw == "No question asked" ~ 0,
+      TRUE ~ as.numeric(sw_partners_reg_clients_30d_raw)
+    )),
+    sw_partners_reg_clients_7d = sw_partners_reg_clients_30d / days_in_month,
+
+    sw_partners_irreg_clients_30d = as.numeric(case_when(
+      sw_partners_irreg_clients_30d_raw %in% c("No answer", "Do not remember", "Refusal to answer", 998, 999) ~ NA_real_,
+      sw_partners_irreg_clients_30d_raw == "No question asked" ~ 0,
+      TRUE ~ as.numeric(sw_partners_irreg_clients_30d_raw)
+    )),
+    sw_partners_irreg_clients_7d = sw_partners_irreg_clients_30d / days_in_month,
+
+    sw_partners_clients_30d = sw_partners_irreg_clients_30d + sw_partners_reg_clients_30d,
+    sw_partners_clients_7d = sw_partners_clients_30d / days_in_month,
+
+    sw_partners_perm_30d = as.numeric(case_when(
+      sw_partners_perm_30d_raw %in% c("No answer", "Do not remember", "Refusal to answer", 997, 998, 999) ~ NA_real_,
+      sw_partners_perm_30d_raw == "No question asked" ~ 0,
+      TRUE ~ as.numeric(sw_partners_perm_30d_raw)
+    )),
+    sw_partners_perm_7d = sw_partners_perm_30d / days_in_month,
+
+    sw_partners_nonperm_30d = as.numeric(case_when(
+      sw_partners_nonperm_30d_raw %in% c("No answer", "Do not remember", "Refusal to answer", 997, 998, 999) ~ NA_real_,
+      sw_partners_nonperm_30d_raw == "No question asked" ~ 0,
+      TRUE ~ as.numeric(sw_partners_nonperm_30d_raw)
+    )),
+    sw_partners_nonperm_7d = sw_partners_nonperm_30d / days_in_month,
+
+    sw_partners_nonclients_30d = sw_partners_perm_30d + sw_partners_nonperm_30d,
+    sw_partners_nonclients_7d = sw_partners_nonclients_30d / days_in_month,
+
+    sw_partners_total_30d = as.numeric(case_when(
+      sw_partners_total_30d_raw %in% c("No answer", "Do not remember", "Refusal to answer", 998, 999) ~ NA_real_,
+      sw_partners_total_30d_raw == "No question asked" ~ 0,
+      TRUE ~ as.numeric(sw_partners_total_30d_raw)
+    )),
+    sw_partners_total_7d = sw_partners_total_30d / days_in_month
+  )
+
+
+  summary_table <- sw_data_2015_raw %>%
+  summarise(
+    mean_sw_partners_clients_30d = mean(sw_partners_clients_30d, na.rm = TRUE),
+    range_sw_partners_clients_30d = paste0(min(sw_partners_clients_30d, na.rm = TRUE), " - ", max(sw_partners_clients_30d, na.rm = TRUE)),
+    mean_sw_partners_perm_30d = mean(sw_partners_perm_30d, na.rm = TRUE),
+    range_sw_partners_perm_30d = paste0(min(sw_partners_perm_30d, na.rm = TRUE), " - ", max(sw_partners_perm_30d, na.rm = TRUE)),
+    mean_sw_partners_nonperm_30d = mean(sw_partners_nonperm_30d, na.rm = TRUE),
+    range_sw_partners_nonperm_30d = paste0(min(sw_partners_nonperm_30d, na.rm = TRUE), " - ", max(sw_partners_nonperm_30d, na.rm = TRUE)),
+    mean_sw_partners_total_30d = mean(sw_partners_total_30d, na.rm = TRUE),
+    range_sw_partners_total_30d = paste0(min(sw_partners_total_30d, na.rm = TRUE), " - ", max(sw_partners_total_30d, na.rm = TRUE)),
+    mean_sw_partners_clients_7d = mean(sw_partners_clients_7d, na.rm = TRUE),
+    range_sw_partners_clients_7d = paste0(min(sw_partners_clients_7d, na.rm = TRUE), " - ", max(sw_partners_clients_7d, na.rm = TRUE)),
+    mean_sw_partners_perm_7d = mean(sw_partners_perm_7d, na.rm = TRUE),
+    range_sw_partners_perm_7d = paste0(min(sw_partners_perm_7d, na.rm = TRUE), " - ", max(sw_partners_perm_7d, na.rm = TRUE)),
+    mean_sw_partners_nonperm_7d = mean(sw_partners_nonperm_7d, na.rm = TRUE),
+    range_sw_partners_nonperm_7d = paste0(min(sw_partners_nonperm_7d, na.rm = TRUE), " - ", max(sw_partners_nonperm_7d, na.rm = TRUE)),
+    mean_sw_partners_nonclients_7d = mean(sw_partners_nonclients_7d, na.rm = TRUE),
+    range_sw_partners_nonclients_7d = paste0(min(sw_partners_nonclients_7d, na.rm = TRUE), " - ", max(sw_partners_nonclients_7d, na.rm = TRUE)),
+    mean_sw_partners_total_7d = mean(sw_partners_total_7d, na.rm = TRUE),
+    range_sw_partners_total_7d = paste0(min(sw_partners_total_7d, na.rm = TRUE), " - ", max(sw_partners_total_7d, na.rm = TRUE))
+  )
+
+View(summary_table)
+
 # variables to rename
 rename_map_2015 <- c(
   gender = "Gender",
@@ -307,8 +499,24 @@ rename_map_2015 <- c(
   city = "City",
   city_travel_12m = "А12. Have you ever left this city for more than 1 month [30 days] during THE LAST 12 MONTHS to provide sexual services?",
   country_travel_12m = "A12_2 Where have you been? In another country",
-  sw_freq_7d = "А20. How many days in the LAST WEEK [7 days] did you provide sexual services?",
-  partners_total_30d = "Total number of different sexual partners in the LAST 30 DAYS.",
+  sw_days_total_7d = "А20. How many days in the LAST WEEK [7 days] did you provide sexual services?",
+  sw_partners_reg_clients_30d_raw = "sw_partners_reg_clients_30d_raw",
+  sw_partners_irreg_clients_30d_raw = "sw_partners_irreg_clients_30d_raw",
+  sw_partners_perm_30d_raw = "sw_partners_perm_30d_raw",
+  sw_partners_nonperm_30d_raw = "sw_partners_nonperm_30d_raw",
+  sw_partners_total_30d_raw = "sw_partners_total_30d_raw",
+  sw_partners_reg_clients_7d = "sw_partners_reg_clients_7d",
+  sw_partners_reg_clients_30d = "sw_partners_reg_clients_30d",
+  sw_partners_irreg_clients_7d = "sw_partners_irreg_clients_7d",
+  sw_partners_irreg_clients_30d = "sw_partners_irreg_clients_30d",
+  sw_partners_perm_7d = "sw_partners_perm_7d",
+  sw_partners_perm_30d = "sw_partners_perm_30d",
+  sw_partners_nonperm_7d = "sw_partners_nonperm_7d",
+  sw_partners_nonperm_30d = "sw_partners_nonperm_30d",
+  sw_partners_nonclients_7d = "sw_partners_nonclients_7d",
+  sw_partners_nonclients_30d = "sw_partners_nonclients_30d",
+  sw_partners_total_7d = "sw_partners_total_7d",
+  sw_partners_total_30d = "sw_partners_total_30d",
   partners_sw_24h = "В5. How many different CLIENTS whom you provided sexual services for a fee you had FOR THE LAST WORKING DAY (24 HOURS)?",
   partners_age_30d = "В3.4. Among the age groups you indicated, representatives of which one have you met most often in the LAST month (30 days)",
   client_condom_lastsex = "В6.1. Remember your sexual contact with your LAST CLIENT. Did you use a condom?",
@@ -365,6 +573,40 @@ if (length(missing_renamed) == 0) {
 # load 2017 data
 sw_data_2017_raw <- read_excel("2017-2018_IBBS_SW_TLS AND RDS_Data.xlsx")
 
+# derive volume variables
+sw_data_2017_raw <- sw_data_2017_raw %>%
+  mutate(
+    sw_partners_reg_clients_30d_raw = `B4_1_1 Number in the PAST MONTH (30 days) Permanent clients from which you RECEIVED A FEE [money or other] for sexual services`,
+    sw_partners_irreg_clients_30d_raw = `B4_2_1 Number in the PAST MONTH (30 days) Casual clients from which you RECEIVED FEE [money or other]`,    
+    sw_partners_perm_30d_raw = `B4_3_1 Number in the PAST MONTH (30 days) Permanent partners from which you RECEIVED NO FEE [money or other])`,
+    sw_partners_nonperm_30d_raw = `B4_4_1 Number in the PAST MONTH (30 days) Casual partners from which you RECEIVED NO FEE [money or other]`,
+    sw_partners_total_30d_raw = `В4.6 How MANY DIFFERENT sexual partners in total did you have during the past 30 days, including your permanent sexual partner with whom you live?`
+  )
+
+sw_data_2017_raw <- sw_data_2017_raw %>%
+  mutate(
+  sw_partners_reg_clients_30d = as.numeric(ifelse(sw_partners_reg_clients_30d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999), NA, sw_partners_reg_clients_30d_raw)),
+  sw_partners_reg_clients_7d = sw_partners_reg_clients_30d/days_in_month,
+
+  sw_partners_irreg_clients_30d = as.numeric(ifelse(sw_partners_irreg_clients_30d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999), NA, sw_partners_irreg_clients_30d_raw)),
+  sw_partners_irreg_clients_7d = sw_partners_irreg_clients_30d/days_in_month,
+
+  sw_partners_clients_30d = sw_partners_irreg_clients_30d+sw_partners_reg_clients_30d,
+  sw_partners_clients_7d = sw_partners_irreg_clients_7d+sw_partners_reg_clients_7d,
+
+  sw_partners_perm_30d = as.numeric(ifelse(sw_partners_perm_30d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999), NA, sw_partners_perm_30d_raw)),
+  sw_partners_perm_7d = sw_partners_perm_30d/days_in_month,
+
+  sw_partners_nonperm_30d = as.numeric(ifelse(sw_partners_nonperm_30d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999), NA, sw_partners_nonperm_30d_raw)),
+  sw_partners_nonperm_7d = sw_partners_nonperm_30d/days_in_month,
+
+  sw_partners_nonclients_30d = sw_partners_perm_30d+sw_partners_nonperm_30d,
+  sw_partners_nonclients_7d = sw_partners_nonclients_30d/days_in_month,
+
+  sw_partners_total_30d = as.numeric(ifelse(sw_partners_total_30d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999), NA, sw_partners_total_30d_raw)),
+  sw_partners_total_7d = sw_partners_total_30d/days_in_month,
+  )
+
 # derive age variable
 sw_data_2017_raw <- sw_data_2017_raw %>%
   mutate(
@@ -374,7 +616,7 @@ sw_data_2017_raw <- sw_data_2017_raw %>%
 # variables to rename
 rename_map_2017 <- c(
   gender = "A1. Respondent’ gender",
-  sw_freq_7d = "А17. How many days in the LAST WEEK [7 days] did you provide sexual services?",
+  sw_days_total_7d = "А17. How many days in the LAST WEEK [7 days] did you provide sexual services?",
   sw_num_30d = "B6. Please remember sexual intercourses with all clients during last month (30 days)/ How many sexual intercourses did you have during last month (including vaginal, anal and oral intercourses)?",
   education = "А9. What is your educational level?",
   marital_status = "А13. Choose from the suggested alternatives the one corresponding to your marital status at the moment:",
@@ -384,8 +626,23 @@ rename_map_2017 <- c(
   age_first_sw = "В2. How old were you when you provided sexual services for a fee (money or other) for the first time?",
   city = "City",
   city_travel_12m = "А12. Have you ever left this city for more than 1 month [30 days] during THE LAST 12 MONTHS to provide sexual services?",
-  partners_total_30d = "В4.6 How MANY DIFFERENT sexual partners in total did you have during the past 30 days, including your permanent sexual partner with whom you live?",
-  partners_sw_24h = "В5. How many different CLIENTS whom you provided sexual services for a fee you had FOR THE LAST WORKING DAY (24 HOURS)?",
+  sw_partners_reg_clients_7d = "sw_partners_reg_clients_7d",
+   sw_partners_reg_clients_30d_raw = "sw_partners_reg_clients_30d_raw",
+  sw_partners_irreg_clients_30d_raw = "sw_partners_irreg_clients_30d_raw",
+  sw_partners_perm_30d_raw = "sw_partners_perm_30d_raw",
+  sw_partners_nonperm_30d_raw = "sw_partners_nonperm_30d_raw",
+  sw_partners_total_30d_raw = "sw_partners_total_30d_raw",
+  sw_partners_reg_clients_30d = "sw_partners_reg_clients_30d",
+  sw_partners_irreg_clients_7d = "sw_partners_irreg_clients_7d",
+  sw_partners_irreg_clients_30d = "sw_partners_irreg_clients_30d",
+  sw_partners_perm_7d = "sw_partners_perm_7d",
+  sw_partners_perm_30d = "sw_partners_perm_30d",
+  sw_partners_nonperm_7d = "sw_partners_nonperm_7d",
+  sw_partners_nonperm_30d = "sw_partners_nonperm_30d",
+  sw_partners_nonclients_7d = "sw_partners_nonclients_7d",
+  sw_partners_nonclients_30d = "sw_partners_nonclients_30d",
+  sw_partners_total_7d = "sw_partners_total_7d",
+  sw_partners_total_30d = "sw_partners_total_30d",
   partners_age_30d = "В3.4. Among the age groups you indicated, representatives of which one have you met most often in the LAST month (30 days)?",
   client_condom_lastsex = "В8. Remember your sexual contact with your LAST CLIENT. Did you use a condom?",
   client_condom_bin_7d = "B14. Think about your LAST WORKING WEEK (7 days), when you provided sexual services for remuneration. Were there cases of not using a condom?",
@@ -442,10 +699,52 @@ if (length(missing_renamed) == 0) {
 # load 2021 data
 sw_data_2021_raw <- read_excel("2021_IBBS_SW_TLS_Data.xlsx")
 
+sw_data_2021_raw <- sw_data_2021_raw %>%
+  mutate(
+    sw_partners_reg_clients_30d_bin = `b2_1 Having sexual partners within the last 30 day Regular client`,
+    sw_partners_reg_clients_30d_raw = `b2_1_1 How many partners with whom you had sexual contact within the last 30 days belonged to Regular client`,
+    sw_partners_irreg_clients_30d_bin = `b2_2 Having sexual partners within the last 30 day Non-regular client`,
+    sw_partners_irreg_clients_30d_raw = `b2_2_1 How many partners with whom you had sexual contact within the last 30 days belonged to Non-regular client`,
+    sw_partners_perm_30d_bin = `b2_3 Having sexual partners within the last 30 day Permanent sexual partner`,
+    sw_partners_perm_30d_raw = `b2_3_1 How many partners with whom you had sexual contact within the last 30 days belonged to Permanent sexual partner`,
+    sw_partners_nonperm_30d_bin = `b2_4 Having sexual partners within the last 30 day Casual sexual partner`,
+    sw_partners_nonperm_30d_raw = `b2_4_1 How many partners with whom you had sexual contact within the last 30 days belonged to Casual sexual partner`,
+    sw_partners_total_30d_raw = `b2_5 Total number of partners within the last month (30 days)`
+  )
+
+sw_data_2021_raw <- sw_data_2021_raw %>%
+  mutate(
+  sw_partners_reg_clients_30d = as.numeric(ifelse(sw_partners_reg_clients_30d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999), NA, sw_partners_reg_clients_30d_raw)),
+  sw_partners_reg_clients_30d = ifelse(sw_partners_reg_clients_30d_bin == "No", 0, sw_partners_reg_clients_30d),
+  sw_partners_reg_clients_7d = sw_partners_reg_clients_30d/days_in_month,
+
+  sw_partners_irreg_clients_30d = as.numeric(ifelse(sw_partners_irreg_clients_30d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999), NA, sw_partners_irreg_clients_30d_raw)),
+  sw_partners_irreg_clients_30d = ifelse(sw_partners_irreg_clients_30d_bin == "No", 0, sw_partners_irreg_clients_30d),
+  sw_partners_irreg_clients_7d = sw_partners_irreg_clients_30d/days_in_month,
+
+  sw_partners_clients_30d = sw_partners_irreg_clients_30d+sw_partners_reg_clients_30d,
+  sw_partners_clients_7d = sw_partners_irreg_clients_7d+sw_partners_reg_clients_7d,
+
+  sw_partners_perm_30d = as.numeric(ifelse(sw_partners_perm_30d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999), NA, sw_partners_perm_30d_raw)),
+  sw_partners_perm_30d = ifelse(sw_partners_perm_30d_bin == "No", 0, sw_partners_perm_30d),
+  sw_partners_perm_7d = sw_partners_perm_30d/days_in_month,
+
+  sw_partners_nonperm_30d = as.numeric(ifelse(sw_partners_nonperm_30d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999), NA, sw_partners_nonperm_30d_raw)),
+  sw_partners_nonperm_30d = ifelse(sw_partners_nonperm_30d_bin == "No", 0, sw_partners_nonperm_30d),
+  sw_partners_nonperm_7d = sw_partners_nonperm_30d/days_in_month,
+
+  sw_partners_nonclients_30d = sw_partners_perm_30d+sw_partners_nonperm_30d,
+  sw_partners_nonclients_7d = sw_partners_nonclients_30d/days_in_month,
+
+  sw_partners_total_30d = as.numeric(ifelse(sw_partners_total_30d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999), NA, sw_partners_total_30d_raw)),
+  sw_partners_total_30d = ifelse(sw_partners_total_30d_raw == "No question asked", 0, sw_partners_total_30d),
+  sw_partners_total_7d = sw_partners_total_30d/days_in_month,
+  )
+
 # variables to rename
 rename_map_2021 <- c(
   gender = "a7 Respondent’s gender",
-  sw_freq_7d = "b18_1 How many days during the last week (days) you Provided commercial sex services",
+  sw_days_total_7d = "b18_1 How many days during the last week (days) you Provided commercial sex services",
   education = "a9 What is your education level",
   residence_12m = "a11 What place of residence have you had for the last 12 months",
   marital_status = "a12 From the proposed options, choose the one that reflects your marital status at the moment",
@@ -456,7 +755,23 @@ rename_map_2021 <- c(
   city = "City",
   city_travel_12m = "a16 Have you left this city for more than one month (30 days) in the last 12 months to provide commercial sex services or not",
   travel_soldiers_2014 = "b45 Have you traveled since 2014 to the territory of hostilities in eastern Ukraine (to checkpoints, uncontrolled cities) to provide commercial sex services for Ukrainian soldiers?",
-  partners_total_30d = "b2_5 Total number of partners within the last month (30 days)",
+  sw_partners_reg_clients_30d_raw = "sw_partners_reg_clients_30d_raw",
+  sw_partners_irreg_clients_30d_raw = "sw_partners_irreg_clients_30d_raw",
+  sw_partners_perm_30d_raw = "sw_partners_perm_30d_raw",
+  sw_partners_nonperm_30d_raw = "sw_partners_nonperm_30d_raw",
+  sw_partners_total_30d_raw = "sw_partners_total_30d_raw",
+  sw_partners_reg_clients_7d = "sw_partners_reg_clients_7d",
+  sw_partners_reg_clients_30d = "sw_partners_reg_clients_30d",
+  sw_partners_irreg_clients_7d = "sw_partners_irreg_clients_7d",
+  sw_partners_irreg_clients_30d = "sw_partners_irreg_clients_30d",
+  sw_partners_perm_7d = "sw_partners_perm_7d",
+  sw_partners_perm_30d = "sw_partners_perm_30d",
+  sw_partners_nonperm_7d = "sw_partners_nonperm_7d",
+  sw_partners_nonperm_30d = "sw_partners_nonperm_30d",
+  sw_partners_nonclients_7d = "sw_partners_nonclients_7d",
+  sw_partners_nonclients_30d = "sw_partners_nonclients_30d",
+  sw_partners_total_7d = "sw_partners_total_7d",
+  sw_partners_total_30d = "sw_partners_total_30d",  
   partners_sw_24h = "b22 How many different clients have you had for the past working day (24 hours)?",
   partners_age_30d = "b7 Among the representatives of age groups indicated by you, whom you come across most often in the last month (30 days)?",
   client_condom_lastsex = "b24 Did you use condom during the last sex or not?",
@@ -690,101 +1005,107 @@ sw_combined_raw <- sw_combined_raw %>%
   )
 table(sw_combined_raw$city_travel_12m_cat, useNA = "ifany")
 
-# missing patterns for volume variables
-partners_missing_by_year <- sw_combined_raw %>%
-  group_by(year) %>%
-  summarise(
-    partners_sw_30d_missing = sum(is.na(partners_sw_30d)), # total clients last 30 days 
-    partners_total_30d_missing = sum(is.na(partners_total_30d)), # total partners last 30 days
-    partners_days_7d_missing = sum(is.na(sw_freq_7d)), # days sold sex last 7 days
-    partners_times_7d_missing = sum(is.na(partners_sw_7d)), # times sold sex last 7 days
-    partners_total_7d_missing = sum(is.na(partners_total_7d)), # total partners last 7 days
-    .groups = "drop"
-  ) %>%
-  arrange(year)
-data.frame(partners_missing_by_year)
-View(partners_missing_by_year)
-
 # volumne of clients variables past 7 days
-
-
-  sw_partners_clients_7d_5cat = factor(case_when(
-      sw_partners_clients_7d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999) ~ 5,
-      sw_partners_clients_7d_raw == "No question asked" ~ 6,
-      sw_partners_clients_30d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999) ~ 5,
-      sw_partners_clients_30d_raw == "No question asked" ~ 6,
-      sw_partners_clients_7d == 0 ~ 0,
-      sw_partners_clients_7d %in% 1:3 ~ 1,
-      sw_partners_clients_7d %in% 4:9 ~ 2,
-      sw_partners_clients_7d %in% 10:19 ~ 3,
-      sw_partners_clients_7d >= 20 ~ 4,
-      TRUE ~ NA_real_
-    ), levels = 0:6, labels = c("No client partners","1-3","4-9","10-19","20+","No answer/ Do not remember/ Refusal","No question asked")),
-
-  sw_partners_clients_30d_5cat = factor(case_when(
-    sw_partners_clients_7d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999) ~ 5,
-    sw_partners_clients_7d_raw == "No question asked" ~ 6,
-    sw_partners_clients_30d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999) ~ 5,
-    sw_partners_clients_30d_raw == "No question asked" ~ 6,
-    sw_partners_clients_30d >= 0  & sw_partners_clients_30d <= 19  ~ 0,
-    sw_partners_clients_30d >= 20 & sw_partners_clients_30d <= 49  ~ 1,
-    sw_partners_clients_30d >= 50 & sw_partners_clients_30d <= 74  ~ 2,
-    sw_partners_clients_30d >= 75 & sw_partners_clients_30d <= 99  ~ 3,
-    sw_partners_clients_30d >= 100 ~ 4,
-    TRUE ~ NA_real_
-    ), levels = 0:6, labels = c("0-19","20-49","50-74","74-99","100+","No answer/ Do not remember/ Refusal","No question asked")),  
-
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    sw_partners_clients_7d_5cat = factor(
+      case_when(
+        sw_partners_clients_7d == 0 ~ 0,
+        sw_partners_clients_7d %in% 1:3 ~ 1,
+        sw_partners_clients_7d %in% 4:9 ~ 2,
+        sw_partners_clients_7d %in% 10:19 ~ 3,
+        sw_partners_clients_7d >= 20 ~ 4,
+        TRUE ~ NA_real_
+      ),
+      levels = 0:4,
+      labels = c("No client partners", "1-3", "4-9", "10-19", "20+")
+    ),
+    sw_partners_clients_30d_5cat = factor(
+      case_when(
+        sw_partners_clients_30d >= 0  & sw_partners_clients_30d <= 19  ~ 0,
+        sw_partners_clients_30d >= 20 & sw_partners_clients_30d <= 49  ~ 1,
+        sw_partners_clients_30d >= 50 & sw_partners_clients_30d <= 74  ~ 2,
+        sw_partners_clients_30d >= 75 & sw_partners_clients_30d <= 99  ~ 3,
+        sw_partners_clients_30d >= 100 ~ 4,
+        TRUE ~ NA_real_
+      ),
+      levels = 0:4,
+      labels = c("0-19", "20-49", "50-74", "74-99", "100+")
+    ),
   sw_partners_nonclients_7d_5cat = factor(case_when(
-      sw_partners_nonclients_7d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999) ~ 5,
-      sw_partners_nonclients_7d_raw == "No question asked" ~ 6,
-      sw_partners_nonclients_30d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999) ~ 5,
-      sw_partners_nonclients_30d_raw == "No question asked" ~ 6,
       sw_partners_nonclients_7d == 0 ~ 0,
       sw_partners_nonclients_7d %in% 1:3 ~ 1,
       sw_partners_nonclients_7d %in% 4:9 ~ 2,
       sw_partners_nonclients_7d %in% 10:19 ~ 3,
       sw_partners_nonclients_7d >= 20 ~ 4,
       TRUE ~ NA_real_
-    ), levels = 0:6, labels = c("No non-client partners","1-3","4-9","10-19","20+","No answer/ Do not remember/ Refusal","No question asked")),
-
+    ), levels = 0:4, labels = c("No non-client partners","1-3","4-9","10-19","20+")),
   sw_partners_nonclients_30d_5cat = factor(case_when(
-      sw_partners_nonclients_7d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999) ~ 5,
-      sw_partners_nonclients_7d_raw == "No question asked" ~ 6,
-      sw_partners_nonclients_30d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999) ~ 5,
-      sw_partners_nonclients_30d_raw == "No question asked" ~ 6,
       sw_partners_nonclients_30d >= 0 & sw_partners_nonclients_30d < 5 ~ 0,
       sw_partners_nonclients_30d >= 5 & sw_partners_nonclients_30d < 10 ~ 1,
       sw_partners_nonclients_30d >= 10 & sw_partners_nonclients_30d < 20 ~ 2,
       sw_partners_nonclients_30d >= 20 & sw_partners_nonclients_30d < 30 ~ 3,
       sw_partners_nonclients_30d >= 30 ~ 4,
       TRUE ~ NA_real_
-    ), levels = 0:6, labels = c("0-4","5-9","10-19","20-29","30+","No answer/ Do not remember/ Refusal","No question asked")),
-
-  sw_partners_total_7d_5cat = factor(case_when(
-      sw_partners_total_7d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999) ~ 5,
-      sw_partners_total_7d_raw == "No question asked" ~ 6,
-      sw_partners_total_30d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999) ~ 5,
-      sw_partners_total_30d_raw == "No question asked" ~ 6,
+    ), levels = 0:4, labels = c("0-4","5-9","10-19","20-29","30+")),
+  sw_partners_total_7d_4cat = factor(case_when(
       sw_partners_total_7d %in% 0:3 ~ 1,
       sw_partners_total_7d %in% 4:9 ~ 2,
       sw_partners_total_7d %in% 10:19 ~ 3,
       sw_partners_total_7d >= 20 ~ 4,
       TRUE ~ NA_real_
-    ), levels = 1:6, labels = c("0-3","4-9","10-19","20+","No answer/ Do not remember/ Refusal","No question asked")),
-
-
+    ), levels = 1:4, labels = c("0-3","4-9","10-19","20+")),
   sw_partners_total_30d_5cat = factor(case_when(
-    sw_partners_total_7d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999) ~ 5,
-    sw_partners_total_7d_raw == "No question asked" ~ 6,
-    sw_partners_total_30d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999) ~ 5,
-    sw_partners_total_30d_raw == "No question asked" ~ 6,
     sw_partners_total_30d >= 0  & sw_partners_total_30d <= 19  ~ 0,
     sw_partners_total_30d >= 20 & sw_partners_total_30d <= 49  ~ 1,
     sw_partners_total_30d >= 50 & sw_partners_total_30d <= 74  ~ 2,
     sw_partners_total_30d >= 75 & sw_partners_total_30d <= 99  ~ 3,
     sw_partners_total_30d >= 100 ~ 4,
     TRUE ~ NA_real_
-    ), levels = 0:6, labels = c("0-19","20-49","50-74","74-99","100+","No answer/ Do not remember/ Refusal","No question asked")),  
+    ), levels = 0:4, labels = c("0-19","20-49","50-74","74-99","100+")), 
+)
+
+# Tabulate sw_partners_clients_7d_5cat by year
+table(sw_combined_raw$year, sw_combined_raw$sw_partners_total_7d_4cat, useNA = "ifany")
+
+# Tabulate sw_partners_clients_30d_5cat by year
+table(sw_combined_raw$year, sw_combined_raw$sw_partners_total_30d_5cat, useNA = "ifany")
+
+missing_table <- sw_combined_raw %>%
+  mutate(
+    missing_sw_partners_clients_7d = is.na(sw_partners_clients_7d),
+    missing_sw_partners_clients_30d = is.na(sw_partners_clients_30d),
+    missing_sw_partners_nonclients_7d = is.na(sw_partners_nonclients_7d),
+    missing_sw_partners_nonclients_30d = is.na(sw_partners_nonclients_30d),
+    missing_sw_partners_total_7d = is.na(sw_partners_total_7d),
+    missing_sw_partners_total_30d = is.na(sw_partners_total_30d)
+  ) %>%
+  group_by(year) %>%
+  summarise(
+    missing_sw_partners_clients_7d = sum(missing_sw_partners_clients_7d),
+    missing_sw_partners_clients_30d = sum(missing_sw_partners_clients_30d),
+    missing_sw_partners_nonclients_7d = sum(missing_sw_partners_nonclients_7d),
+    missing_sw_partners_nonclients_30d = sum(missing_sw_partners_nonclients_30d),
+    missing_sw_partners_total_7d = sum(missing_sw_partners_total_7d),
+    missing_sw_partners_total_30d = sum(missing_sw_partners_total_30d)
+  )
+
+View(as.data.frame(missing_table))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
 
 
 
