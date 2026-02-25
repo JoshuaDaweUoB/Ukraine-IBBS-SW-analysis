@@ -7,19 +7,36 @@ setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/PhD Papers/Pa
 # load appended clean data
 sw_combined_clean <- readRDS("sw_combined_clean.rds")
 
-table(sw_combined_raw$year, sw_combined_clean$typology_primary_3cat)
-
 # List of variables to test
 vars <- c(
-  "year", "condom_access_12m_3cat", "ngo_access_lifetime_3cat", "city_travel_12m",
+  "year", "condom_access_12m_3cat", "ngo_access_lifetime_3cat", "city_travel_12m", "street_sw_bin", "alcohol_30d_bin", "used_syringe_last_3cat",
   "sw_days_total_7d_3cat", "violence_any_ever_3cat", "violence_rape_12m_3cat", "violence_rape_ever", "violence_beaten_ever",
   "violence_physical_abuse_ever", "violence_police", "violence_pimp", "violence_support_ngo",
   "avoided_healthcare_12m_stigma", "avoided_healthcare_12m_violence", "avoided_healthcare_12m_police",
-  "avoided_hiv_test_12m_police", "avoided_hiv_test_12m_violence", "avoided_hiv_test_12m_stigma"
+  "avoided_hiv_test_12m_police", "avoided_hiv_test_12m_violence", "avoided_hiv_test_12m_stigma", "underage_first_sw_bin"
 )
+
+# binary variables
+binary_vars <- c(
+  "condom_access_12m_3cat", "ngo_access_lifetime_3cat", "street_sw_bin", "alcohol_30d_bin", "violence_support_ngo",
+  "violence_any_ever_3cat", "violence_rape_12m_3cat", "violence_rape_ever", "violence_beaten_ever",
+  "violence_physical_abuse_ever", "violence_police", "violence_pimp", "used_syringe_last_3cat", "underage_first_sw_bin", "city_travel_12m"
+)
+
+sw_combined_clean <- sw_combined_clean %>%
+  mutate(across(all_of(binary_vars),
+    ~ factor(ifelse(. == "Yes", "Yes", "No"), levels = c("No", "Yes"))
+  ))
 
 # Ensure outcome is a factor
 sw_combined_clean$hiv_test_rslt_bin <- as.factor(sw_combined_clean$hiv_test_rslt_bin)
+
+# ensure adjustment variables are factors
+sw_combined_clean <- sw_combined_clean %>%
+  mutate(
+    ukraine_region = as.factor(ukraine_region),
+    year = as.factor(year)
+  )
 
 # Prepare to store results
 results <- data.frame(
@@ -49,12 +66,19 @@ results <- results[!grepl("^.*:ukraine_region", results$Variable), ]
 results <- results[!grepl("^.*:year", results$Variable), ]
 
 # Save to Excel
-writexl::write_xlsx(results, "univariate_logistic_results.xlsx")
+write_xlsx(results, "univariate_logistic_results.xlsx")
 
 ## rate ratios
 
 # load long hiv data
-sw_negative_cohort <- readRDS("sw_negative_cohort.rds")
+sw_negative_cohort <- readRDS("sw_incidence_dataset.rds")
+
+# ensure adjustment variables are factors
+sw_negative_cohort <- sw_negative_cohort %>%
+  mutate(
+    ukraine_region = as.factor(ukraine_region),
+    year = as.factor(year)
+  )
 
 vars <- c(
   "condom_access_12m_3cat", "ngo_access_lifetime_3cat", "street_sw_bin", "alcohol_30d_bin",
@@ -62,16 +86,24 @@ vars <- c(
   "violence_physical_abuse_ever", "violence_police", "used_syringe_last_3cat", "underage_first_sw_bin"
 )
 
-# check missingness over years
-for (var in vars) {
-    print(table(sw_negative_cohort$year, sw_negative_cohort[[var]], useNA = "ifany"))
-}
+# change test results to 0 and 1
+sw_negative_cohort$hiv_test_rslt_bin <- ifelse(sw_negative_cohort$hiv_test_rslt_bin == "Positive", 1, 0)
 
+# recode exposures to binary
+sw_negative_cohort <- sw_negative_cohort %>%
+  mutate(across(all_of(vars),
+    ~ factor(ifelse(. == "Yes", "Yes", "No"), levels = c("No", "Yes"))
+  ))
+
+# check missingness by year
+for (var in vars) {
+  print(table(sw_negative_cohort$year, sw_negative_cohort[[var]], useNA = "ifany"))
+}
 
 results_list <- list()
 
 for (var in vars) {
-  # If variable is a factor, get levels; otherwise, use unique values
+  
   levels_var <- if (is.factor(sw_negative_cohort[[var]])) {
     levels(sw_negative_cohort[[var]])
   } else {
@@ -79,29 +111,37 @@ for (var in vars) {
   }
   
   for (lev in levels_var) {
-    subset_data <- sw_negative_cohort[sw_negative_cohort[[var]] == lev & !is.na(sw_negative_cohort[[var]]), ]
+    
+    subset_data <- sw_negative_cohort[
+      sw_negative_cohort[[var]] == lev & 
+      !is.na(sw_negative_cohort[[var]]), ]
+    
     cases <- sum(subset_data$hiv_test_rslt_bin == 1, na.rm = TRUE)
     person_years <- sum(subset_data$py, na.rm = TRUE)
     
-    # Fit Cox model for the variable (overall, not per level)
-    formula <- as.formula(paste("Surv(py, hiv_test_rslt_bin) ~", var))
+    # Cox model adjusted for city and year
+    formula <- as.formula(
+      paste("Surv(py, hiv_test_rslt_bin) ~", var, "+ city + year")
+    )
+    
     model <- coxph(formula, data = sw_negative_cohort)
+    
     hr <- exp(coef(model))
     ci <- exp(confint(model))
     
-    # Only add HR/CI for the current level if it matches the coefficient name
-    if (paste0(var, lev) %in% names(hr)) {
+    coef_name <- paste0(var, lev)
+    
+    if (coef_name %in% names(hr)) {
       results_list[[length(results_list) + 1]] <- data.frame(
         Variable = var,
         Level = lev,
-        HR = hr[paste0(var, lev)],
-        CI_lower = ci[paste0(var, lev), 1],
-        CI_upper = ci[paste0(var, lev), 2],
+        HR = hr[coef_name],
+        CI_lower = ci[coef_name, 1],
+        CI_upper = ci[coef_name, 2],
         Cases = cases,
         Person_Years = person_years
       )
     } else {
-      # For reference level (usually not shown in HR output)
       results_list[[length(results_list) + 1]] <- data.frame(
         Variable = var,
         Level = lev,
@@ -116,55 +156,96 @@ for (var in vars) {
 }
 
 results_df <- do.call(rbind, results_list)
+
 write_xlsx(results_df, "cox_model_results_hiv.xlsx")
 
 ## rape incidence
 
-# load long rape data
+# Load dataset
 sw_negative_cohort_rape <- readRDS("sw_incident_rape_dataset.rds")
 
-vars <- c(
-  "condom_access_12m_3cat", "ngo_access_lifetime_3cat", "street_sw_bin"
+# Ensure correct types
+sw_negative_cohort_rape <- sw_negative_cohort_rape %>%
+  mutate(
+    rape_bin = as.numeric(rape_bin),
+    ukraine_region = as.factor(ukraine_region),
+    year = as.factor(year)
+  )
+
+# -----------------------------
+# DEFINE EXPOSURE VARIABLES
+# -----------------------------
+
+binary_vars <- c(
+  "condom_access_12m_3cat",
+  "ngo_access_lifetime_3cat",
+  "street_sw_bin",
+  "alcohol_30d_bin",
+  "city_travel_12m_cat",
+  "violence_beaten_ever",
+  "violence_physical_abuse_ever",
+  "violence_police",
+  "used_syringe_last_3cat",
+  "underage_first_sw_bin"
 )
+
+# Recode exposures to binary Yes/No
+sw_negative_cohort_rape <- sw_negative_cohort_rape %>%
+  mutate(across(all_of(binary_vars),
+    ~ factor(ifelse(. == "Yes", "Yes", "No"),
+             levels = c("No", "Yes"))
+  ))
+
+# -----------------------------
+# RUN REGION-ADJUSTED COX MODELS
+# -----------------------------
 
 results_list <- list()
 
-for (var in vars) {
-  # If variable is a factor, get levels; otherwise, use unique values
-  levels_var <- if (is.factor(sw_negative_cohort_rape[[var]])) {
-    levels(sw_negative_cohort_rape[[var]])
-  } else {
-    unique(sw_negative_cohort_rape[[var]])
-  }
-  
+for (var in binary_vars) {
+
+  # Adjust for region
+  formula <- as.formula(
+    paste("Surv(py, rape_bin) ~", var, "+ ukraine_region + year")
+  )
+
+  model <- coxph(
+    formula,
+    data = sw_negative_cohort_rape
+  )
+
+  hr <- exp(coef(model))
+  ci <- exp(confint(model))
+
+  levels_var <- levels(sw_negative_cohort_rape[[var]])
+
   for (lev in levels_var) {
-    subset_data <- sw_negative_cohort_rape[sw_negative_cohort_rape[[var]] == lev & !is.na(sw_negative_cohort_rape[[var]]), ]
+
+    subset_data <- sw_negative_cohort_rape %>%
+      filter(!is.na(.data[[var]]),
+             .data[[var]] == lev)
+
     cases <- sum(subset_data$rape_bin == 1, na.rm = TRUE)
     person_years <- sum(subset_data$py, na.rm = TRUE)
-    
-    # Fit Cox model for the variable (overall, not per level)
-    formula <- as.formula(paste("Surv(py, rape_bin) ~", var))
-    model <- coxph(formula, data = sw_negative_cohort_rape)
-    hr <- exp(coef(model))
-    ci <- exp(confint(model))
-    
-    # Only add HR/CI for the current level if it matches the coefficient name
-    if (paste0(var, lev) %in% names(hr)) {
+
+    coef_name <- paste0(var, lev)
+
+    if (coef_name %in% names(hr)) {
       results_list[[length(results_list) + 1]] <- data.frame(
         Variable = var,
         Level = lev,
-        HR = hr[paste0(var, lev)],
-        CI_lower = ci[paste0(var, lev), 1],
-        CI_upper = ci[paste0(var, lev), 2],
+        HR = hr[coef_name],
+        CI_lower = ci[coef_name, 1],
+        CI_upper = ci[coef_name, 2],
         Cases = cases,
         Person_Years = person_years
       )
     } else {
-      # For reference level (usually not shown in HR output)
+      # Reference category
       results_list[[length(results_list) + 1]] <- data.frame(
         Variable = var,
         Level = lev,
-        HR = NA,
+        HR = 1,
         CI_lower = NA,
         CI_upper = NA,
         Cases = cases,
@@ -175,4 +256,5 @@ for (var in vars) {
 }
 
 results_df <- do.call(rbind, results_list)
+
 write_xlsx(results_df, "cox_model_results_rape.xlsx")

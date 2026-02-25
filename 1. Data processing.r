@@ -1002,7 +1002,7 @@ sw_combined_raw <- sw_combined_raw %>%
       age_first_sw_numeric < 18 ~ 1,
       age_first_sw_numeric >= 18 ~ 0,
       TRUE ~ NA_real_
-    ), levels = c(0, 1), labels = c("Of-age", "Underage"))
+    ), levels = c(0, 1), labels = c("No", "Yes"))
   )
 
 table(sw_combined_raw$age_cat, useNA = "ifany")
@@ -1340,7 +1340,7 @@ sw_combined_raw <- sw_combined_raw %>%
         TRUE ~ NA_real_  # Catch unexpected responses
       ),
       levels = c(0, 1, 2),
-      labels = c("No use", "Any use", "Missing / Unknown")
+      labels = c("No", "Yes", "Missing / Unknown")
     )
   )
 

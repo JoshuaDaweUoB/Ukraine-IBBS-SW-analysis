@@ -142,21 +142,12 @@ sw_negative_cohort <- sw_negative_cohort %>%
   ) %>%
   ungroup()
 
-View(sw_negative_cohort[, c("id", "visit_number", "hiv_test_rslt_start",
-                            "interview_dte_start", "hiv_test_rslt_end",
-                            "interview_dte_end")])
-
 # remove rows where participant tested positive twice
 sum(sw_negative_cohort$hiv_test_rslt_start == "Positive" & 
     sw_negative_cohort$hiv_test_rslt_end == "Positive", na.rm = TRUE)
 
 sw_negative_cohort <- sw_negative_cohort %>%
   filter(!(hiv_test_rslt_start == "Positive" & hiv_test_rslt_end == "Positive"))
-
-# view data
-View(sw_negative_cohort[, c("id", "visit_number", "hiv_test_rslt_start",
-                            "interview_dte_start", "hiv_test_rslt_end",
-                            "interview_dte_end")])
 
 # remove first row of each study_id
 sw_negative_cohort <- sw_negative_cohort %>%
@@ -180,11 +171,6 @@ sum(sw_negative_cohort$days_risk == 0, na.rm = TRUE)
 sw_negative_cohort <- sw_negative_cohort %>%
   filter(!is.na(hiv_test_rslt_end))
   
-# view data
-View(sw_negative_cohort[, c("id", "visit_number", "hiv_test_rslt_start",
-                            "interview_dte_start", "hiv_test_rslt_end",
-                            "interview_dte_end", "days_risk")])
-
 # Count incident HIV cases (assuming each "Positive" is an incident case)
 num_incident_cases_hiv <- sum(sw_negative_cohort$hiv_test_rslt_end == "Positive", na.rm = TRUE)
 
@@ -198,29 +184,9 @@ num_incident_cases_hiv
 total_person_years_hiv
 incidence_rate_hiv
 
-vars <- c(
-  "condom_access_12m_3cat", "ngo_access_lifetime_3cat", "alcohol_30d_bin",
-  "violence_any_ever_3cat", "violence_rape_12m_3cat", "violence_rape_ever", "violence_beaten_ever",
-  "violence_physical_abuse_ever", "violence_police", "used_syringe_last_3cat", "underage_first_sw_bin"
-)
-
-# change test results to 0 and 1
-sw_negative_cohort$hiv_test_rslt_bin <- ifelse(sw_negative_cohort$hiv_test_rslt_bin == "Positive", 1, 0)
-
-# recode exposures to binary
-sw_negative_cohort <- sw_negative_cohort %>%
-  mutate(across(all_of(vars),
-    ~ factor(ifelse(. == "Yes", "Yes", "No"), levels = c("No", "Yes"))
-  ))
-
-for (var in vars) {
-     print(table(sw_negative_cohort$year, sw_negative_cohort[[var]], useNA = "ifany"))
-} 
-
 # calculate person-years
 sw_negative_cohort <- sw_negative_cohort %>%
     mutate(py = days_risk/365.25)
-
 
 # save incidence dataset
 saveRDS(sw_negative_cohort, "sw_incidence_dataset.rds")
@@ -368,10 +334,9 @@ incidence_rate_rape
 # --------------------------------------------------
 
 vars <- c(
-  "condom_access_12m_3cat", "ngo_access_lifetime_3cat",
-  "violence_any_ever_3cat", "violence_rape_12m_3cat",
-  "violence_beaten_ever", "violence_physical_abuse_ever",
-  "violence_police"
+  "condom_access_12m_3cat", "ngo_access_lifetime_3cat", "alcohol_30d_bin", "city_travel_12m_cat",
+  "violence_any_ever_3cat", "violence_rape_12m_3cat", "violence_rape_ever", "violence_beaten_ever",
+  "violence_physical_abuse_ever", "violence_police", "used_syringe_last_3cat", "underage_first_sw_bin"
 )
 
 # binary outcome for Cox
