@@ -153,6 +153,7 @@ rename_map_2009 <- c(
   cas_partner_condom_lastsex = "В13. Remember your last sexual contact with a CASUAL partner from whom you RECEIVED NO FEE. Did you use a condom?",
   perm_partner_condom_30d = "В18.2 Think again about events of the LAST 30 DAYS. Did you have a case of NOT using a condom with a PERMANENT PARTNER?",
   cas_partner_condom_30d = "В20.2 Think again about events of the LAST 30 DAYS. Did you have a case of NOT using a condom with CASUAL PARTNERS?",
+  ngo_access_lifetime = "D3.1 Are you a client of any public organization (have a card or an individual code) that works with female sex workers or injecting drug users?",
   typology_primary_6m = "А14.2 Please, tell me, which of the ways to find clients you indicated is the primary one for you?",
   aids_center_bin = "F14. Please tell if you are registered with an AIDS center?",
   alcohol_30d_num = "С1. How often did you use alcohol in the LAST MONTH [30 days]?",
@@ -323,8 +324,22 @@ sw_data_2013_raw <- sw_data_2013_raw %>%
     sw_partners_total_7d = sw_partners_total_30d / days_in_month
   )
 
+# derive date variable
+sw_data_2013_raw <- sw_data_2013_raw %>%
+  mutate(
+    interview_dte = as.Date(
+      paste(`Interview Date - Day`,
+            `Interview Date - Month`,
+            2013,
+            sep = "/"),
+      format = "%d/%m/%Y"
+    )
+  )
+
 # variables to rename
 rename_map_2013 <- c(
+  id = "ID",
+  interview_dte = "interview_dte",
   sw_days_total_7d = "А19. How many days in the LAST WEEK [7 days] did you provide sexual services?",
   education = "А6. What is your educational level?",
   residence_30d = "А8. What has been your permanent place of residence in the last month (30 days)?",
@@ -365,7 +380,7 @@ rename_map_2013 <- c(
   drugs_30d_bin = "С2. Some people try to use various drugs. Do you use / Did you use any drugs?",
   idu_12m_bin = "С3. Have you injected drugs (withthesyringe) in the last 12 months?",
   idu_30d_bin = "С4. Have you injected drugs in the last 30 days (last month)?",
-  used_syringe_30d_bin = "С4.2. Did you inject a drug with the injecting equipment (syringe, needle) previously used by another person or drugs that were prepared in the common pot or you don’t know how the syringe has been filled?",
+  used_syringe_last = "С4.2. Did you inject a drug with the injecting equipment (syringe, needle) previously used by another person or drugs that were prepared in the common pot or you don’t know how the syringe has been filled?",
   sex_with_drugs_30d = "С6_2 How often did you use the following during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration Narcotic substances",
   sex_with_alcohol_30d = "С6_1. How often did you use the following during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration Alcohol, alco pops",
   sex_with_drugs_and_alcohol_30d = "С6_3 How often did you use the following during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration Alcohol + drugs",
@@ -462,33 +477,15 @@ sw_data_2015_raw <- sw_data_2015_raw %>%
     sw_partners_total_7d = sw_partners_total_30d / days_in_month
   )
 
-
-  summary_table <- sw_data_2015_raw %>%
-  summarise(
-    mean_sw_partners_clients_30d = mean(sw_partners_clients_30d, na.rm = TRUE),
-    range_sw_partners_clients_30d = paste0(min(sw_partners_clients_30d, na.rm = TRUE), " - ", max(sw_partners_clients_30d, na.rm = TRUE)),
-    mean_sw_partners_perm_30d = mean(sw_partners_perm_30d, na.rm = TRUE),
-    range_sw_partners_perm_30d = paste0(min(sw_partners_perm_30d, na.rm = TRUE), " - ", max(sw_partners_perm_30d, na.rm = TRUE)),
-    mean_sw_partners_nonperm_30d = mean(sw_partners_nonperm_30d, na.rm = TRUE),
-    range_sw_partners_nonperm_30d = paste0(min(sw_partners_nonperm_30d, na.rm = TRUE), " - ", max(sw_partners_nonperm_30d, na.rm = TRUE)),
-    mean_sw_partners_total_30d = mean(sw_partners_total_30d, na.rm = TRUE),
-    range_sw_partners_total_30d = paste0(min(sw_partners_total_30d, na.rm = TRUE), " - ", max(sw_partners_total_30d, na.rm = TRUE)),
-    mean_sw_partners_clients_7d = mean(sw_partners_clients_7d, na.rm = TRUE),
-    range_sw_partners_clients_7d = paste0(min(sw_partners_clients_7d, na.rm = TRUE), " - ", max(sw_partners_clients_7d, na.rm = TRUE)),
-    mean_sw_partners_perm_7d = mean(sw_partners_perm_7d, na.rm = TRUE),
-    range_sw_partners_perm_7d = paste0(min(sw_partners_perm_7d, na.rm = TRUE), " - ", max(sw_partners_perm_7d, na.rm = TRUE)),
-    mean_sw_partners_nonperm_7d = mean(sw_partners_nonperm_7d, na.rm = TRUE),
-    range_sw_partners_nonperm_7d = paste0(min(sw_partners_nonperm_7d, na.rm = TRUE), " - ", max(sw_partners_nonperm_7d, na.rm = TRUE)),
-    mean_sw_partners_nonclients_7d = mean(sw_partners_nonclients_7d, na.rm = TRUE),
-    range_sw_partners_nonclients_7d = paste0(min(sw_partners_nonclients_7d, na.rm = TRUE), " - ", max(sw_partners_nonclients_7d, na.rm = TRUE)),
-    mean_sw_partners_total_7d = mean(sw_partners_total_7d, na.rm = TRUE),
-    range_sw_partners_total_7d = paste0(min(sw_partners_total_7d, na.rm = TRUE), " - ", max(sw_partners_total_7d, na.rm = TRUE))
+sw_data_2015_raw <- sw_data_2015_raw %>%
+  mutate(
+    interview_dte = as.Date(`Date of interview`, format = "%d.%m.%Y")
   )
-
-View(summary_table)
 
 # variables to rename
 rename_map_2015 <- c(
+  id = "Respondent’s ID",
+  interview_dte = "interview_dte",
   gender = "Gender",
   education = "А7. What is your educational level?",
   marital_status = "А13. Choose from the suggested alternatives the one corresponding to your marital status at the moment:",
@@ -535,6 +532,7 @@ rename_map_2015 <- c(
   harm_reduction_12m = "F7. Your access to prevention materials (e.g. syringes, condoms) and counseling in the past 12 months:",
   violence_any_ever = "F1. Did you suffer violence at time of sexual services?",
   violence_beaten_ever = "F2.1_4 If “yes”, how? - Beaten",
+  violence_rape_ever = "F2.1_7 If “yes”, how? - Raped",
   violence_humiliated_ever = "F2.1_1 If “yes”, how? - Humiliated morally (verbally)",
   violence_physical_abuse_ever = "F2.1_5 If “yes”, how? - Physically abused",
   violence_client = "F2_1 Who inflicted violence? - Clients",
@@ -613,8 +611,16 @@ sw_data_2017_raw <- sw_data_2017_raw %>%
     age = year(`Interview date`) - as.numeric(`А6. Specify your year of birth`)
   )
 
+# interview date
+sw_data_2017_raw <- sw_data_2017_raw %>%
+  mutate(
+    interview_dte = as.Date(`Interview date`, format = "%d.%m.%Y")
+  )
+
 # variables to rename
 rename_map_2017 <- c(
+  id = "Respondent’s ID",
+  interview_dte = "interview_dte",
   gender = "A1. Respondent’ gender",
   sw_days_total_7d = "А17. How many days in the LAST WEEK [7 days] did you provide sexual services?",
   sw_num_30d = "B6. Please remember sexual intercourses with all clients during last month (30 days)/ How many sexual intercourses did you have during last month (including vaginal, anal and oral intercourses)?",
@@ -627,7 +633,7 @@ rename_map_2017 <- c(
   city = "City",
   city_travel_12m = "А12. Have you ever left this city for more than 1 month [30 days] during THE LAST 12 MONTHS to provide sexual services?",
   sw_partners_reg_clients_7d = "sw_partners_reg_clients_7d",
-   sw_partners_reg_clients_30d_raw = "sw_partners_reg_clients_30d_raw",
+  sw_partners_reg_clients_30d_raw = "sw_partners_reg_clients_30d_raw",
   sw_partners_irreg_clients_30d_raw = "sw_partners_irreg_clients_30d_raw",
   sw_partners_perm_30d_raw = "sw_partners_perm_30d_raw",
   sw_partners_nonperm_30d_raw = "sw_partners_nonperm_30d_raw",
@@ -663,6 +669,7 @@ rename_map_2017 <- c(
   violence_beaten_ever = "H1_3 If “yes”, how?  - Beaten",
   violence_humiliated_ever = "H1_1 If “yes”, how? - Humiliated morally (verbally)",
   violence_physical_abuse_ever = "H1_4 If “yes”, how?  - Physically abused",
+  violence_rape_ever = "H1_6 If “yes”, how?  - Raped",
   violence_client = "H2_1 Who inflicted violence? - Clients",
   violence_perm_partner = "H2_2 Who inflicted violence? - Permanent sexual partner",
   violence_casual_partner = "H2_3 Who inflicted violence? - Casual sexual partner",
@@ -714,35 +721,62 @@ sw_data_2021_raw <- sw_data_2021_raw %>%
 
 sw_data_2021_raw <- sw_data_2021_raw %>%
   mutate(
-  sw_partners_reg_clients_30d = as.numeric(ifelse(sw_partners_reg_clients_30d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999), NA, sw_partners_reg_clients_30d_raw)),
+  sw_partners_reg_clients_30d = as.numeric(ifelse(sw_partners_reg_clients_30d_raw %in% c("No question asked",998,999), NA, sw_partners_reg_clients_30d_raw)),
   sw_partners_reg_clients_30d = ifelse(sw_partners_reg_clients_30d_bin == "No", 0, sw_partners_reg_clients_30d),
   sw_partners_reg_clients_7d = sw_partners_reg_clients_30d/days_in_month,
 
-  sw_partners_irreg_clients_30d = as.numeric(ifelse(sw_partners_irreg_clients_30d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999), NA, sw_partners_irreg_clients_30d_raw)),
+  sw_partners_irreg_clients_30d = as.numeric(ifelse(sw_partners_irreg_clients_30d_raw %in% c("No question asked",998,999), NA, sw_partners_irreg_clients_30d_raw)),
   sw_partners_irreg_clients_30d = ifelse(sw_partners_irreg_clients_30d_bin == "No", 0, sw_partners_irreg_clients_30d),
   sw_partners_irreg_clients_7d = sw_partners_irreg_clients_30d/days_in_month,
 
-  sw_partners_clients_30d = sw_partners_irreg_clients_30d+sw_partners_reg_clients_30d,
-  sw_partners_clients_7d = sw_partners_irreg_clients_7d+sw_partners_reg_clients_7d,
+  sw_partners_clients_30d =
+    ifelse(
+      is.na(sw_partners_irreg_clients_30d) &
+      is.na(sw_partners_reg_clients_30d),
+      NA,
+      rowSums(
+        cbind(sw_partners_irreg_clients_30d,
+              sw_partners_reg_clients_30d),
+        na.rm = TRUE)),
 
-  sw_partners_perm_30d = as.numeric(ifelse(sw_partners_perm_30d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999), NA, sw_partners_perm_30d_raw)),
+  sw_partners_clients_7d = sw_partners_clients_30d / days_in_month,
+
+  sw_partners_perm_30d = as.numeric(ifelse(sw_partners_perm_30d_raw %in% c("No question asked",998,999), NA, sw_partners_perm_30d_raw)),
   sw_partners_perm_30d = ifelse(sw_partners_perm_30d_bin == "No", 0, sw_partners_perm_30d),
   sw_partners_perm_7d = sw_partners_perm_30d/days_in_month,
 
-  sw_partners_nonperm_30d = as.numeric(ifelse(sw_partners_nonperm_30d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999), NA, sw_partners_nonperm_30d_raw)),
+  sw_partners_nonperm_30d = as.numeric(ifelse(sw_partners_nonperm_30d_raw %in% c("No question asked",998,999), NA, sw_partners_nonperm_30d_raw)),
   sw_partners_nonperm_30d = ifelse(sw_partners_nonperm_30d_bin == "No", 0, sw_partners_nonperm_30d),
   sw_partners_nonperm_7d = sw_partners_nonperm_30d/days_in_month,
 
-  sw_partners_nonclients_30d = sw_partners_perm_30d+sw_partners_nonperm_30d,
-  sw_partners_nonclients_7d = sw_partners_nonclients_30d/days_in_month,
+  sw_partners_nonclients_30d =
+    ifelse(
+      is.na(sw_partners_perm_30d) &
+      is.na(sw_partners_nonperm_30d),
+      NA,
+      rowSums(
+        cbind(sw_partners_perm_30d,
+              sw_partners_nonperm_30d),
+        na.rm = TRUE
+      )
+    ),
+  sw_partners_nonclients_7d = sw_partners_nonclients_30d / days_in_month,
 
-  sw_partners_total_30d = as.numeric(ifelse(sw_partners_total_30d_raw %in% c("No answer","Do not remember","Refusal to answer",998,999), NA, sw_partners_total_30d_raw)),
+  sw_partners_total_30d = as.numeric(ifelse(sw_partners_total_30d_raw %in% c("No question asked",998,999), NA, sw_partners_total_30d_raw)),
   sw_partners_total_30d = ifelse(sw_partners_total_30d_raw == "No question asked", 0, sw_partners_total_30d),
-  sw_partners_total_7d = sw_partners_total_30d/days_in_month,
+  sw_partners_total_7d = sw_partners_total_30d/days_in_month
+  )
+
+# interview date
+sw_data_2021_raw <- sw_data_2021_raw %>%
+  mutate(
+    interview_dte = as.Date(`Interview date`, format = "%d.%m.%Y")
   )
 
 # variables to rename
 rename_map_2021 <- c(
+  id = "Respondent’s ID",
+  interview_dte = "interview_dte",
   gender = "a7 Respondent’s gender",
   sw_days_total_7d = "b18_1 How many days during the last week (days) you Provided commercial sex services",
   education = "a9 What is your education level",
@@ -789,6 +823,7 @@ rename_map_2021 <- c(
   ngo_access_lifetime = "f2 Are you a client of a non-governmental organization that works on HIV prevention among sex workers, or not?",
   prep_12m = "f15 Have you taken pre-exposure prophylaxis (PrEP) drugs within the last 12 months?",
   violence_any_ever = "h1 Have you ever experienced violence (for example, beatings, rapes, verbal humiliation, extortion, etc.) during your involvement in commercial sexual services?",
+  violence_rape_ever = "h2_6 If yes, in what way? Raped",
   violence_beaten_ever = "h2_2 If yes, in what way? Beaten",
   violence_humiliated_ever = "h2_1 If yes, in what way? Verbally humiliated",
   violence_physical_abuse_ever = "h2_4 If yes, in what way? Harassed physically",
@@ -872,7 +907,7 @@ datasets_aligned <- lapply(datasets, function(df) {
 # Combine datasets
 sw_combined_raw <- bind_rows(datasets_aligned, .id = "source_year")
 
-# check
+# check and save
 dim(sw_combined_raw)
 names(sw_combined_raw)
 table(sw_combined_raw$year)
@@ -962,12 +997,18 @@ sw_combined_raw <- sw_combined_raw %>%
       age_first_sw_numeric >= 18 & age_first_sw_numeric <= 24 ~ 1,
       age_first_sw_numeric >= 25 ~ 2,
       TRUE ~ NA_real_
-    ), levels = c(0, 1, 2), labels = c("Underage", "18-24", "25+"))
+    ), levels = c(0, 1, 2), labels = c("Underage", "18-24", "25+")),
+    underage_first_sw_bin = factor(case_when(
+      age_first_sw_numeric < 18 ~ 1,
+      age_first_sw_numeric >= 18 ~ 0,
+      TRUE ~ NA_real_
+    ), levels = c(0, 1), labels = c("Of-age", "Underage"))
   )
 
 table(sw_combined_raw$age_cat, useNA = "ifany")
 table(sw_combined_raw$age_first_sex_cat, useNA = "ifany")
 table(sw_combined_raw$age_first_sw_cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$underage_first_sw_bin, useNA = "ifany")
 
 # clean city variable
 sw_combined_raw <- sw_combined_raw %>%
@@ -1065,299 +1106,821 @@ sw_combined_raw <- sw_combined_raw %>%
     ), levels = 0:4, labels = c("0-19","20-49","50-74","74-99","100+")), 
 )
 
-# Tabulate sw_partners_clients_7d_5cat by year
+# tab categorical variables
+table(sw_combined_raw$year, sw_combined_raw$sw_partners_clients_30d_5cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$sw_partners_clients_7d_5cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$sw_partners_nonclients_30d_5cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$sw_partners_nonclients_7d_5cat, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$sw_partners_total_7d_4cat, useNA = "ifany")
-
-# Tabulate sw_partners_clients_30d_5cat by year
 table(sw_combined_raw$year, sw_combined_raw$sw_partners_total_30d_5cat, useNA = "ifany")
 
-missing_table <- sw_combined_raw %>%
-  mutate(
-    missing_sw_partners_clients_7d = is.na(sw_partners_clients_7d),
-    missing_sw_partners_clients_30d = is.na(sw_partners_clients_30d),
-    missing_sw_partners_nonclients_7d = is.na(sw_partners_nonclients_7d),
-    missing_sw_partners_nonclients_30d = is.na(sw_partners_nonclients_30d),
-    missing_sw_partners_total_7d = is.na(sw_partners_total_7d),
-    missing_sw_partners_total_30d = is.na(sw_partners_total_30d)
-  ) %>%
-  group_by(year) %>%
-  summarise(
-    missing_sw_partners_clients_7d = sum(missing_sw_partners_clients_7d),
-    missing_sw_partners_clients_30d = sum(missing_sw_partners_clients_30d),
-    missing_sw_partners_nonclients_7d = sum(missing_sw_partners_nonclients_7d),
-    missing_sw_partners_nonclients_30d = sum(missing_sw_partners_nonclients_30d),
-    missing_sw_partners_total_7d = sum(missing_sw_partners_total_7d),
-    missing_sw_partners_total_30d = sum(missing_sw_partners_total_30d)
-  )
-
-View(as.data.frame(missing_table))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
- 
-
-
-
-
-
-
-
-
-
-
-
-
-
-sw_combined_raw <- sw_combined_raw %>%
-  mutate(
-    partners_sw_7d_numeric = as.numeric(ifelse(partners_sw_7d %in% c("No answer","Do not remember","Refusal to answer",998,999), NA, partners_sw_7d)),
-    partners_nonsw_7d_numeric = as.numeric(ifelse(partners_nonsw_7d %in% c("No answer","Do not remember","Refusal to answer",998,999), NA, partners_nonsw_7d)),
-    partners_total_7d_numeric = as.numeric(ifelse(partners_total_7d %in% c("No answer","Do not remember","Refusal to answer",998,999), NA, partners_total_7d)),
-    partners_sw_24h_numeric = as.numeric(ifelse(partners_sw_24h %in% c("No answer","Do not remember","Refusal to answer",998,999), NA, partners_sw_24h)),
-    partners_sw_7d_cat = factor(case_when(
-      partners_sw_7d %in% c("No answer","Do not remember","Refusal to answer") ~ 5,
-      partners_sw_7d == "No question asked" ~ 6,
-      partners_sw_7d_numeric == 0 ~ 1,
-      partners_sw_7d_numeric %in% 1:3 ~ 2,
-      partners_sw_7d_numeric %in% 4:9 ~ 3,
-      partners_sw_7d_numeric %in% 10:19 ~ 4,
-      partners_sw_7d_numeric >= 20 ~ 5,
-      TRUE ~ NA_real_
-    ), levels = 1:6, labels = c("No partners","1-3","4-9","10-19","20+","No answer / Do not remember / Refusal / No question asked")),
-    partners_nonsw_7d_cat = factor(case_when(
-      partners_nonsw_7d %in% c("No answer","Do not remember","Refusal to answer") ~ 5,
-      partners_nonsw_7d == "No question asked" ~ 6,
-      partners_nonsw_7d_numeric == 0 ~ 1,
-      partners_nonsw_7d_numeric %in% 1:3 ~ 2,
-      partners_nonsw_7d_numeric %in% 4:9 ~ 3,
-      partners_nonsw_7d_numeric %in% 10:19 ~ 4,
-      partners_nonsw_7d_numeric >= 20 ~ 5,
-      TRUE ~ NA_real_
-    ), levels = 1:6, labels = c("No partners","1-3","4-9","10-19","20+","No answer / Do not remember / Refusal / No question asked")),
-    partners_total_7d_cat = factor(case_when(
-      partners_total_7d %in% c("No answer","Do not remember","Refusal to answer") ~ 5,
-      partners_total_7d == "No question asked" ~ 6,
-      partners_total_7d_numeric == 0 ~ 1,
-      partners_total_7d_numeric %in% 1:3 ~ 2,
-      partners_total_7d_numeric %in% 4:9 ~ 3,
-      partners_total_7d_numeric %in% 10:19 ~ 4,
-      partners_total_7d_numeric >= 20 ~ 5,
-      TRUE ~ NA_real_
-    ), levels = 1:6, labels = c("No partners","1-3","4-9","10-19","20+","No answer / Do not remember / Refusal / No question asked")),
-    partners_sw_24h_cat = factor(case_when(
-      partners_sw_24h %in% c("No answer","Do not remember","Refusal to answer") ~ 5,
-      partners_sw_24h == "No question asked" ~ 6,
-      partners_sw_24h_numeric == 0 ~ 1,
-      partners_sw_24h_numeric %in% 1:3 ~ 2,
-      partners_sw_24h_numeric %in% 4:9 ~ 3,
-      partners_sw_24h_numeric %in% 10:19 ~ 4,
-      partners_sw_24h_numeric >= 20 ~ 5,
-      TRUE ~ NA_real_
-    ), levels = 1:6, labels = c("No partners","1-3","4-9","10-19","20+","No answer / Do not remember / Refusal / No question asked"))
-  )
-table(sw_combined_raw$partners_sw_7d_cat, useNA = "ifany")
-table(sw_combined_raw$partners_nonsw_7d_cat, useNA = "ifany")
-table(sw_combined_raw$partners_total_7d_cat, useNA = "ifany")
-table(sw_combined_raw$partners_sw_24h_cat, useNA = "ifany")
-
-# missing counts by year for 7 day variables
-partners_missing_by_year <- sw_combined_raw %>%
-  group_by(year) %>%
-  summarise(
-    partners_sw_7d_missing = sum(is.na(partners_sw_7d_cat)),
-    partners_nonsw_7d_missing = sum(is.na(partners_nonsw_7d_cat)),
-    partners_total_7d_missing = sum(is.na(partners_total_7d_cat)),
-    .groups = "drop"
-  ) %>%
-  arrange(year)
-
-partners_missing_by_year
-
-# sex work volume past 30 days
-sw_combined_raw <- sw_combined_raw %>%
-  mutate(
-    partners_sw_30d_numeric = as.numeric(ifelse(partners_sw_30d %in% c("No answer","Do not remember","Refusal to answer",998,999,"Difficult to count"), NA, partners_sw_30d)),
-    partners_nonsw_perm_30d_numeric = as.numeric(ifelse(partners_nonsw_perm_30d %in% c("No answer","Do not remember","Refusal to answer",998,999,"Difficult to count"), NA, partners_nonsw_perm_30d)),
-    partners_nonsw_cas_30d_numeric = as.numeric(ifelse(partners_nonsw_cas_30d %in% c("No answer","Do not remember","Refusal to answer",998,999,"Difficult to count"), NA, partners_nonsw_cas_30d)),
-    partners_total_30d_numeric = as.numeric(ifelse(partners_total_30d %in% c("No answer","Do not remember","Refusal to answer",998,999,"Difficult to count"), NA, partners_total_30d)),
-    partners_sw_30d_cat = factor(case_when(
-      partners_sw_30d_numeric == 0 ~ 1,
-      partners_sw_30d_numeric %in% 1:5 ~ 2,
-      partners_sw_30d_numeric %in% 6:10 ~ 3,
-      partners_sw_30d_numeric %in% 11:20 ~ 4,
-      partners_sw_30d_numeric >= 21 ~ 5,
-      partners_sw_30d %in% c("No answer","Do not remember","Refusal to answer") ~ 6,
-      partners_sw_30d == "No question asked" ~ 7,
-      TRUE ~ NA_real_
-    ), levels = 1:7, labels = c("No partners","1-5","6-10","11-20","21+","No answer / Do not remember / Refusal","No question asked")),
-    partners_nonsw_perm_30d_cat = factor(case_when(
-      partners_nonsw_perm_30d_numeric == 0 ~ 1,
-      partners_nonsw_perm_30d_numeric %in% 1:5 ~ 2,
-      partners_nonsw_perm_30d_numeric %in% 6:10 ~ 3,
-      partners_nonsw_perm_30d_numeric %in% 11:20 ~ 4,
-      partners_nonsw_perm_30d_numeric >= 21 ~ 5,
-      partners_nonsw_perm_30d %in% c("No answer","Do not remember","Refusal to answer") ~ 6,
-      partners_nonsw_perm_30d == "No question asked" ~ 7,
-      TRUE ~ NA_real_
-    ), levels = 1:7, labels = c("No partners","1-5","6-10","11-20","21+","No answer / Do not remember / Refusal","No question asked")),
-    partners_nonsw_cas_30d_cat = factor(case_when(
-      partners_nonsw_cas_30d_numeric == 0 ~ 1,
-      partners_nonsw_cas_30d_numeric %in% 1:5 ~ 2,
-      partners_nonsw_cas_30d_numeric %in% 6:10 ~ 3,
-      partners_nonsw_cas_30d_numeric %in% 11:20 ~ 4,
-      partners_nonsw_cas_30d_numeric >= 21 ~ 5,
-      partners_nonsw_cas_30d %in% c("No answer","Do not remember","Refusal to answer") ~ 6,
-      partners_nonsw_cas_30d == "No question asked" ~ 7,
-      TRUE ~ NA_real_
-    ), levels = 1:7, labels = c("No partners","1-5","6-10","11-20","21+","No answer / Do not remember / Refusal","No question asked")),
-    partners_total_30d_cat = factor(case_when(
-      partners_total_30d_numeric == 0 ~ 1,
-      partners_total_30d_numeric %in% 1:5 ~ 2,
-      partners_total_30d_numeric %in% 6:10 ~ 3,
-      partners_total_30d_numeric %in% 11:20 ~ 4,
-      partners_total_30d_numeric >= 21 ~ 5,
-      partners_total_30d %in% c("No answer","Do not remember","Refusal to answer") ~ 6,
-      partners_total_30d == "No question asked" ~ 7,
-      TRUE ~ NA_real_
-    ), levels = 1:7, labels = c("No partners","1-5","6-10","11-20","21+","No answer / Do not remember / Refusal","No question asked")),
-    partners_nonsw_30d_numeric = rowSums(cbind(partners_nonsw_perm_30d_numeric, partners_nonsw_cas_30d_numeric), na.rm = TRUE),
-    partners_nonsw_30d_numeric = ifelse(is.na(partners_nonsw_perm_30d_numeric) & is.na(partners_nonsw_cas_30d_numeric), NA, partners_nonsw_30d_numeric),
-    partners_nonsw_30d_cat = factor(case_when(
-      partners_nonsw_30d_numeric == 0 ~ 1,
-      partners_nonsw_30d_numeric %in% 1:5 ~ 2,
-      partners_nonsw_30d_numeric %in% 6:10 ~ 3,
-      partners_nonsw_30d_numeric %in% 11:20 ~ 4,
-      partners_nonsw_30d_numeric >= 21 ~ 5,
-      partners_nonsw_perm_30d %in% c("No answer","Do not remember","Refusal to answer") |
-      partners_nonsw_cas_30d %in% c("No answer","Do not remember","Refusal to answer") ~ 6,
-      partners_nonsw_perm_30d == "No question asked" | partners_nonsw_cas_30d == "No question asked" ~ 7,
-      TRUE ~ NA_real_
-    ), levels = 1:7, labels = c("No partners","1-5","6-10","11-20","21+","No answer / Do not remember / Refusal","No question asked"))
-  )
-
-table(sw_combined_raw$partners_sw_30d_cat, useNA = "ifany")
-table(sw_combined_raw$partners_nonsw_30d_cat, useNA = "ifany")
-table(sw_combined_raw$partners_total_30d_cat, useNA = "ifany")
-
-# standardise time frames for 30 day variables
-days_in_month <- 30/7
-
-sw_combined_raw <- sw_combined_raw %>%
-  mutate(
-    partners_sw_30d_calc = ifelse(!is.na(partners_sw_30d_numeric), partners_sw_30d_numeric, partners_sw_7d_numeric * days_in_month),
-    partners_nonsw_30d_calc = ifelse(!is.na(partners_nonsw_30d_numeric), partners_nonsw_30d_numeric, partners_nonsw_7d_numeric * days_in_month),
-    partners_total_30d_calc = ifelse(!is.na(partners_total_30d_numeric), partners_total_30d_numeric, partners_total_7d_numeric * days_in_month)
-  )
-
-sw_combined_raw <- sw_combined_raw %>%
-  mutate(
-    partners_sw_30d_cat_calc = factor(case_when(
-      partners_sw_30d_calc == 0 ~ 1,
-      partners_sw_30d_calc %in% 1:5 ~ 2,
-      partners_sw_30d_calc %in% 6:10 ~ 3,
-      partners_sw_30d_calc %in% 11:20 ~ 4,
-      partners_sw_30d_calc >= 21 ~ 5,
-      partners_sw_30d %in% c("No answer","Do not remember","Refusal to answer") ~ 6,
-      partners_sw_30d == "No question asked" ~ 7,
-      TRUE ~ NA_real_
-    ), levels = 1:7, labels = c("No partners","1-5","6-10","11-20","21+","No answer / Do not remember / Refusal","No question asked")),
-
-    partners_nonsw_30d_cat_calc = factor(case_when(
-      partners_nonsw_30d_calc == 0 ~ 1,
-      partners_nonsw_30d_calc %in% 1:5 ~ 2,
-      partners_nonsw_30d_calc %in% 6:10 ~ 3,
-      partners_nonsw_30d_calc %in% 11:20 ~ 4,
-      partners_nonsw_30d_calc >= 21 ~ 5,
-      partners_nonsw_perm_30d %in% c("No answer","Do not remember","Refusal to answer") |
-      partners_nonsw_cas_30d %in% c("No answer","Do not remember","Refusal to answer") ~ 6,
-      partners_nonsw_perm_30d == "No question asked" | partners_nonsw_cas_30d == "No question asked" ~ 7,
-      TRUE ~ NA_real_
-    ), levels = 1:7, labels = c("No partners","1-5","6-10","11-20","21+","No answer / Do not remember / Refusal","No question asked")),
-
-    partners_total_30d_cat_calc = factor(case_when(
-      partners_total_30d_calc == 0 ~ 1,
-      partners_total_30d_calc %in% 1:5 ~ 2,
-      partners_total_30d_calc %in% 6:10 ~ 3,
-      partners_total_30d_calc %in% 11:20 ~ 4,
-      partners_total_30d_calc >= 21 ~ 5,
-      partners_total_30d %in% c("No answer","Do not remember","Refusal to answer") ~ 6,
-      partners_total_30d == "No question asked" ~ 7,
-      TRUE ~ NA_real_
-    ), levels = 1:7, labels = c("No partners","1-5","6-10","11-20","21+","No answer / Do not remember / Refusal","No question asked"))
-  )
-
-table(sw_combined_raw$partners_sw_30d_cat_calc, useNA = "ifany")
-table(sw_combined_raw$partners_nonsw_30d_cat_calc, useNA = "ifany")
-table(sw_combined_raw$partners_total_30d_cat_calc, useNA = "ifany")
-
-sw_combined_raw %>%
-  group_by(year) %>%
-  summarise(partners_sw_30d_missing = sum(is.na(partners_sw_30d_cat_calc)), .groups = "drop") %>%
-  arrange(year)
-
-sw_combined_raw %>%
-  group_by(year) %>%
-  summarise(
-    partners_sw_7d_numeric_missing = sum(is.na(partners_sw_7d_numeric)),
-    partners_sw_30d_numeric_missing = sum(is.na(partners_sw_30d_numeric))
-  )
-
-
-
-
-## prepare longitudinal data 
-
-# load data
-sw_data_linkage <- read_excel("SW IBBS linkage.xlsx")
-sw_data_2013_clean <- read_excel("sw_data_2013_clean.xlsx")
-sw_data_2015_clean <- read_excel("sw_data_2015_clean.xlsx")
-sw_data_2017_clean <- read_excel("sw_data_2017_clean.xlsx")
-sw_data_2021_clean <- read_excel("sw_data_2021_clean.xlsx")
-
-# Create a list of data frames and their corresponding IDs
-data_frames <- list(
-  "2013_id" = sw_data_2013_clean,
-  "2015_id" = sw_data_2015_clean,
-  "2017_id" = sw_data_2017_clean,
-  "2021_id" = sw_data_2021_clean
-)
-
-# Initialize an empty list to store the linked data frames
-linked_data <- list()
-
-# Loop through the data frames
-for (id_col in names(data_frames)) {
-  linked_data[[id_col]] <- sw_data_linkage %>%
-    select(id, !!sym(id_col)) %>%
-    left_join(data_frames[[id_col]], by = id_col)
+# Helper function: table + percentages
+table_pct <- function(x, y) {
+  tbl <- table(x, y, useNA = "ifany")
+  round(prop.table(tbl, margin = 1) * 100, 1)  # row-wise %, 1 decimal
 }
 
-# Only keep rows where the ID is not NA
-linked_data <- lapply(linked_data, function(df) {
-  df %>% filter(!is.na(id))
-})
+# Example usage
+table_sw_partners_clients_30d_5cat <- table_pct(sw_combined_raw$year, sw_combined_raw$sw_partners_clients_30d_5cat)
+table_sw_partners_clients_7d_5cat  <- table_pct(sw_combined_raw$year, sw_combined_raw$sw_partners_clients_7d_5cat)
+table_sw_partners_nonclients_30d_5cat <- table_pct(sw_combined_raw$year, sw_combined_raw$sw_partners_nonclients_30d_5cat)
+table_sw_partners_nonclients_7d_5cat  <- table_pct(sw_combined_raw$year, sw_combined_raw$sw_partners_nonclients_7d_5cat)
+table_sw_partners_total_7d_4cat  <- table_pct(sw_combined_raw$year, sw_combined_raw$sw_partners_total_7d_4cat)
+table_sw_partners_total_30d_5cat <- table_pct(sw_combined_raw$year, sw_combined_raw$sw_partners_total_30d_5cat)
 
-# Function to show levels for each variable
-variable_levels <- lapply(sw_data_2008_clean, function(x) {
-  if (is.factor(x)) {
-    levels(x)   # show levels if factor
-  } else if (is.character(x)) {
-    unique(x)   # show unique values if character
-  } else {
-    "continuous/numeric"  # mark numeric/continuous variables
-  }
-})
+# View one example
+table_sw_partners_clients_30d_5cat
+table_sw_partners_total_30d_5cat
+table_sw_partners_clients_7d_5cat
+table_sw_partners_total_7d_4cat
 
-# Print results
-variable_levels
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(across(c(
+    sw_partners_clients_30d,
+    sw_partners_perm_30d,
+    sw_partners_nonperm_30d,
+    sw_partners_total_30d
+  ), as.numeric))
+
+# Helper to safely compute range text
+range_text <- function(x) {
+  if(all(is.na(x))) NA_character_ else paste0(min(x, na.rm = TRUE), " - ", max(x, na.rm = TRUE))
+}
+
+# Convert all numeric columns
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(across(c(
+    sw_partners_clients_30d, sw_partners_perm_30d, sw_partners_nonperm_30d, sw_partners_total_30d,
+    sw_partners_clients_7d, sw_partners_perm_7d, sw_partners_nonperm_7d, sw_partners_nonclients_7d, sw_partners_total_7d
+  ), as.numeric))
+
+# Yearly summary
+summary_table <- sw_combined_raw %>%
+  group_by(year) %>%
+  summarise(
+    mean_sw_partners_clients_30d = mean(sw_partners_clients_30d, na.rm = TRUE),
+    range_sw_partners_clients_30d = range_text(sw_partners_clients_30d),
+    mean_sw_partners_perm_30d = mean(sw_partners_perm_30d, na.rm = TRUE),
+    range_sw_partners_perm_30d = range_text(sw_partners_perm_30d),
+    mean_sw_partners_nonperm_30d = mean(sw_partners_nonperm_30d, na.rm = TRUE),
+    range_sw_partners_nonperm_30d = range_text(sw_partners_nonperm_30d),
+    mean_sw_partners_total_30d = mean(sw_partners_total_30d, na.rm = TRUE),
+    range_sw_partners_total_30d = range_text(sw_partners_total_30d),
+    mean_sw_partners_clients_7d = mean(sw_partners_clients_7d, na.rm = TRUE),
+    range_sw_partners_clients_7d = range_text(sw_partners_clients_7d),
+    mean_sw_partners_perm_7d = mean(sw_partners_perm_7d, na.rm = TRUE),
+    range_sw_partners_perm_7d = range_text(sw_partners_perm_7d),
+    mean_sw_partners_nonperm_7d = mean(sw_partners_nonperm_7d, na.rm = TRUE),
+    range_sw_partners_nonperm_7d = range_text(sw_partners_nonperm_7d),
+    mean_sw_partners_nonclients_7d = mean(sw_partners_nonclients_7d, na.rm = TRUE),
+    range_sw_partners_nonclients_7d = range_text(sw_partners_nonclients_7d),
+    mean_sw_partners_total_7d = mean(sw_partners_total_7d, na.rm = TRUE),
+    range_sw_partners_total_7d = range_text(sw_partners_total_7d)
+  ) %>%
+  ungroup() %>%
+  mutate(year = as.character(year))  # Convert to character for bind_rows
+
+# Overall summary
+overall_summary <- sw_combined_raw %>%
+  summarise(
+    mean_sw_partners_clients_30d = mean(sw_partners_clients_30d, na.rm = TRUE),
+    range_sw_partners_clients_30d = range_text(sw_partners_clients_30d),
+    mean_sw_partners_perm_30d = mean(sw_partners_perm_30d, na.rm = TRUE),
+    range_sw_partners_perm_30d = range_text(sw_partners_perm_30d),
+    mean_sw_partners_nonperm_30d = mean(sw_partners_nonperm_30d, na.rm = TRUE),
+    range_sw_partners_nonperm_30d = range_text(sw_partners_nonperm_30d),
+    mean_sw_partners_total_30d = mean(sw_partners_total_30d, na.rm = TRUE),
+    range_sw_partners_total_30d = range_text(sw_partners_total_30d),
+    mean_sw_partners_clients_7d = mean(sw_partners_clients_7d, na.rm = TRUE),
+    range_sw_partners_clients_7d = range_text(sw_partners_clients_7d),
+    mean_sw_partners_perm_7d = mean(sw_partners_perm_7d, na.rm = TRUE),
+    range_sw_partners_perm_7d = range_text(sw_partners_perm_7d),
+    mean_sw_partners_nonperm_7d = mean(sw_partners_nonperm_7d, na.rm = TRUE),
+    range_sw_partners_nonperm_7d = range_text(sw_partners_nonperm_7d),
+    mean_sw_partners_nonclients_7d = mean(sw_partners_nonclients_7d, na.rm = TRUE),
+    range_sw_partners_nonclients_7d = range_text(sw_partners_nonclients_7d),
+    mean_sw_partners_total_7d = mean(sw_partners_total_7d, na.rm = TRUE),
+    range_sw_partners_total_7d = range_text(sw_partners_total_7d)
+  ) %>%
+  mutate(year = "Overall")
+
+# Combine
+summary_table <- bind_rows(summary_table, overall_summary)
+
+View(summary_table)
+
+# Condom use and access variables
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    # client condom at last sex
+    client_condom_lastsex_3cat = factor(
+      case_when(
+        grepl("^No$", client_condom_lastsex, ignore.case = TRUE) ~ 0,
+        grepl("^Yes$", client_condom_lastsex, ignore.case = TRUE) ~ 1,
+        grepl("No question asked|Difficult to answer|No answer|Don’t know|Don't know/don't remember|Refusal to answer", client_condom_lastsex, ignore.case = TRUE) ~ 2,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("No", "Yes", "Missing / Unknown")
+    ),
+
+    # client condom frequency past 30 days
+    client_condom_freq_30d_5cat = factor(
+      case_when(
+        grepl("^Never$", client_condom_freq_30d, ignore.case = TRUE) ~ 0,
+        grepl("Less than in a half of cases|Less often than half of the cases|Rarely|Sometimes", client_condom_freq_30d, ignore.case = TRUE) ~ 1,
+        grepl("In a half of cases|Half of the cases|In half of cases", client_condom_freq_30d, ignore.case = TRUE) ~ 2,
+        grepl("Not always, but more than in a half of cases|More often than half of the cases|In the majority of cases", client_condom_freq_30d, ignore.case = TRUE) ~ 3,
+        grepl("Always", client_condom_freq_30d, ignore.case = TRUE) ~ 4,
+        grepl("Do not know|No answer|Did not provide|I didn’t have such sex|No question asked", client_condom_freq_30d, ignore.case = TRUE) ~ 5,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2, 3, 4, 5),
+      labels = c("Never", "Less than half", "Half", "More than half", "Always", "Missing / Unknown")
+    ),
+
+    # condom with permanent partner last sex
+    perm_partner_condom_lastsex_3cat = factor(
+      case_when(
+        grepl("^No$", perm_partner_condom_lastsex, ignore.case = TRUE) ~ 0,
+        grepl("^Yes$", perm_partner_condom_lastsex, ignore.case = TRUE) ~ 1,
+        grepl("No such partner|No such partners|No permanent partners in the last 30 days|No answer|No question asked|Don’t know|Difficult to answer", perm_partner_condom_lastsex, ignore.case = TRUE) ~ 2,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("No", "Yes", "Missing / No partner")
+    ),
+
+    # condom with casual partner last sex
+    cas_partner_condom_lastsex_3cat = factor(
+      case_when(
+        grepl("^No$", cas_partner_condom_lastsex, ignore.case = TRUE) ~ 0,
+        grepl("^Yes$", cas_partner_condom_lastsex, ignore.case = TRUE) ~ 1,
+        grepl("No such partner|No such partners|No such partners in the last 30 days|No answer|No question asked|Difficult to answer|Don’t know", cas_partner_condom_lastsex, ignore.case = TRUE) ~ 2,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("No", "Yes", "Missing / No partner")
+    ),
+
+    # condom access past 12 months
+    condom_access_12m_3cat = factor(
+      case_when(
+        grepl("^No$", condom_access_12m, ignore.case = TRUE) ~ 0,
+        grepl("^Yes$", condom_access_12m, ignore.case = TRUE) ~ 1,
+        grepl("Difficult to answer|Do not remember|No answer|Don't know|Refusal to answer", condom_access_12m, ignore.case = TRUE) ~ 2,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("No", "Yes", "Missing / Unknown")
+    ),
+
+    # client condom binary past 30 days
+    client_condom_bin_30d_3cat = factor(
+      case_when(
+        grepl("^I used a condom every time$|^Always used$|^Yes, there was such a case$", client_condom_bin_30d, ignore.case = TRUE) ~ 1,
+        grepl("^There was a case of not using$|^No question asked$", client_condom_bin_30d, ignore.case = TRUE) ~ 0,
+        grepl("^No answer$|Difficult to answer|Don't know|Refusal to answer", client_condom_bin_30d, ignore.case = TRUE) ~ 2,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("No", "Yes", "Missing / Unknown")
+    ),
+
+    # permanent partner condom binary past 30 days
+    perm_partner_condom_30d_3cat = factor(
+      case_when(
+        grepl("^I used a condom every time$|^Always used$|^Yes, there was such a case$", perm_partner_condom_30d, ignore.case = TRUE) ~ 1,
+        grepl("^There was a case of not using$|^No question asked$", perm_partner_condom_30d, ignore.case = TRUE) ~ 0,
+        grepl("^No answer$|Difficult to answer|Don't know|Refusal to answer", perm_partner_condom_30d, ignore.case = TRUE) ~ 2,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("No", "Yes", "Missing / Unknown")
+    ),
+
+    # casual partner condom binary past 30 days
+    cas_partner_condom_30d_3cat = factor(
+      case_when(
+        grepl("^I used a condom every time$|^Always used$|^Yes, there was such a case$", cas_partner_condom_30d, ignore.case = TRUE) ~ 1,
+        grepl("^There was a case of not using$|^No question asked$", cas_partner_condom_30d, ignore.case = TRUE) ~ 0,
+        grepl("^No answer$|Difficult to answer|Don't know|Refusal to answer", cas_partner_condom_30d, ignore.case = TRUE) ~ 2,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("No", "Yes", "Missing / Unknown")
+    )
+  )
+
+condom_vars <- c(
+  "client_condom_lastsex_3cat",
+  "client_condom_freq_30d_5cat",
+  "client_condom_bin_30d_3cat",
+  "perm_partner_condom_lastsex_3cat",
+  "perm_partner_condom_30d_3cat",
+  "cas_partner_condom_lastsex_3cat",
+  "cas_partner_condom_30d_3cat",
+  "condom_access_12m_3cat"
+)
+
+# Crosstab each variable with year
+for (var in condom_vars) {
+  cat(var)
+  print(table(sw_combined_raw$year, sw_combined_raw[[var]], useNA = "ifany"))
+}
+
+# alcohol 30d
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    alcohol_30d_bin = factor(
+      case_when(
+        grepl("^Never$|^0$|Not used in the last 30 days", alcohol_30d_num, ignore.case = TRUE) ~ 0,  # No use
+        grepl("Every day|Almost every day|1-2 times a month|1-2 times a week|Less than once a week|No less than once a week|\\d+", alcohol_30d_num, ignore.case = TRUE) ~ 1,  # Any use
+        grepl("No answer|Don’t remember|Used, don't remember the amount|Refusal to answer|Don't know/don't remember", alcohol_30d_num, ignore.case = TRUE) ~ 2, # Missing / Unknown
+        TRUE ~ NA_real_  # Catch unexpected responses
+      ),
+      levels = c(0, 1, 2),
+      labels = c("No use", "Any use", "Missing / Unknown")
+    )
+  )
+
+table(sw_combined_raw$year, sw_combined_raw$alcohol_30d_bin, useNA = "ifany")
+
+# approximate number of times weekly
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    alcohol_30d_num_numeric = case_when(
+      grepl("^0$|Never|Not used in the last 30 days", alcohol_30d_num, ignore.case = TRUE) ~ 0,
+      grepl("1-2 times a month", alcohol_30d_num, ignore.case = TRUE) ~ 1,
+      grepl("Less than once a week", alcohol_30d_num, ignore.case = TRUE) ~ 1,
+      grepl("1-2 times a week", alcohol_30d_num, ignore.case = TRUE) ~ 6,
+      grepl("No less than once a week", alcohol_30d_num, ignore.case = TRUE) ~ 6,
+      grepl("Every day|Almost every day|Always", alcohol_30d_num, ignore.case = TRUE) ~ 30,
+      grepl("\\d+", alcohol_30d_num) ~ as.numeric(alcohol_30d_num),
+      TRUE ~ NA_real_
+    )
+  )
+
+# create alcohol use categorical variable
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    alcohol_30d_use_5cat = factor(
+      case_when(
+        alcohol_30d_num_numeric == 0 ~ 0,
+        alcohol_30d_num_numeric >= 1 & alcohol_30d_num_numeric <= 4 ~ 1,
+        alcohol_30d_num_numeric >= 5 & alcohol_30d_num_numeric <= 14 ~ 2,
+        alcohol_30d_num_numeric >= 15 ~ 3,
+        is.na(alcohol_30d_num_numeric) ~ 4
+      ),
+      levels = c(0, 1, 2, 3, 4),
+      labels = c("None [0]", "Low use [1–4 days]", "Moderate use [5–14 days]", "High use [15+ days]", "Missing / Unknown [NA]")
+    )
+  )
+
+table(sw_combined_raw$alcohol_30d_bin, useNA = "ifany")
+table(sw_combined_raw$alcohol_30d_use_3cat, useNA = "ifany")
+
+# drug use variables
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    drugs_30d_bin_3cat = factor(
+      case_when(
+        grepl("^No$", drugs_30d_bin, ignore.case = TRUE) ~ 0,
+        grepl("^Yes$", drugs_30d_bin, ignore.case = TRUE) ~ 1,
+        grepl("I used before, now I don’t|Never used|No answer|Difficult to answer", 
+              drugs_30d_bin, ignore.case = TRUE) ~ 2,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("No", "Yes", "Missing / Unknown")
+    ),
+    
+    idu_12m_3cat = factor(
+      case_when(
+        grepl("^No$|Never used|Used in the past, but not in the last 12 months|Yes, I have used more than 12 months ago", 
+              idu_12m_bin, ignore.case = TRUE) ~ 0,
+        grepl("Yes, I have used during last 12 months \\(not last 30 days\\)|Yes, I have used during last 30 days", 
+              idu_12m_bin, ignore.case = TRUE) ~ 1,
+        grepl("No answer|Difficult to answer|Difficult to answer/don’t remember|Refuse to answer", 
+              idu_12m_bin, ignore.case = TRUE) ~ 2,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("No", "Yes", "Missing / Unknown")
+    ),
+    
+    idu_ever_3cat = factor(
+      case_when(
+        grepl("^No$|Never used", idu_12m_bin, ignore.case = TRUE) ~ 0,
+        grepl("Yes, I have used during last 12 months \\(not last 30 days\\)|Yes, I have used during last 30 days|Used in the past, but not in the last 12 months|Yes, I have used more than 12 months ago",
+              idu_12m_bin, ignore.case = TRUE) ~ 1,
+        grepl("No answer|Difficult to answer|Difficult to answer/don’t remember|Refuse to answer", 
+              idu_12m_bin, ignore.case = TRUE) ~ 2,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("Never", "Ever", "Missing / Unknown")
+    ),
+    
+    idu_30d_num_numeric = case_when(
+      grepl("^Never$", idu_30d_num, ignore.case = TRUE) ~ 0,
+      grepl("^No answer$", idu_30d_num, ignore.case = TRUE) ~ NA_real_,
+      grepl("^No question asked$", idu_30d_num, ignore.case = TRUE) ~ 0,
+      grepl("^Only once a month$", idu_30d_num, ignore.case = TRUE) ~ 1,
+      grepl("^2-3 times a month$", idu_30d_num, ignore.case = TRUE) ~ 2.5,
+      grepl("^On average once a week$", idu_30d_num, ignore.case = TRUE) ~ 4,
+      grepl("^2-3 times a week$", idu_30d_num, ignore.case = TRUE) ~ 10,
+      grepl("^4-6 times a week$", idu_30d_num, ignore.case = TRUE) ~ 20,
+      grepl("^On average once a day$", idu_30d_num, ignore.case = TRUE) ~ 30,
+      grepl("^2-3 times a day$", idu_30d_num, ignore.case = TRUE) ~ 60,
+      grepl("^At least four times a day$", idu_30d_num, ignore.case = TRUE) ~ 120,
+      grepl("\\d+", idu_30d_num) ~ as.numeric(idu_30d_num),
+      TRUE ~ NA_real_
+    ),
+    
+    idu_30d_use_3cat = factor(
+      case_when(
+        idu_30d_num_numeric == 0 ~ 0,
+        idu_30d_num_numeric >= 1 & idu_30d_num_numeric <= 4 ~ 1,
+        idu_30d_num_numeric >= 5 & idu_30d_num_numeric <= 14 ~ 2,
+        idu_30d_num_numeric >= 15 ~ 3,
+        is.na(idu_30d_num_numeric) ~ 4
+      ),
+      levels = c(0, 1, 2, 3, 4),
+      labels = c("None [0]", "Low use [1–4]", "Moderate use [5–14]", "High use [15+]", "Missing / Unknown [NA]")
+    ),
+    
+    used_syringe_last_3cat = factor(
+      case_when(
+        grepl("^No$|No, I did not|Never$|No question asked$", used_syringe_last, ignore.case = TRUE) ~ 0,
+        grepl("^Yes$|Yes, I did$", used_syringe_last, ignore.case = TRUE) ~ 1,
+        grepl("No answer|I don't know how the syringe was filled|Don’t remember|Refusal to answer|Don't know/don't remember", used_syringe_last, ignore.case = TRUE) ~ 2,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("No", "Yes", "Missing / Unknown")
+    ),
+    
+    used_syringe_30d_bin_3cat = factor(
+      case_when(
+        grepl("^No$|Never$|No question asked$", used_syringe_30d_bin, ignore.case = TRUE) ~ 0,
+        grepl("Always|Not always, but more than in a half of cases \\(>50% cases\\)|In a half of cases \\(50% cases\\)|Less than in a half of cases \\(<50% cases\\)", used_syringe_30d_bin, ignore.case = TRUE) ~ 1,
+        grepl("No answer|I don't know how the syringe was filled|Don’t remember|Refusal to answer|Don't know/don't remember", used_syringe_30d_bin, ignore.case = TRUE) ~ 2,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("No", "Yes", "Missing / Unknown")
+    )
+  )
+
+table(sw_combined_raw$year, sw_combined_raw$drugs_30d_bin_3cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$idu_12m_3cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$idu_ever_3cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$idu_30d_use_3cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$used_syringe_last_3cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$used_syringe_30d_bin_3cat, useNA = "ifany")
+
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    # NGO lifetime
+    ngo_access_lifetime_3cat = factor(
+      case_when(
+        grepl("^No$", ngo_access_lifetime, ignore.case = TRUE) ~ 0,
+        grepl("^Yes$", ngo_access_lifetime, ignore.case = TRUE) ~ 1,
+        grepl("No answer|Don’t remember|Don't know/don't remember|Refusal to answer",
+              ngo_access_lifetime, ignore.case = TRUE) ~ 2,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("No", "Yes", "Missing / Unknown")
+    ),
+
+    # NGO past 12 months
+    ngo_access_12m_3cat = factor(
+      case_when(
+        grepl("^No$", ngo_access_12m, ignore.case = TRUE) ~ 0,
+        grepl("^Yes$", ngo_access_12m, ignore.case = TRUE) ~ 1,
+        grepl("No answer|Don’t remember|Don't know/don't remember|Refusal to answer",
+              ngo_access_12m, ignore.case = TRUE) ~ 2,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("No", "Yes", "Missing / Unknown")
+    ),
+
+    # NGO past 30 days
+    ngo_access_30d_3cat = factor(
+      case_when(
+        grepl("^No$", ngo_access_30d, ignore.case = TRUE) ~ 0,
+        grepl("^Yes$", ngo_access_30d, ignore.case = TRUE) ~ 1,
+        grepl("No answer|Don’t remember|Don't know/don't remember|Refusal to answer",
+              ngo_access_30d, ignore.case = TRUE) ~ 2,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("No", "Yes", "Missing / Unknown")
+    ),
+
+    # AIDS center access
+    aids_center_bin_3cat = factor(
+      case_when(
+        grepl("^No$", aids_center_bin, ignore.case = TRUE) ~ 0,
+        grepl("^Yes$", aids_center_bin, ignore.case = TRUE) ~ 1,
+        grepl("No answer|No question asked|Refusal to answer|Don't know|don't remember",
+              aids_center_bin, ignore.case = TRUE) ~ 2,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("No", "Yes", "Missing / Unknown")
+    )
+  )
+
+table(sw_combined_raw$year, sw_combined_raw$aids_center_bin_3cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$ngo_access_lifetime_3cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$ngo_access_12m_3cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$ngo_access_30d_3cat, useNA = "ifany")
+
+# HIV variables
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    hiv_tested_lifetime_3cat = factor(
+      case_when(
+        grepl("^Yes$", hiv_tested_lifetime, ignore.case = TRUE) ~ 1,
+        grepl("^No$|I have not been tested for HIV|No, it was more than 12 months ago", hiv_tested_lifetime, ignore.case = TRUE) ~ 0,
+        grepl("No answer|Difficult to answer|Don't know/don't remember|Refusal to answer|No question asked", hiv_tested_lifetime, ignore.case = TRUE) ~ 2,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("No", "Yes", "Missing / Unknown")
+    ),
+    
+    hiv_tested_12m_3cat = factor(
+      case_when(
+        grepl("Yes, it was during the recent 12 months|Yes, it was within the last 12 months", hiv_tested_12m, ignore.case = TRUE) ~ 1,
+        grepl("No, it was earlier than 12 months ago|No|I have not been tested for HIV", hiv_tested_12m, ignore.case = TRUE) ~ 0,
+        grepl("No answer|Difficult to answer|Don't know/don't remember|Refusal to answer|No question asked", hiv_tested_12m, ignore.case = TRUE) ~ 2,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("No", "Yes", "Missing / Unknown")
+    ),
+    
+    hiv_tested_result_3cat = factor(
+      case_when(
+        grepl("^Yes$|HIV-negative|Yes, HIV-negative", hiv_tested_result, ignore.case = TRUE) ~ 1,
+        grepl("^No$|HIV-positive|Yes, HIV-positive|Ні", hiv_tested_result, ignore.case = TRUE) ~ 0,
+        grepl("No answer|Difficult to answer|Don't know/don't remember|Refusal to answer|Waiting for a result|No question asked", hiv_tested_result, ignore.case = TRUE) ~ 2,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("No", "Yes", "Missing / Unknown")
+    ),
+    
+    hiv_status_selfreport_3cat = factor(
+      case_when(
+        grepl("HIV negative|HIV-negative|Yes, HIV-negative", hiv_status_selfreport, ignore.case = TRUE) ~ 1,
+        grepl("HIV positive|HIV-positive|Yes, HIV-positive|Ні|No", hiv_status_selfreport, ignore.case = TRUE) ~ 0,
+        grepl("No answer|Difficult to answer|Don't know/don't remember|Refusal to answer|No question asked", hiv_status_selfreport, ignore.case = TRUE) ~ 2,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("No", "Yes", "Missing / Unknown")
+    )
+  )
+
+table(sw_combined_raw$year, sw_combined_raw$hiv_tested_lifetime_3cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$hiv_tested_12m_3cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$hiv_tested_result_3cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$hiv_status_selfreport_3cat, useNA = "ifany")
+
+# sexual activity past week
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    sw_days_total_7d_3cat = factor(
+      case_when(
+        sw_days_total_7d == 0 ~ 0,
+        sw_days_total_7d >= 1 & sw_days_total_7d <= 4 ~ 1,
+        sw_days_total_7d >= 5 & sw_days_total_7d <= 7 ~ 2,
+        grepl("No answer|Difficult to answer|Refusal to answer|Don't know/don't remember|Don’t remember", sw_days_total_7d, ignore.case = TRUE) ~ 3,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2, 3),
+      labels = c("0 days", "1–4 days", "5–7 days", "Missing / Unknown")
+    )
+  )
+
+table(sw_combined_raw$year, sw_combined_raw$sw_days_total_7d_3cat, useNA = "ifany")
+
+# housing (need to fix because its stored so fucking strangely)
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    residence_3cat = factor(
+      case_when(
+        grepl("Separate apartment|Shared apartment|Shelter|boarding house|children’s home", residence, ignore.case = TRUE) ~ 0,
+        grepl("Hostel|Communal apartment|Basement|attic|Street|nowhere to live|Other", residence, ignore.case = TRUE) ~ 1,
+        grepl("No answer|Difficult to answer|Refusal to answer", residence, ignore.case = TRUE) ~ 2,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("Stable housing", "Unstable housing", "Missing / Unknown")
+    )
+  )
+
+table(sw_combined_raw$year, sw_combined_raw$residence_3cat, useNA = "ifany")
+
+# sex work typology
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    # 6-month typology
+    typology_primary_6m_3cat = factor(
+      case_when(
+        grepl("On a highway|In a sauna|In the street|At stations|At bus stops",
+              typology_primary_6m, ignore.case = TRUE) ~ 0,
+        grepl("In a casino|club|bar|discotheque|At a hotel|Provide escort services|Phone calls|Internet|Through friends|acquaintances|pimps|other clients|I have regular clients",
+              typology_primary_6m, ignore.case = TRUE) ~ 1,
+        grepl("No answer|Difficult to answer",
+              typology_primary_6m, ignore.case = TRUE) ~ 2,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("Street/Outdoor", "Indoor/Clients", "Missing / Unknown")
+    ),
+
+    # 30-day typology
+    typology_primary_30d_3cat = factor(
+      case_when(
+        grepl("highways|roads|street|park|square|stations|bus stops|public transport stops|beach|markets|public events",
+              typology_primary_30d, ignore.case = TRUE) ~ 0,
+        grepl("disco|nightclub|club|strip|sauna|bath|massage|spa|beauty|bar|restaurant|cafe|hotel|motel|casino|fitness|modeling|educational|school|Internet|Tinder|social media|phone|TV|intermediaries|pimp|madam|clients|FSWs|friends|acquaintances",
+              typology_primary_30d, ignore.case = TRUE) ~ 1,
+        grepl("No answer|Difficult to answer",
+              typology_primary_30d, ignore.case = TRUE) ~ 2,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("Street/Outdoor", "Indoor/Clients", "Missing / Unknown")
+    ),
+
+    # typology across years
+    typology_primary_3cat = factor(
+      case_when(
+        year %in% c(2008, 2009, 2011) ~ as.character(typology_primary_6m_3cat),
+        year %in% c(2013, 2015, 2017, 2021) ~ as.character(typology_primary_30d_3cat),
+        TRUE ~ NA_character_
+      ),
+      levels = c("Street/Outdoor", "Indoor/Clients", "Missing / Unknown")
+    )
+  )
+
+# create street based
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    street_sw_bin = case_when(
+      typology_primary_3cat == "Street/Outdoor" ~ "Yes",
+      typology_primary_3cat == "Indoor/Clients" ~ "No",
+      TRUE ~ NA_character_
+    ),
+    street_sw_bin = factor(street_sw_bin, levels = c("No", "Yes"))
+  )
+table(sw_combined_raw$street_sw_bin, useNA = "ifany")
+
+table(sw_combined_raw$year, sw_combined_raw$typology_primary_3cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$typology_primary_30d_3cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$typology_primary_6m_3cat, useNA = "ifany")
+
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    partners_age_6m_h = case_when(
+      grepl("Youth|Young men", partners_age_6m, ignore.case = TRUE) ~ 0,
+      grepl("middle age", partners_age_6m, ignore.case = TRUE) ~ 1,
+      grepl("above 50", partners_age_6m, ignore.case = TRUE) ~ 2,
+      TRUE ~ NA_real_
+    ),
+    partners_age_30d_h = case_when(
+      grepl("18-25|19-24|25-34|26-35|Young", partners_age_30d, ignore.case = TRUE) ~ 0,
+      grepl("35-49|36-50|middle age|Middle-aged", partners_age_30d, ignore.case = TRUE) ~ 1,
+      grepl("above 50|over 50", partners_age_30d, ignore.case = TRUE) ~ 2,
+      TRUE ~ NA_real_
+    ),
+    partners_age_3cat = case_when(
+      year %in% c(2008, 2009, 2011) ~ partners_age_6m_h,
+      year %in% c(2013, 2015, 2017, 2021) ~ partners_age_30d_h,
+      TRUE ~ NA_real_
+    ),
+
+    partners_age_3cat = factor(
+      partners_age_3cat,
+      levels = c(0, 1, 2),
+      labels = c("18-35", "36-59", "50+")
+    )
+  )
+
+table(sw_combined_raw$year, sw_combined_raw$partners_age_3cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$partners_age_30d_3cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$partners_age_6m_3cat, useNA = "ifany")
+
+# art use
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    art_current_3cat = factor(
+      case_when(
+        grepl("^Yes|Yes, currently|I’m currently participating", art_current, ignore.case = TRUE) ~ 1,  # On ART
+        grepl("^No$|Participated, but now don’t receive|I used to earlier|No, but|NO, but", art_current, ignore.case = TRUE) ~ 0,  # Not on ART
+        grepl("No question asked|No answer|I have used but stopped", art_current, ignore.case = TRUE) ~ 2,  # Missing / Unknown
+        TRUE ~ 2  # Catch any unexpected responses
+      ),
+      levels = c(0, 1, 2),
+      labels = c("No / Not on ART", "Yes / Currently on ART", "Missing / Unknown")
+    )
+  )
+
+table(sw_combined_raw$year, sw_combined_raw$art_current_3cat, useNA = "ifany")
+
+# violence variables
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    violence_any_ever_3cat = factor(
+      case_when(
+        grepl("^Yes|Так$", violence_any_ever, ignore.case = TRUE) ~ 1,
+        grepl("^No|Ні$", violence_any_ever, ignore.case = TRUE) ~ 0,
+        grepl("НЕМАЄ ВІДПОВІДІ|ВАЖКО ВІДПОВІСТИ|Refusal to answer|Don't know|Don't remember", 
+              violence_any_ever, ignore.case = TRUE) ~ 2,
+        TRUE ~ 2  # Catch any unexpected responses
+      ),
+      levels = c(0, 1, 2),
+      labels = c("No", "Yes", "Missing / Unknown")
+    )
+  )
+
+violence_vars <- c(
+  "violence_rape_ever",
+  "violence_beaten_ever",
+  "violence_humiliated_ever",
+  "violence_physical_abuse_ever",
+  "violence_client",
+  "violence_perm_partner",
+  "violence_casual_partner",
+  "violence_police",
+  "violence_pimp",
+  "violence_fsw",
+  "violence_support_ngo"
+)
+
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(across(
+    all_of(violence_vars),
+    ~ factor(
+        case_when(
+          grepl("^Yes$", ., ignore.case = TRUE) ~ 1,
+          grepl("^No$|No question asked", ., ignore.case = TRUE) ~ 0,
+          grepl("Don't know|Don't remember|Refusal to answer", ., ignore.case = TRUE) ~ 2,
+          TRUE ~ 2  # any unexpected responses
+        ),
+        levels = c(0, 1, 2),
+        labels = c("No", "Yes", "Missing / Unknown")
+      )
+  ))
+
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    violence_rape_12m_3cat = factor(
+      case_when(
+        grepl("^Yes$", violence_rape_12m, ignore.case = TRUE) ~ 1,
+        grepl("^No$", violence_rape_12m, ignore.case = TRUE) ~ 0,
+        grepl("Refuse to answer|Refused to answer", violence_rape_12m, ignore.case = TRUE) ~ 2,
+        TRUE ~ 2  # catch unexpected responses
+      ),
+      levels = c(0, 1, 2),
+      labels = c("No", "Yes", "Missing / Unknown")
+    )
+  )
+
+table(sw_combined_raw$year, sw_combined_raw$violence_rape_12m_3cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$violence_rape_ever, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$violence_beaten_ever, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$violence_humiliated_ever, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$violence_physical_abuse_ever, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$violence_client, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$violence_any_ever_3cat, useNA = "ifany")
+
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    prep_12m_3cat = factor(
+      case_when(
+        grepl("^Yes$|Yes, I have taken PrEP drugs and take it now|Yes, I have taken PrEP drugs but do not take it now", prep_12m, ignore.case = TRUE) ~ 1,
+        grepl("^No$|No, I have not", prep_12m, ignore.case = TRUE) ~ 0,
+        grepl("No question asked|Don’t remember|Refusal to answer|Don't know/don't remember", prep_12m, ignore.case = TRUE) ~ 2,
+        TRUE ~ 2  # any unexpected responses
+      ),
+      levels = c(0, 1, 2),
+      labels = c("No", "Yes", "Missing / Unknown")
+    )
+  )
+
+# Check distribution by year
+table(sw_combined_raw$year, sw_combined_raw$prep_12m_3cat, useNA = "ifany")
+
+# depression and anxiety
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    anxiety_3cat = factor(
+      case_when(
+        grepl("Absent|Minimal|Mild", anxiety, ignore.case = TRUE) ~ 0,
+        grepl("Moderate|Medium", anxiety, ignore.case = TRUE) ~ 1,
+        grepl("Severe|High|Moderately severe", anxiety, ignore.case = TRUE) ~ 2,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("Low / Absent", "Moderate", "High / Severe")
+    ),
+    
+    depression_3cat = factor(
+      case_when(
+        grepl("Absent|Minimal|Mild", mental_health, ignore.case = TRUE) ~ 0,
+        grepl("Moderate|Medium", mental_health, ignore.case = TRUE) ~ 1,
+        grepl("Severe|High|Moderately severe", mental_health, ignore.case = TRUE) ~ 2,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("Low / Absent", "Moderate", "High / Severe")
+    )
+  )
+
+table(sw_combined_raw$year, sw_combined_raw$anxiety_3cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$depression_3cat, useNA = "ifany")
+
+# stigma questions
+avoided_vars <- c(
+  "avoided_healthcare_12m_stigma", "avoided_healthcare_12m_disclosure",
+  "avoided_healthcare_12m_violence", "avoided_healthcare_12m_police",
+  "avoided_hiv_test_12m_stigma", "avoided_hiv_test_12m_disclosure",
+  "avoided_hiv_test_12m_violence", "avoided_hiv_test_12m_police",
+  "avoided_hiv_care_12m_stigma", "avoided_hiv_care_12m_disclosure",
+  "avoided_hiv_care_12_violence", "avoided_hiv_care_12m_police",
+  "avoided_hiv_treat_12m_stigma", "avoided_hiv_treat_12m_disclosure",
+  "avoided_hiv_treat_12m_violence", "avoided_hiv_treat_12m_police"
+)
+
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(across(
+    all_of(avoided_vars),
+    ~ factor(case_when(
+        grepl("^Yes$", ., ignore.case = TRUE) ~ 1,
+        grepl("^No$", ., ignore.case = TRUE) ~ 0,
+        grepl("No question asked|Don't know|Don't remember|Refusal|Difficult to answer", ., ignore.case = TRUE) ~ 2,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("No", "Yes", "Missing / Unknown")
+    ),
+    .names = "{.col}_3cat"
+  ))
+
+# hiv and syphilis test results
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    hiv_test_rslt_bin = case_when(
+      year == 2017 & (grepl("No answer|No question asked", hiv_test_rslt, ignore.case = TRUE) | is.na(hiv_test_rslt)) ~ "Negative",
+      grepl("^Negative$", hiv_test_rslt, ignore.case = TRUE) ~ "Negative",
+      grepl("^Positive$", hiv_test_rslt, ignore.case = TRUE) ~ "Positive",
+      grepl("No answer|No question asked", hiv_test_rslt, ignore.case = TRUE) | is.na(hiv_test_rslt) ~ NA_character_,
+      TRUE ~ NA_character_
+    ),
+    hiv_test_rslt_bin = factor(
+      hiv_test_rslt_bin,
+      levels = c("Negative", "Positive")
+    ),
+    syphilis_test_rslt_3cat = case_when(
+      grepl("^Negative$", syphilis_test_rslt, ignore.case = TRUE) ~ "Negative",
+      grepl("^Positive$", syphilis_test_rslt, ignore.case = TRUE) ~ "Positive",
+      grepl("No answer|No question asked", syphilis_test_rslt, ignore.case = TRUE) ~ "Missing / Unknown",
+      TRUE ~ NA_character_
+    ),
+    syphilis_test_rslt_3cat = factor(
+      syphilis_test_rslt_3cat,
+      levels = c("Negative", "Positive", "Missing / Unknown")
+    )
+  )
+
+table(sw_combined_raw$year, sw_combined_raw$hiv_test_rslt_bin, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$syphilis_test_rslt_3cat, useNA = "ifany")
+
+# create ukraine regions
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(ukraine_region = case_when(
+    city %in% c("Chernivtsi", "Ivano-Frankivsk", "Lutsk", "Lviv", "Ternopil", "Uzhhorod") ~ "West",
+    city %in% c("Cherkasy", "Khmelnytskyi", "Kropyvnytskyi", "Kyiv", "Poltava", "Vinnytsya", "Zhytomyr") ~ "Central",
+    city %in% c("Dnipro", "Donetsk", "Kharkiv", "Mariupol") ~ "East",
+    city %in% c("Kherson", "Mykolayiv", "Odesa") ~ "South",
+    city %in% c("Zaporizhzhya") ~ "South-East",
+    city %in% c("Sumy") ~ "North-East",
+    city %in% c("Sevastopol", "Simferopol") ~ "Crimea",
+    TRUE ~ "Other"
+  ))
+
+# check and save appended cleaned datasets
+dim(sw_combined_raw)
+names(sw_combined_raw)
+table(sw_combined_raw$year)
+saveRDS(sw_combined_raw, "sw_combined_clean.rds")
+
