@@ -632,6 +632,7 @@ rename_map_2017 <- c(
   age_first_sw = "В2. How old were you when you provided sexual services for a fee (money or other) for the first time?",
   city = "City",
   city_travel_12m = "А12. Have you ever left this city for more than 1 month [30 days] during THE LAST 12 MONTHS to provide sexual services?",
+  partners_sw_24h = "В5. How many different CLIENTS whom you provided sexual services for a fee you had FOR THE LAST WORKING DAY (24 HOURS)?",
   sw_partners_reg_clients_7d = "sw_partners_reg_clients_7d",
   sw_partners_reg_clients_30d_raw = "sw_partners_reg_clients_30d_raw",
   sw_partners_irreg_clients_30d_raw = "sw_partners_irreg_clients_30d_raw",
@@ -986,6 +987,11 @@ sw_combined_raw <- sw_combined_raw %>%
       age_numeric >= 35 ~ 3,
       TRUE ~ NA_real_
     ), levels = c(0, 1, 2, 3), labels = c("Underage", "18-24", "25-34", "35+")),
+    age_bin = factor(case_when(
+      age_numeric <25 ~ 0,
+      age_numeric >= 25 & age_numeric < 96 ~ 1,
+      TRUE ~ NA_real_
+    ), levels = c(0, 1), labels = c("No", "Yes")),
     age_first_sex_cat = factor(case_when(
       age_first_sex_numeric < 18 ~ 0,
       age_first_sex_numeric >= 18 & age_first_sex_numeric <= 24 ~ 1,
@@ -1007,6 +1013,7 @@ sw_combined_raw <- sw_combined_raw %>%
 
 table(sw_combined_raw$age_cat, useNA = "ifany")
 table(sw_combined_raw$age_first_sex_cat, useNA = "ifany")
+table(sw_combined_raw$age_bin, useNA = "ifany")
 table(sw_combined_raw$age_first_sw_cat, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$underage_first_sw_bin, useNA = "ifany")
 
@@ -1048,6 +1055,12 @@ table(sw_combined_raw$city_travel_12m_cat, useNA = "ifany")
 
 # volumne of clients variables past 7 days
 sw_combined_raw <- sw_combined_raw %>%
+  mutate(across(c(
+    sw_partners_clients_30d, sw_partners_perm_30d, sw_partners_nonperm_30d, sw_partners_total_30d, partners_sw_24h,
+    sw_partners_clients_7d, sw_partners_perm_7d, sw_partners_nonperm_7d, sw_partners_nonclients_7d, sw_partners_total_7d
+  ), as.numeric))
+
+sw_combined_raw <- sw_combined_raw %>%
   mutate(
     sw_partners_clients_7d_5cat = factor(
       case_when(
@@ -1061,153 +1074,73 @@ sw_combined_raw <- sw_combined_raw %>%
       levels = 0:4,
       labels = c("No client partners", "1-3", "4-9", "10-19", "20+")
     ),
-    sw_partners_clients_30d_5cat = factor(
+    sw_partners_clients_30d_4cat = factor(
       case_when(
         sw_partners_clients_30d >= 0  & sw_partners_clients_30d <= 19  ~ 0,
         sw_partners_clients_30d >= 20 & sw_partners_clients_30d <= 49  ~ 1,
         sw_partners_clients_30d >= 50 & sw_partners_clients_30d <= 74  ~ 2,
-        sw_partners_clients_30d >= 75 & sw_partners_clients_30d <= 99  ~ 3,
-        sw_partners_clients_30d >= 100 ~ 4,
+        sw_partners_clients_30d >= 75 ~ 3,
         TRUE ~ NA_real_
-      ),
-      levels = 0:4,
-      labels = c("0-19", "20-49", "50-74", "74-99", "100+")
-    ),
-  sw_partners_nonclients_7d_5cat = factor(case_when(
+      ), 
+      levels = 0:3, 
+      labels = c("0-19","20-49","50-74","75+")
+    ),     
+    sw_partners_nonclients_7d_5cat = factor(case_when(
       sw_partners_nonclients_7d == 0 ~ 0,
       sw_partners_nonclients_7d %in% 1:3 ~ 1,
       sw_partners_nonclients_7d %in% 4:9 ~ 2,
       sw_partners_nonclients_7d %in% 10:19 ~ 3,
       sw_partners_nonclients_7d >= 20 ~ 4,
       TRUE ~ NA_real_
-    ), levels = 0:4, labels = c("No non-client partners","1-3","4-9","10-19","20+")),
-  sw_partners_nonclients_30d_5cat = factor(case_when(
-      sw_partners_nonclients_30d >= 0 & sw_partners_nonclients_30d < 5 ~ 0,
-      sw_partners_nonclients_30d >= 5 & sw_partners_nonclients_30d < 10 ~ 1,
-      sw_partners_nonclients_30d >= 10 & sw_partners_nonclients_30d < 20 ~ 2,
-      sw_partners_nonclients_30d >= 20 & sw_partners_nonclients_30d < 30 ~ 3,
-      sw_partners_nonclients_30d >= 30 ~ 4,
+      ), levels = 0:4, labels = c("No non-client partners","1-3","4-9","10-19","20+")),
+    sw_partners_nonclients_30d_5cat = factor(case_when(
+        sw_partners_nonclients_30d >= 0 & sw_partners_nonclients_30d < 5 ~ 0,
+        sw_partners_nonclients_30d >= 5 & sw_partners_nonclients_30d < 10 ~ 1,
+        sw_partners_nonclients_30d >= 10 & sw_partners_nonclients_30d < 20 ~ 2,
+        sw_partners_nonclients_30d >= 20 & sw_partners_nonclients_30d < 30 ~ 3,
+        sw_partners_nonclients_30d >= 30 ~ 4,
+        TRUE ~ NA_real_
+      ), levels = 0:4, labels = c("0-4","5-9","10-19","20-29","30+")),
+    sw_partners_total_7d_4cat = factor(case_when(
+        sw_partners_total_7d %in% 0:3 ~ 1,
+        sw_partners_total_7d %in% 4:9 ~ 2,
+        sw_partners_total_7d %in% 10:19 ~ 3,
+        sw_partners_total_7d >= 20 ~ 4,
+        TRUE ~ NA_real_
+      ), levels = 1:4, labels = c("0-3","4-9","10-19","20+")),
+    sw_partners_total_30d_5cat = factor(case_when(
+      sw_partners_total_30d >= 0  & sw_partners_total_30d <= 19  ~ 0,
+      sw_partners_total_30d >= 20 & sw_partners_total_30d <= 49  ~ 1,
+      sw_partners_total_30d >= 50 & sw_partners_total_30d <= 74  ~ 2,
+      sw_partners_total_30d >= 75 & sw_partners_total_30d <= 99  ~ 3,
+      sw_partners_total_30d >= 100 ~ 4,
       TRUE ~ NA_real_
-    ), levels = 0:4, labels = c("0-4","5-9","10-19","20-29","30+")),
-  sw_partners_total_7d_4cat = factor(case_when(
-      sw_partners_total_7d %in% 0:3 ~ 1,
-      sw_partners_total_7d %in% 4:9 ~ 2,
-      sw_partners_total_7d %in% 10:19 ~ 3,
-      sw_partners_total_7d >= 20 ~ 4,
+      ), levels = 0:4, labels = c("0-19","20-49","50-74","74-99","100+")), 
+    sw_partners_total_30d_4cat = factor(case_when(
+      sw_partners_total_30d >= 0  & sw_partners_total_30d <= 19  ~ 0,
+      sw_partners_total_30d >= 20 & sw_partners_total_30d <= 49  ~ 1,
+      sw_partners_total_30d >= 50 & sw_partners_total_30d <= 74  ~ 2,
+      sw_partners_total_30d >= 75 ~ 3,
       TRUE ~ NA_real_
-    ), levels = 1:4, labels = c("0-3","4-9","10-19","20+")),
-  sw_partners_total_30d_5cat = factor(case_when(
-    sw_partners_total_30d >= 0  & sw_partners_total_30d <= 19  ~ 0,
-    sw_partners_total_30d >= 20 & sw_partners_total_30d <= 49  ~ 1,
-    sw_partners_total_30d >= 50 & sw_partners_total_30d <= 74  ~ 2,
-    sw_partners_total_30d >= 75 & sw_partners_total_30d <= 99  ~ 3,
-    sw_partners_total_30d >= 100 ~ 4,
-    TRUE ~ NA_real_
-    ), levels = 0:4, labels = c("0-19","20-49","50-74","74-99","100+")), 
-)
+      ), levels = 0:3, labels = c("0-19","20-49","50-74","75+")),     
+    sw_partners_total_24h_5cat = factor(case_when(
+      partners_sw_24h == 0 ~ 0,
+      partners_sw_24h >= 1 & partners_sw_24h <3 ~ 1,
+      partners_sw_24h >= 3 & partners_sw_24h <6 ~ 2,
+      partners_sw_24h >= 6 & partners_sw_24h <11 ~ 3,
+      partners_sw_24h >= 11 & partners_sw_24h <98 ~ 4,
+      TRUE ~ NA_real_
+      ), levels = 0:4, labels = c("0","1-2","3-5","6-10","11+"))
+    )
 
 # tab categorical variables
-table(sw_combined_raw$year, sw_combined_raw$sw_partners_clients_30d_5cat, useNA = "ifany")
-table(sw_combined_raw$year, sw_combined_raw$sw_partners_clients_7d_5cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$sw_partners_clients_30d_4cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$sw_partners_clients_7d_4cat, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$sw_partners_nonclients_30d_5cat, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$sw_partners_nonclients_7d_5cat, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$sw_partners_total_7d_4cat, useNA = "ifany")
-table(sw_combined_raw$year, sw_combined_raw$sw_partners_total_30d_5cat, useNA = "ifany")
-
-# Helper function: table + percentages
-table_pct <- function(x, y) {
-  tbl <- table(x, y, useNA = "ifany")
-  round(prop.table(tbl, margin = 1) * 100, 1)  # row-wise %, 1 decimal
-}
-
-# Example usage
-table_sw_partners_clients_30d_5cat <- table_pct(sw_combined_raw$year, sw_combined_raw$sw_partners_clients_30d_5cat)
-table_sw_partners_clients_7d_5cat  <- table_pct(sw_combined_raw$year, sw_combined_raw$sw_partners_clients_7d_5cat)
-table_sw_partners_nonclients_30d_5cat <- table_pct(sw_combined_raw$year, sw_combined_raw$sw_partners_nonclients_30d_5cat)
-table_sw_partners_nonclients_7d_5cat  <- table_pct(sw_combined_raw$year, sw_combined_raw$sw_partners_nonclients_7d_5cat)
-table_sw_partners_total_7d_4cat  <- table_pct(sw_combined_raw$year, sw_combined_raw$sw_partners_total_7d_4cat)
-table_sw_partners_total_30d_5cat <- table_pct(sw_combined_raw$year, sw_combined_raw$sw_partners_total_30d_5cat)
-
-# View one example
-table_sw_partners_clients_30d_5cat
-table_sw_partners_total_30d_5cat
-table_sw_partners_clients_7d_5cat
-table_sw_partners_total_7d_4cat
-
-sw_combined_raw <- sw_combined_raw %>%
-  mutate(across(c(
-    sw_partners_clients_30d,
-    sw_partners_perm_30d,
-    sw_partners_nonperm_30d,
-    sw_partners_total_30d
-  ), as.numeric))
-
-# Helper to safely compute range text
-range_text <- function(x) {
-  if(all(is.na(x))) NA_character_ else paste0(min(x, na.rm = TRUE), " - ", max(x, na.rm = TRUE))
-}
-
-# Convert all numeric columns
-sw_combined_raw <- sw_combined_raw %>%
-  mutate(across(c(
-    sw_partners_clients_30d, sw_partners_perm_30d, sw_partners_nonperm_30d, sw_partners_total_30d,
-    sw_partners_clients_7d, sw_partners_perm_7d, sw_partners_nonperm_7d, sw_partners_nonclients_7d, sw_partners_total_7d
-  ), as.numeric))
-
-# Yearly summary
-summary_table <- sw_combined_raw %>%
-  group_by(year) %>%
-  summarise(
-    mean_sw_partners_clients_30d = mean(sw_partners_clients_30d, na.rm = TRUE),
-    range_sw_partners_clients_30d = range_text(sw_partners_clients_30d),
-    mean_sw_partners_perm_30d = mean(sw_partners_perm_30d, na.rm = TRUE),
-    range_sw_partners_perm_30d = range_text(sw_partners_perm_30d),
-    mean_sw_partners_nonperm_30d = mean(sw_partners_nonperm_30d, na.rm = TRUE),
-    range_sw_partners_nonperm_30d = range_text(sw_partners_nonperm_30d),
-    mean_sw_partners_total_30d = mean(sw_partners_total_30d, na.rm = TRUE),
-    range_sw_partners_total_30d = range_text(sw_partners_total_30d),
-    mean_sw_partners_clients_7d = mean(sw_partners_clients_7d, na.rm = TRUE),
-    range_sw_partners_clients_7d = range_text(sw_partners_clients_7d),
-    mean_sw_partners_perm_7d = mean(sw_partners_perm_7d, na.rm = TRUE),
-    range_sw_partners_perm_7d = range_text(sw_partners_perm_7d),
-    mean_sw_partners_nonperm_7d = mean(sw_partners_nonperm_7d, na.rm = TRUE),
-    range_sw_partners_nonperm_7d = range_text(sw_partners_nonperm_7d),
-    mean_sw_partners_nonclients_7d = mean(sw_partners_nonclients_7d, na.rm = TRUE),
-    range_sw_partners_nonclients_7d = range_text(sw_partners_nonclients_7d),
-    mean_sw_partners_total_7d = mean(sw_partners_total_7d, na.rm = TRUE),
-    range_sw_partners_total_7d = range_text(sw_partners_total_7d)
-  ) %>%
-  ungroup() %>%
-  mutate(year = as.character(year))  # Convert to character for bind_rows
-
-# Overall summary
-overall_summary <- sw_combined_raw %>%
-  summarise(
-    mean_sw_partners_clients_30d = mean(sw_partners_clients_30d, na.rm = TRUE),
-    range_sw_partners_clients_30d = range_text(sw_partners_clients_30d),
-    mean_sw_partners_perm_30d = mean(sw_partners_perm_30d, na.rm = TRUE),
-    range_sw_partners_perm_30d = range_text(sw_partners_perm_30d),
-    mean_sw_partners_nonperm_30d = mean(sw_partners_nonperm_30d, na.rm = TRUE),
-    range_sw_partners_nonperm_30d = range_text(sw_partners_nonperm_30d),
-    mean_sw_partners_total_30d = mean(sw_partners_total_30d, na.rm = TRUE),
-    range_sw_partners_total_30d = range_text(sw_partners_total_30d),
-    mean_sw_partners_clients_7d = mean(sw_partners_clients_7d, na.rm = TRUE),
-    range_sw_partners_clients_7d = range_text(sw_partners_clients_7d),
-    mean_sw_partners_perm_7d = mean(sw_partners_perm_7d, na.rm = TRUE),
-    range_sw_partners_perm_7d = range_text(sw_partners_perm_7d),
-    mean_sw_partners_nonperm_7d = mean(sw_partners_nonperm_7d, na.rm = TRUE),
-    range_sw_partners_nonperm_7d = range_text(sw_partners_nonperm_7d),
-    mean_sw_partners_nonclients_7d = mean(sw_partners_nonclients_7d, na.rm = TRUE),
-    range_sw_partners_nonclients_7d = range_text(sw_partners_nonclients_7d),
-    mean_sw_partners_total_7d = mean(sw_partners_total_7d, na.rm = TRUE),
-    range_sw_partners_total_7d = range_text(sw_partners_total_7d)
-  ) %>%
-  mutate(year = "Overall")
-
-# Combine
-summary_table <- bind_rows(summary_table, overall_summary)
-
-View(summary_table)
+table(sw_combined_raw$year, sw_combined_raw$partners_sw_24h, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$sw_partners_total_24h_5cat, useNA = "ifany")
 
 # Condom use and access variables
 sw_combined_raw <- sw_combined_raw %>%
@@ -1337,7 +1270,7 @@ sw_combined_raw <- sw_combined_raw %>%
         grepl("^Never$|^0$|Not used in the last 30 days", alcohol_30d_num, ignore.case = TRUE) ~ 0,  # No use
         grepl("Every day|Almost every day|1-2 times a month|1-2 times a week|Less than once a week|No less than once a week|\\d+", alcohol_30d_num, ignore.case = TRUE) ~ 1,  # Any use
         grepl("No answer|Don’t remember|Used, don't remember the amount|Refusal to answer|Don't know/don't remember", alcohol_30d_num, ignore.case = TRUE) ~ 2, # Missing / Unknown
-        TRUE ~ NA_real_  # Catch unexpected responses
+        TRUE ~ NA_real_
       ),
       levels = c(0, 1, 2),
       labels = c("No", "Yes", "Missing / Unknown")
@@ -1862,19 +1795,18 @@ avoided_vars <- c(
 )
 
 sw_combined_raw <- sw_combined_raw %>%
-  mutate(across(
-    all_of(avoided_vars),
+  mutate(across(all_of(avoided_vars),
     ~ factor(case_when(
         grepl("^Yes$", ., ignore.case = TRUE) ~ 1,
         grepl("^No$", ., ignore.case = TRUE) ~ 0,
-        grepl("No question asked|Don't know|Don't remember|Refusal|Difficult to answer", ., ignore.case = TRUE) ~ 2,
         TRUE ~ NA_real_
       ),
-      levels = c(0, 1, 2),
-      labels = c("No", "Yes", "Missing / Unknown")
-    ),
-    .names = "{.col}_3cat"
+      levels = c(0,1),
+      labels = c("No","Yes")
+    )
   ))
+
+table(sw_combined_raw$avoided_healthcare_12m_stigma)
 
 # hiv and syphilis test results
 sw_combined_raw <- sw_combined_raw %>%
