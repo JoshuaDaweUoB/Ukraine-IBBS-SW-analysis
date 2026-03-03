@@ -11,7 +11,7 @@ sw_combined_clean <- readRDS("sw_combined_clean.rds")
 vars <- c(
   "condom_access_12m_3cat", "client_condom_lastsex_3cat", "ngo_access_lifetime_3cat", "city_travel_12m", "street_sw_bin", "alcohol_30d_bin", "used_syringe_last_3cat",
   "sw_partners_total_24h_5cat", "sw_partners_clients_30d_4cat", "violence_any_ever_3cat", "violence_rape_12m_3cat", "violence_rape_ever", "violence_beaten_ever",
-  "violence_physical_abuse_ever", "violence_police", "violence_pimp", "violence_support_ngo", "age_bin",
+  "violence_physical_abuse_ever", "violence_police", "violence_pimp", "violence_support_ngo", "age_bin", "occupied", "occupied_partial",
   "avoided_healthcare_12m_stigma", "avoided_healthcare_12m_violence", "avoided_healthcare_12m_police",
   "avoided_hiv_test_12m_police", "avoided_hiv_test_12m_violence", "avoided_hiv_test_12m_stigma", "underage_first_sw_bin"
 )
@@ -19,14 +19,22 @@ vars <- c(
 # binary variables
 binary_vars <- c(
   "condom_access_12m_3cat", "client_condom_lastsex_3cat",  "ngo_access_lifetime_3cat", "city_travel_12m", "street_sw_bin", "alcohol_30d_bin", "used_syringe_last_3cat",
-  "violence_any_ever_3cat", "violence_rape_12m_3cat", "violence_rape_ever", "violence_beaten_ever",
-  "violence_physical_abuse_ever", "violence_police", "violence_pimp", "violence_support_ngo", "age_bin", "underage_first_sw_bin"
+  "violence_any_ever_3cat", "violence_rape_12m_3cat", "violence_rape_ever", "violence_beaten_ever", "occupied", "occupied_partial",
+  "violence_physical_abuse_ever", "violence_police", "violence_pimp", "violence_support_ngo", "age_bin", "underage_first_sw_bin",
+  "avoided_healthcare_12m_stigma", "avoided_healthcare_12m_violence", "avoided_healthcare_12m_police",
+  "avoided_hiv_test_12m_police", "avoided_hiv_test_12m_violence", "avoided_hiv_test_12m_stigma",
 )
 
 sw_combined_clean <- sw_combined_clean %>%
   mutate(across(all_of(binary_vars),
-    ~ factor(ifelse(. == "Yes", "Yes", "No"), levels = c("No", "Yes"))
+    ~ factor(case_when(
+      . == "Yes" ~ "Yes",
+      . == "No" ~ "No",
+      TRUE ~ NA_character_
+    ), levels = c("No", "Yes"))
   ))
+
+table(sw_combined_clean$avoided_healthcare_12m_stigma, useNA = "ifany")
 
 # Ensure outcome is a factor
 sw_combined_clean$hiv_test_rslt_bin <- as.factor(sw_combined_clean$hiv_test_rslt_bin)
@@ -47,25 +55,30 @@ results <- data.frame(
 
 # loop over vars
 for (v in vars) {
-
   cat("Running:", v, "\n")
-
-  if (length(unique(tmp$year)) == 1) {
+  
+  model_vars <- c("hiv_test_rslt_bin", "ukraine_region", "year", v)
+  subset_data <- sw_combined_clean %>%
+    select(all_of(model_vars)) %>%
+    filter(complete.cases(.))
+  
+  # Check number of unique years in subset
+  if (length(unique(subset_data$year)) == 1) {
     formula <- as.formula(paste("hiv_test_rslt_bin ~ ukraine_region +", v))
   } else {
     formula <- as.formula(paste("hiv_test_rslt_bin ~ ukraine_region + year +", v))
   }
-
-  model <- try(glm(formula, data = sw_combined_clean, family = binomial), silent = TRUE)
-
+  
+  model <- try(glm(formula, data = subset_data, family = binomial), silent = TRUE)
+  
   if (inherits(model, "try-error")) {
     cat("FAILED:", v, "\n")
     next
   }
-
+  
   tidy_mod <- broom::tidy(model, conf.int = TRUE, exponentiate = TRUE)
   tidy_mod <- tidy_mod[tidy_mod$term != "(Intercept)", ]
-
+  
   for (i in 1:nrow(tidy_mod)) {
     or <- tidy_mod$estimate[i]
     lci <- tidy_mod$conf.low[i]
@@ -83,6 +96,39 @@ results <- results[!grepl("^.*:year", results$Variable), ]
 
 # Save to Excel
 write_xlsx(results, "univariate_logistic_results.xlsx")
+
+# summary statistics
+
+# load appended clean data
+sw_combined_clean <- readRDS("sw_combined_clean.rds")
+
+table(sw_combined_clean$hiv_test_rslt_bin, useNA = "ifany")
+
+# Ensure outcome is numeric for proportions
+sw_combined_clean$hiv_test_rslt_bin_num <- as.numeric(as.character(sw_combined_clean$hiv_test_rslt_bin))
+
+print(levels(sw_combined_clean$hiv_test_rslt_bin))
+print(table(sw_combined_clean$hiv_test_rslt_bin, useNA = "ifany"))
+
+summary_list <- list()
+
+for (v in vars) {
+  tab <- sw_combined_clean %>%
+    group_by(!!sym(v)) %>%
+    summarise(
+      n = n(),
+      outcome_n = sum(hiv_test_rslt_bin == "Positive", na.rm = TRUE),
+      outcome_prop = mean(hiv_test_rslt_bin == "Positive", na.rm = TRUE)
+    ) %>%
+    mutate(variable = v) %>%
+    rename(level = !!sym(v))
+  summary_list[[v]] <- tab
+}
+
+summary_df <- bind_rows(summary_list) %>%
+  select(variable, level, n, outcome_n, outcome_prop)
+
+write_xlsx(summary_df, "exposure_summary.xlsx")
 
 # condom use 
 
@@ -437,6 +483,7 @@ exposure_vars <- c(
   "street_sw_bin",
   "alcohol_30d_bin",
   "city_travel_12m_cat",
+  "violence_any_ever_3cat",
   "violence_beaten_ever",
   "violence_physical_abuse_ever",
   "violence_police",
@@ -455,6 +502,7 @@ binary_vars <- c(
   "street_sw_bin",
   "alcohol_30d_bin",
   "city_travel_12m_cat",
+  "violence_any_ever_3cat",
   "violence_beaten_ever",
   "violence_physical_abuse_ever",
   "violence_police",

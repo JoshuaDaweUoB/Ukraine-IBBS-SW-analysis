@@ -1802,7 +1802,7 @@ sw_combined_raw <- sw_combined_raw %>%
         TRUE ~ NA_real_
       ),
       levels = c(0,1),
-      labels = c("No","Yes")
+      labels = c("No", "Yes")
     )
   ))
 
@@ -1839,16 +1839,29 @@ table(sw_combined_raw$year, sw_combined_raw$syphilis_test_rslt_3cat, useNA = "if
 
 # create ukraine regions
 sw_combined_raw <- sw_combined_raw %>%
-  mutate(ukraine_region = case_when(
-    city %in% c("Chernivtsi", "Ivano-Frankivsk", "Lutsk", "Lviv", "Ternopil", "Uzhhorod") ~ "West",
-    city %in% c("Cherkasy", "Khmelnytskyi", "Kropyvnytskyi", "Kyiv", "Poltava", "Vinnytsya", "Zhytomyr") ~ "Central",
-    city %in% c("Dnipro", "Donetsk", "Kharkiv", "Mariupol") ~ "East",
-    city %in% c("Kherson", "Mykolayiv", "Odesa") ~ "South",
-    city %in% c("Zaporizhzhya") ~ "South-East",
-    city %in% c("Sumy") ~ "North-East",
-    city %in% c("Sevastopol", "Simferopol") ~ "Crimea",
-    TRUE ~ "Other"
-  ))
+  mutate(
+    ukraine_region = case_when(
+      city %in% c("Chernivtsi", "Ivano-Frankivsk", "Lutsk", "Lviv", "Ternopil", "Uzhhorod") ~ "West",
+      city %in% c("Cherkasy", "Khmelnytskyi", "Kropyvnytskyi", "Kyiv", "Poltava", "Vinnytsya", "Zhytomyr") ~ "Central",
+      city %in% c("Dnipro", "Donetsk", "Kharkiv", "Mariupol") ~ "East",
+      city %in% c("Kherson", "Mykolayiv", "Odesa") ~ "South",
+      city %in% c("Zaporizhzhya") ~ "South-East",
+      city %in% c("Sumy") ~ "North-East",
+      city %in% c("Sevastopol", "Simferopol") ~ "Crimea",
+      TRUE ~ "Other"
+    ),
+    occupied = ifelse(city %in% c("Sevastopol", "Simferopol", "Donetsk", "Mariupol"), "Yes", "No"),
+    occupied_partial = ifelse(city %in% c(
+      "Sevastopol", "Simferopol",
+      "Donetsk", "Mariupol",
+      "Kherson",
+      "Zaporizhzhya"
+    ), "Yes", "No")
+  )
+
+table(sw_combined_raw$year, sw_combined_raw$ukraine_region, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$occupied, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$occupied_partial, useNA = "ifany")
 
 # check and save appended cleaned datasets
 dim(sw_combined_raw)
