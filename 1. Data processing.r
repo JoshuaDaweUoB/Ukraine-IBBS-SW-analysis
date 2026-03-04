@@ -1850,6 +1850,12 @@ sw_combined_raw <- sw_combined_raw %>%
       city %in% c("Sevastopol", "Simferopol") ~ "Crimea",
       TRUE ~ "Other"
     ),
+    ukraine_region_4cat = case_when(
+      city %in% c("Chernivtsi", "Ivano-Frankivsk", "Lutsk", "Lviv", "Ternopil", "Uzhhorod", "Rivne") ~ "West",
+      city %in% c("Cherkasy", "Khmelnytskyi", "Kropyvnytskyi", "Kyiv", "Poltava", "Vinnytsya", "Zhytomyr", "Bila Tserkva") ~ "Central",
+      city %in% c("Dnipro", "Donetsk", "Kharkiv", "Mariupol", "Zaporizhzhya", "Sumy", "Luhansk", "Chernihiv") ~ "East",
+      city %in% c("Kherson", "Mykolayiv", "Odesa", "Sevastopol", "Simferopol") ~ "South"
+    ),  
     occupied = ifelse(city %in% c("Sevastopol", "Simferopol", "Donetsk", "Mariupol"), "Yes", "No"),
     occupied_partial = ifelse(city %in% c(
       "Sevastopol", "Simferopol",
@@ -1868,4 +1874,3 @@ dim(sw_combined_raw)
 names(sw_combined_raw)
 table(sw_combined_raw$year)
 saveRDS(sw_combined_raw, "sw_combined_clean.rds")
-
