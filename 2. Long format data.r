@@ -10,7 +10,7 @@ sw_combined_clean <- readRDS("sw_combined_clean.rds")
 # check levels of each variable
 levels_list <- lapply(sw_combined_clean, unique)
 
-# Convert to a data frame suitable for Excel
+# Cconvert to df
 max_length <- max(sapply(levels_list, length))
 levels_df <- as.data.frame(
   lapply(levels_list, function(x) {
@@ -22,13 +22,14 @@ levels_df <- as.data.frame(
 
 levels(sw_combined_clean$ngo_access_lifetime)
 
-# Write to Excel
+# save
 write_xlsx(levels_df, "sw_combined_clean_levels.xlsx")
 
 ## prepare longitudinal data 
 
 # load appended clean data
 sw_data_linkage <- read_excel("SW IBBS linkage.xlsx")
+sw_combined_clean <- readRDS("sw_combined_clean.rds")
 
 # check date formatting 
 sw_combined_clean %>%
@@ -78,17 +79,31 @@ sw_data_long <- linkage_long %>%
 length(unique(sw_data_long$id))
 nrow(sw_data_long)
 
-sw_data_long %>%
-  count(hiv_test_rslt_bin)
-
 # id sequence variable
 sw_data_long <- sw_data_long %>%
   group_by(id) %>%
   mutate(id_seq = row_number()) %>%
   ungroup()
 
+saveRDS(sw_data_long, "sw_data_long.rds")
+
+## HIV incidence analysis
+
+# load data
+sw_data_long_hiv <- readRDS("sw_data_long.rds")
+
+# tab positive and negative tests
+sw_data_long_hiv %>%
+  count(hiv_test_rslt_bin) # 94 positives
+
+# number of unique ids with positive hiv test 
+sw_data_long_hiv %>%
+  filter(hiv_test_rslt_bin == "Positive") %>%
+  distinct(id) %>%
+  count() # 60 unique ids with a positive test
+
 # check HIV test results at first visit
-first_hiv_test <- sw_data_long %>%
+first_hiv_test <- sw_data_long_hiv %>%
   arrange(id, interview_dte) %>%
   group_by(id) %>%
   slice_min(interview_dte, n = 1) %>%
@@ -96,7 +111,7 @@ first_hiv_test <- sw_data_long %>%
 
 # negative and positive first test
 first_hiv_test %>%
-  count(hiv_test_rslt_bin)
+  count(hiv_test_rslt_bin) ## 36 positive at first test
 
 # IDs negative at first visit
 negative_first_ids <- first_hiv_test %>%
@@ -104,33 +119,36 @@ negative_first_ids <- first_hiv_test %>%
   pull(id)
 
 # define incidence dataset
-sw_negative_cohort <- sw_data_long %>%
+sw_negative_cohort_hiv <- sw_data_long %>%
   filter(id %in% negative_first_ids) %>%
   arrange(id, year)
 
-length(unique(sw_negative_cohort$id))
-table(sw_negative_cohort$year)
+# tab positive and negative tests
+sw_negative_cohort_hiv %>%
+  count(hiv_test_rslt_bin) # 26 positives
+
+# number of unique ids with positive hiv test 
+sw_negative_cohort_hiv %>%
+  filter(hiv_test_rslt_bin == "Positive") %>%
+  distinct(id) %>%
+  count() # 24 unique ids with a positive test
+
+length(unique(sw_negative_cohort_hiv$id))
+table(sw_negative_cohort_hiv$year)
 
 # negative and positive first test
-sw_negative_cohort %>%
+sw_negative_cohort_hiv %>%
   count(hiv_test_rslt_bin)
 
-# save incidence dataset 
-saveRDS(sw_negative_cohort, "sw_long_raw.rds")
-write_xlsx(sw_negative_cohort, "sw_long_raw.xlsx")
-
-# load incidence dataset
-sw_long_raw <- readRDS("sw_long_raw.rds")
-
 # sequence by date and id
-sw_long_raw <- sw_long_raw %>%
+sw_negative_cohort_hiv <- sw_negative_cohort_hiv %>%
   arrange(id, interview_dte) %>%
   group_by(id) %>%
   mutate(visit_number = row_number()) %>%
   ungroup()
 
 # lag hiv_test_reslt and lab_test_dte
-sw_negative_cohort <- sw_negative_cohort %>%
+sw_negative_cohort_hiv <- sw_negative_cohort_hiv %>%
   arrange(id, year) %>%
   group_by(id) %>%
   mutate(
@@ -143,41 +161,41 @@ sw_negative_cohort <- sw_negative_cohort %>%
   ungroup()
 
 # remove rows where participant tested positive twice
-sum(sw_negative_cohort$hiv_test_rslt_start == "Positive" & 
-    sw_negative_cohort$hiv_test_rslt_end == "Positive", na.rm = TRUE)
+sum(sw_negative_cohort_hiv$hiv_test_rslt_start == "Positive" & 
+    sw_negative_cohort_hiv$hiv_test_rslt_end == "Positive", na.rm = TRUE)
 
-sw_negative_cohort <- sw_negative_cohort %>%
+sw_negative_cohort_hiv <- sw_negative_cohort_hiv %>%
   filter(!(hiv_test_rslt_start == "Positive" & hiv_test_rslt_end == "Positive"))
 
 # remove first row of each study_id
-sw_negative_cohort <- sw_negative_cohort %>%
+sw_negative_cohort_hiv <- sw_negative_cohort_hiv %>%
   filter(visit_number != 1)
 
 # days at risk
-sw_negative_cohort <- sw_negative_cohort %>%
+sw_negative_cohort_hiv <- sw_negative_cohort_hiv %>%
   mutate(
     days_risk = ifelse(
-      hiv_test_rslt_end == "Positive" & hiv_test_rslt_start == "Negative",
-      as.numeric(interview_dte_end - interview_dte_start) / 2,
-      as.numeric(interview_dte_end - interview_dte_start)
+      hiv_test_rslt_end == "Positive" & hiv_test_rslt_start == "Negative", ## if positive at end of f/u
+      as.numeric(interview_dte_end - interview_dte_start) / 2, ## then divide time at risk in half
+      as.numeric(interview_dte_end - interview_dte_start) ## otherwise leave as is
     )
   )
 
 # check for negative days_risk
-sum(sw_negative_cohort$days_risk < 0, na.rm = TRUE)
-sum(sw_negative_cohort$days_risk == 0, na.rm = TRUE)
+sum(sw_negative_cohort_hiv$days_risk < 0, na.rm = TRUE)
+sum(sw_negative_cohort_hiv$days_risk == 0, na.rm = TRUE)
 
 # remove the missing outcome row
-sw_negative_cohort <- sw_negative_cohort %>%
+sw_negative_cohort_hiv <- sw_negative_cohort_hiv %>%
   filter(!is.na(hiv_test_rslt_end))
   
-# Count incident HIV cases (assuming each "Positive" is an incident case)
-num_incident_cases_hiv <- sum(sw_negative_cohort$hiv_test_rslt_end == "Positive", na.rm = TRUE)
+# incident HIV cases
+num_incident_cases_hiv <- sum(sw_negative_cohort_hiv$hiv_test_rslt_end == "Positive", na.rm = TRUE)
 
-# Calculate total person-time in years
-total_person_years_hiv <- sum(sw_negative_cohort$days_risk, na.rm = TRUE) / 365.25
+# total person-time in years
+total_person_years_hiv <- sum(sw_negative_cohort_hiv$days_risk, na.rm = TRUE) / 365.25
 
-# Incidence rate per 100 person-years
+# incidence rate per 100 person-years
 incidence_rate_hiv <- (num_incident_cases_hiv / total_person_years_hiv) * 100
 
 num_incident_cases_hiv
@@ -185,85 +203,30 @@ total_person_years_hiv
 incidence_rate_hiv
 
 # calculate person-years
-sw_negative_cohort <- sw_negative_cohort %>%
+sw_negative_cohort_hiv <- sw_negative_cohort_hiv %>%
     mutate(py = days_risk/365.25)
 
 # save incidence dataset
-saveRDS(sw_negative_cohort, "sw_incidence_dataset.rds")
+saveRDS(sw_negative_cohort_hiv, "sw_incidence_hiv_dataset.rds")
 
-## violence incidence
+## rape incidence analysis
 
-# rape 
+# load data
+sw_data_long_rape <- readRDS("sw_data_long.rds")
 
-# load appended clean data
-sw_data_linkage <- read_excel("SW IBBS linkage.xlsx")
-
-# check date formatting 
-sw_combined_clean %>%
-  filter(year %in% c(2013, 2015, 2017, 2021)) %>%
-  select(year, interview_dte) %>%
-  group_by(year) %>%
-  slice_head(n = 20) %>%
-  ungroup() %>%
-  print(n = Inf)
-
-# convert to date from character
-sw_combined_clean <- sw_combined_clean %>%
-  filter(year %in% c(2013, 2015, 2017, 2021)) %>%
-  mutate(interview_dte = as.Date(interview_dte))  
-
-# convert IDs to character
-sw_data_linkage <- sw_data_linkage %>%
-  mutate(across(ends_with("_id"), as.character),
-         id = as.character(id))
-
-# pivot linkage to long
-linkage_long <- sw_data_linkage %>%
-  pivot_longer(
-    cols = ends_with("_id"),
-    names_to = "year_column",
-    values_to = "year_id"
-  ) %>%
-  mutate(
-    year = case_when(
-      year_column == "2013_id" ~ 2013,
-      year_column == "2015_id" ~ 2015,
-      year_column == "2017_id" ~ 2017,
-      year_column == "2021_id" ~ 2021
-    )
-  ) %>%
-  filter(!is.na(year_id))
-
-# combine linkage keys and cleaned data
-sw_data_long <- linkage_long %>%
-  left_join(
-    sw_combined_clean,
-    by = c("year" = "year", "year_id" = "id")
-  ) %>%
-  arrange(id, year)
-
-# id sequence variable
-sw_data_long <- sw_data_long %>%
-  group_by(id) %>%
-  mutate(id_seq = row_number()) %>%
-  ungroup()
-
-# --------------------------------------------------
-# DEFINE BASELINE (FIRST VISIT) FOR VIOLENCE
-# --------------------------------------------------
-
-first_violence <- sw_data_long %>%
+# check rape at first visit
+first_rape <- sw_data_long %>%
   arrange(id, interview_dte) %>%
   group_by(id) %>%
   slice_min(interview_dte, n = 1) %>%
   ungroup()
 
 # check baseline violence
-first_violence %>%
+first_rape %>%
   count(violence_rape_ever)
 
-# IDs with NO rape at first visit
-no_rape_first_ids <- first_violence %>%
+# IDs with no rape at first visit
+no_rape_first_ids <- first_rape %>%
   filter(violence_rape_ever == "No") %>%
   pull(id)
 
