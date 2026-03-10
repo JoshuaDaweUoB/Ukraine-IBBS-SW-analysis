@@ -1327,7 +1327,6 @@ sw_combined_raw <- sw_combined_raw %>%
       levels = c(0, 1, 2),
       labels = c("No", "Yes", "Missing / Unknown")
     ),
-    
     idu_12m_3cat = factor(
       case_when(
         grepl("^No$|Never used|Used in the past, but not in the last 12 months|Yes, I have used more than 12 months ago", 

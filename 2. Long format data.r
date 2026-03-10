@@ -7,10 +7,13 @@ setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/PhD Papers/Pa
 # load clean cross sectional data
 sw_combined_clean <- readRDS("sw_combined_clean.rds")
 
+table(sw_combined_clean$idu_12m_bin, sw_combined_clean$source_year)
+table(sw_combined_clean$idu_ever_3cat, sw_combined_clean$source_year)
+
 # check levels of each variable
 levels_list <- lapply(sw_combined_clean, unique)
 
-# Cconvert to df
+# convert to df
 max_length <- max(sapply(levels_list, length))
 levels_df <- as.data.frame(
   lapply(levels_list, function(x) {
@@ -215,7 +218,7 @@ saveRDS(sw_negative_cohort_hiv, "sw_incidence_hiv_dataset.rds")
 sw_data_long_rape <- readRDS("sw_data_long.rds")
 
 # check rape at first visit
-first_rape <- sw_data_long %>%
+first_rape <- sw_data_long_rape %>%
   arrange(id, interview_dte) %>%
   group_by(id) %>%
   slice_min(interview_dte, n = 1) %>%
@@ -231,15 +234,12 @@ no_rape_first_ids <- first_rape %>%
   pull(id)
 
 # define incidence cohort (violence-free at baseline)
-sw_negative_cohort <- sw_data_long %>%
+sw_norape_cohort <- sw_data_long_rape %>%
   filter(id %in% no_rape_first_ids) %>%
   arrange(id, year)
 
-# --------------------------------------------------
-# CREATE START–END STRUCTURE
-# --------------------------------------------------
-
-sw_negative_cohort <- sw_negative_cohort %>%
+# lag rape date and interview date
+sw_norape_cohort <- sw_norape_cohort %>%
   arrange(id, interview_dte) %>%
   group_by(id) %>%
   mutate(
@@ -251,160 +251,80 @@ sw_negative_cohort <- sw_negative_cohort %>%
   ) %>%
   ungroup()
 
-# remove first visit (no prior interval)
-sw_negative_cohort <- sw_negative_cohort %>%
+# remove first visit
+sw_norape_cohort <- sw_norape_cohort %>%
   filter(visit_number != 1)
 
-# remove rows where rape already Yes at start and end
-sw_negative_cohort <- sw_negative_cohort %>%
+# remove rows where rape yes at start and yes at end
+sw_norape_cohort <- sw_norape_cohort %>%
   filter(!(rape_start == "Yes" & rape_end == "Yes"))
 
 # remove missing outcome
-sw_negative_cohort <- sw_negative_cohort %>%
+sw_norape_cohort <- sw_norape_cohort %>%
   filter(!is.na(rape_end))
 
-# --------------------------------------------------
-# CALCULATE DAYS AT RISK
-# --------------------------------------------------
-
-sw_negative_cohort <- sw_negative_cohort %>%
+# days at risk
+sw_norape_cohort <- sw_norape_cohort %>%
   mutate(
     days_risk = ifelse(
-      rape_end == "Yes" & rape_start == "No",
-      as.numeric(interview_dte_end - interview_dte_start) / 2,
-      as.numeric(interview_dte_end - interview_dte_start)
+      rape_end == "Yes" & rape_start == "No", ## if positive at end of f/u
+      as.numeric(interview_dte_end - interview_dte_start) / 2, ## then divide time at risk in half
+      as.numeric(interview_dte_end - interview_dte_start) ## otherwise leave as is
     )
   )
 
 # check
-sum(sw_negative_cohort$days_risk < 0, na.rm = TRUE)
-sum(sw_negative_cohort$days_risk == 0, na.rm = TRUE)
+sum(sw_norape_cohort$days_risk < 0, na.rm = TRUE)
+sum(sw_norape_cohort$days_risk == 0, na.rm = TRUE)
 
-# --------------------------------------------------
-# INCIDENT VIOLENCE CALCULATION
-# --------------------------------------------------
+# incident rape cases
+num_incident_cases_rape <- sum(sw_norape_cohort$rape_end == "Yes", na.rm = TRUE)
 
-num_incident_cases_rape <- sum(sw_negative_cohort$rape_end == "Yes", na.rm = TRUE)
+# total person time in years
+total_person_years_rape <- sum(sw_norape_cohort$days_risk, na.rm = TRUE) / 365.25
 
-total_person_years_rape <- sum(sw_negative_cohort$days_risk, na.rm = TRUE) / 365.25
-
+# incidence rate per 100 person-years
 incidence_rate_rape <- (num_incident_cases_rape / total_person_years_rape) * 100
 
 num_incident_cases_rape
 total_person_years_rape
 incidence_rate_rape
 
-# --------------------------------------------------
-# PREPARE FOR COX MODELS
-# --------------------------------------------------
-
-vars <- c(
-  "condom_access_12m_3cat", "client_condom_lastsex_3cat", "ngo_access_lifetime_3cat", "alcohol_30d_bin", "city_travel_12m_cat",
-  "violence_any_ever_3cat", "violence_rape_12m_3cat", "violence_beaten_ever",
-  "violence_physical_abuse_ever", "violence_police", "used_syringe_last_3cat", "underage_first_sw_bin"
-)
-
-# binary outcome for Cox
-sw_negative_cohort$rape_bin <- ifelse(sw_negative_cohort$rape_end == "Yes", 1, 0)
-
-# recode exposures to binary
-sw_negative_cohort <- sw_negative_cohort %>%
-  mutate(across(all_of(vars),
-    ~ factor(ifelse(. == "Yes", "Yes", "No"), levels = c("No", "Yes"))
-  ))
-
 # calculate person-years
-sw_negative_cohort <- sw_negative_cohort %>%
+sw_norape_cohort <- sw_norape_cohort %>%
   mutate(py = days_risk / 365.25)
 
 # save dataset
-saveRDS(sw_negative_cohort, "sw_incident_rape_dataset.rds")
-write_xlsx(sw_negative_cohort, "sw_incident_rape_dataset.xlsx")
+saveRDS(sw_norape_cohort, "sw_incident_rape_dataset.rds")
+write_xlsx(sw_norape_cohort, "sw_incident_rape_dataset.xlsx")
 
-# beating 
+## beating analysis
 
-# load appended clean data
-sw_data_linkage <- read_excel("SW IBBS linkage.xlsx")
+# load data
+sw_data_long_beating <- readRDS("sw_data_long.rds")
 
-# check date formatting 
-sw_combined_clean %>%
-  filter(year %in% c(2013, 2015, 2017, 2021)) %>%
-  select(year, interview_dte) %>%
-  group_by(year) %>%
-  slice_head(n = 20) %>%
-  ungroup() %>%
-  print(n = Inf)
-
-# convert to date from character
-sw_combined_clean <- sw_combined_clean %>%
-  filter(year %in% c(2013, 2015, 2017, 2021)) %>%
-  mutate(interview_dte = as.Date(interview_dte))  
-
-# convert IDs to character
-sw_data_linkage <- sw_data_linkage %>%
-  mutate(across(ends_with("_id"), as.character),
-         id = as.character(id))
-
-# pivot linkage to long
-linkage_long <- sw_data_linkage %>%
-  pivot_longer(
-    cols = ends_with("_id"),
-    names_to = "year_column",
-    values_to = "year_id"
-  ) %>%
-  mutate(
-    year = case_when(
-      year_column == "2013_id" ~ 2013,
-      year_column == "2015_id" ~ 2015,
-      year_column == "2017_id" ~ 2017,
-      year_column == "2021_id" ~ 2021
-    )
-  ) %>%
-  filter(!is.na(year_id))
-
-# combine linkage keys and cleaned data
-sw_data_long <- linkage_long %>%
-  left_join(
-    sw_combined_clean,
-    by = c("year" = "year", "year_id" = "id")
-  ) %>%
-  arrange(id, year)
-
-# id sequence variable
-sw_data_long <- sw_data_long %>%
-  group_by(id) %>%
-  mutate(id_seq = row_number()) %>%
-  ungroup()
-
-# --------------------------------------------------
-# DEFINE BASELINE (FIRST VISIT) FOR VIOLENCE
-# --------------------------------------------------
-
-first_violence <- sw_data_long %>%
+first_beating <- sw_data_long_beating %>%
   arrange(id, interview_dte) %>%
   group_by(id) %>%
   slice_min(interview_dte, n = 1) %>%
   ungroup()
 
 # check baseline violence
-first_violence %>%
-  count(violence_beaten_ever)
+first_beating %>%
+  count(violence_beaten_ever) # 121 beaten at first visit
 
-# IDs with NO beating at first visit
-no_beating_first_ids <- first_violence %>%
+# IDs with no beating at first visit
+no_beating_first_ids <- first_beating %>%
   filter(violence_beaten_ever == "No") %>%
   pull(id)
 
-# define incidence cohort (violence-free at baseline)
-sw_negative_cohort <- sw_data_long %>%
+# define incidence cohort (no beating at baseline)
+sw_nobeating_cohort <- sw_data_long_beating %>%
   filter(id %in% no_beating_first_ids) %>%
   arrange(id, year)
 
-# --------------------------------------------------
-# CREATE START–END STRUCTURE
-# --------------------------------------------------
-
-sw_negative_cohort <- sw_negative_cohort %>%
+# lag beating date and interview date
+sw_nobeating_cohort <- sw_nobeating_cohort %>%
   arrange(id, interview_dte) %>%
   group_by(id) %>%
   mutate(
@@ -416,23 +336,20 @@ sw_negative_cohort <- sw_negative_cohort %>%
   ) %>%
   ungroup()
 
-# remove first visit (no prior interval)
-sw_negative_cohort <- sw_negative_cohort %>%
+# remove first visit
+sw_nobeating_cohort <- sw_nobeating_cohort %>%
   filter(visit_number != 1)
 
 # remove rows where beating already Yes at start and end
-sw_negative_cohort <- sw_negative_cohort %>%
+sw_nobeating_cohort <- sw_nobeating_cohort %>%
   filter(!(beating_start == "Yes" & beating_end == "Yes"))
 
 # remove missing outcome
-sw_negative_cohort <- sw_negative_cohort %>%
+sw_nobeating_cohort <- sw_nobeating_cohort %>%
   filter(!is.na(beating_end))
 
-# --------------------------------------------------
-# CALCULATE DAYS AT RISK
-# --------------------------------------------------
-
-sw_negative_cohort <- sw_negative_cohort %>%
+# days at risk
+sw_nobeating_cohort <- sw_nobeating_cohort %>%
   mutate(
     days_risk = ifelse(
       beating_end == "Yes" & beating_start == "No",
@@ -442,219 +359,221 @@ sw_negative_cohort <- sw_negative_cohort %>%
   )
 
 # check
-sum(sw_negative_cohort$days_risk < 0, na.rm = TRUE)
-sum(sw_negative_cohort$days_risk == 0, na.rm = TRUE)
+sum(sw_nobeating_cohort$days_risk < 0, na.rm = TRUE)
+sum(sw_nobeating_cohort$days_risk == 0, na.rm = TRUE)
 
-# --------------------------------------------------
-# INCIDENT VIOLENCE CALCULATION
-# --------------------------------------------------
+# incident cases of beating
+num_incident_cases_beating <- sum(sw_nobeating_cohort$beating_end == "Yes", na.rm = TRUE)
 
-num_incident_cases_beating <- sum(sw_negative_cohort$beating_end == "Yes", na.rm = TRUE)
+# time at risk 
+total_person_years_beating <- sum(sw_nobeating_cohort$days_risk, na.rm = TRUE) / 365.25
 
-total_person_years_beating <- sum(sw_negative_cohort$days_risk, na.rm = TRUE) / 365.25
-
+# incident rate
 incidence_rate_beating <- (num_incident_cases_beating / total_person_years_beating) * 100
 
 num_incident_cases_beating
 total_person_years_beating
 incidence_rate_beating
 
-# --------------------------------------------------
-# PREPARE FOR COX MODELS
-# --------------------------------------------------
-
-vars <- c(
-  "condom_access_12m_3cat", "client_condom_lastsex_3cat", "ngo_access_lifetime_3cat", "alcohol_30d_bin", "city_travel_12m_cat",
-  "violence_any_ever_3cat", "violence_rape_12m_3cat", "violence_rape_ever",
-  "violence_physical_abuse_ever", "violence_police", "used_syringe_last_3cat", "underage_first_sw_bin"
-)
-
-# binary outcome for Cox
-sw_negative_cohort$beating_bin <- ifelse(sw_negative_cohort$beating_end == "Yes", 1, 0)
-
-# recode exposures to binary
-sw_negative_cohort <- sw_negative_cohort %>%
-  mutate(across(all_of(vars),
-    ~ factor(ifelse(. == "Yes", "Yes", "No"), levels = c("No", "Yes"))
-  ))
-
-# calculate person-years
-sw_negative_cohort <- sw_negative_cohort %>%
-  mutate(py = days_risk / 365.25)
-
 # save dataset
-saveRDS(sw_negative_cohort, "sw_incident_beating_dataset.rds")
-write_xlsx(sw_negative_cohort, "sw_incident_beating_dataset.xlsx")
+saveRDS(sw_nobeating_cohort, "sw_incident_beating_dataset.rds")
+write_xlsx(sw_nobeating_cohort, "sw_incident_beating_dataset.xlsx")
 
 # condom use 
 
-# load appended clean data
-sw_data_linkage <- read_excel("SW IBBS linkage.xlsx")
+# load data
+sw_data_long_condom <- readRDS("sw_data_long.rds")
 
-# check date formatting 
-sw_combined_clean %>%
-  filter(year %in% c(2013, 2015, 2017, 2021)) %>%
-  select(year, interview_dte) %>%
-  group_by(year) %>%
-  slice_head(n = 20) %>%
-  ungroup() %>%
-  print(n = Inf)
+# define inconsistent condom use
+sw_data_long_condom <- sw_data_long_condom %>%
+    mutate(
+      condom_lastsex_bin = case_when(
+      client_condom_lastsex_3cat == "No"  ~ "Yes",
+      client_condom_lastsex_3cat == "Yes" ~ "No",
+      client_condom_lastsex_3cat == "Missing / Unknown" ~ NA_character_
+    ))
 
-# convert to date from character
-sw_combined_clean <- sw_combined_clean %>%
-  filter(year %in% c(2013, 2015, 2017, 2021)) %>%
-  mutate(interview_dte = as.Date(interview_dte))  
+# check past 30 days
+table(sw_data_long_condom$condom_lastsex_bin, sw_data_long_condom$source_year)
 
-# convert IDs to character
-sw_data_linkage <- sw_data_linkage %>%
-  mutate(across(ends_with("_id"), as.character),
-         id = as.character(id))
-
-# pivot linkage to long
-linkage_long <- sw_data_linkage %>%
-  pivot_longer(
-    cols = ends_with("_id"),
-    names_to = "year_column",
-    values_to = "year_id"
-  ) %>%
-  mutate(
-    year = case_when(
-      year_column == "2013_id" ~ 2013,
-      year_column == "2015_id" ~ 2015,
-      year_column == "2017_id" ~ 2017,
-      year_column == "2021_id" ~ 2021
-    )
-  ) %>%
-  filter(!is.na(year_id))
-
-# combine linkage keys and cleaned data
-sw_data_long <- linkage_long %>%
-  left_join(
-    sw_combined_clean,
-    by = c("year" = "year", "year_id" = "id")
-  ) %>%
-  arrange(id, year)
-
-# id sequence variable
-sw_data_long <- sw_data_long %>%
-  group_by(id) %>%
-  mutate(id_seq = row_number()) %>%
-  ungroup()
-
-# --------------------------------------------------
-# DEFINE BASELINE (FIRST VISIT) FOR VIOLENCE
-# --------------------------------------------------
-
-# define inconsistent condom use 
-sw_data_long <- sw_data_long %>%
-    inconsistent_condom_use = case_when(
-      client_condom_lastsex_3cat == "No"  ~ 1,
-      client_condom_lastsex_3cat == "Yes" ~ 0,
-      client_condom_lastsex_3cat == "Missing / Unknown" ~ NA_real_
-    )
-    
-first_violence <- sw_data_long %>%
+# check condom use at first visit
+first_condom <- sw_data_long_condom %>%
   arrange(id, interview_dte) %>%
   group_by(id) %>%
   slice_min(interview_dte, n = 1) %>%
   ungroup()
 
-# check baseline violence
-first_violence %>%
-  count(violence_beaten_ever)
+# check baseline condom use prevalence
+first_condom %>%
+  count(condom_lastsex)
 
-# IDs with NO beating at first visit
-no_beating_first_ids <- first_violence %>%
-  filter(violence_beaten_ever == "No") %>%
+# ids with inconsistent condom use at first visit
+no_condom_first_ids <- first_condom %>%
+  filter(condom_lastsex_bin == 1) %>%
   pull(id)
 
-# define incidence cohort (violence-free at baseline)
-sw_negative_cohort <- sw_data_long %>%
-  filter(id %in% no_beating_first_ids) %>%
+# define condom use incidence cohort
+sw_nocondom_cohort <- sw_data_long_condom %>%
+  filter(id %in% no_condom_first_ids) %>%
   arrange(id, year)
 
-# --------------------------------------------------
-# CREATE START–END STRUCTURE
-# --------------------------------------------------
-
-sw_negative_cohort <- sw_negative_cohort %>%
+# lag between end and start 
+sw_nocondom_cohort <- sw_nocondom_cohort %>%
   arrange(id, interview_dte) %>%
   group_by(id) %>%
   mutate(
     visit_number = row_number(),
-    beating_start = lag(violence_beaten_ever),
+    condom_start = lag(condom_lastsex_bin),
     interview_dte_start = lag(interview_dte),
-    beating_end = violence_beaten_ever,
+    condom_end = condom_lastsex_bin,
     interview_dte_end = interview_dte
   ) %>%
   ungroup()
 
 # remove first visit (no prior interval)
-sw_negative_cohort <- sw_negative_cohort %>%
+sw_nocondom_cohort <- sw_nocondom_cohort %>%
   filter(visit_number != 1)
 
-# remove rows where beating already Yes at start and end
-sw_negative_cohort <- sw_negative_cohort %>%
-  filter(!(beating_start == "Yes" & beating_end == "Yes"))
+# remove rows where condom use is inconsistent at start and end
+sw_nocondom_cohort <- sw_nocondom_cohort %>%
+  filter(!(condom_start == "Yes" & condom_end == "Yes"))
 
 # remove missing outcome
-sw_negative_cohort <- sw_negative_cohort %>%
-  filter(!is.na(beating_end))
+sw_nocondom_cohort <- sw_nocondom_cohort %>%
+  filter(!is.na(condom_end))
 
-# --------------------------------------------------
-# CALCULATE DAYS AT RISK
-# --------------------------------------------------
-
-sw_negative_cohort <- sw_negative_cohort %>%
+# days at risk
+sw_nocondom_cohort <- sw_nocondom_cohort %>%
   mutate(
     days_risk = ifelse(
-      beating_end == "Yes" & beating_start == "No",
+      condom_end == "Yes" & condom_start == "No",
       as.numeric(interview_dte_end - interview_dte_start) / 2,
       as.numeric(interview_dte_end - interview_dte_start)
     )
   )
 
 # check
-sum(sw_negative_cohort$days_risk < 0, na.rm = TRUE)
-sum(sw_negative_cohort$days_risk == 0, na.rm = TRUE)
+sum(sw_nocondom_cohort$days_risk < 0, na.rm = TRUE)
+sum(sw_nocondom_cohort$days_risk == 0, na.rm = TRUE)
 
 # --------------------------------------------------
 # INCIDENT VIOLENCE CALCULATION
 # --------------------------------------------------
 
-num_incident_cases_beating <- sum(sw_negative_cohort$beating_end == "Yes", na.rm = TRUE)
+num_incident_cases_condom <- sum(sw_nocondom_cohort$condom_end == "Yes", na.rm = TRUE)
 
-total_person_years_beating <- sum(sw_negative_cohort$days_risk, na.rm = TRUE) / 365.25
+total_person_years_condom <- sum(sw_nocondom_cohort$days_risk, na.rm = TRUE) / 365.25
 
-incidence_rate_beating <- (num_incident_cases_beating / total_person_years_beating) * 100
+incidence_rate_condom <- (num_incident_cases_condom / total_person_years_condom) * 100
 
-num_incident_cases_beating
-total_person_years_beating
-incidence_rate_beating
-
-# --------------------------------------------------
-# PREPARE FOR COX MODELS
-# --------------------------------------------------
-
-vars <- c(
-  "condom_access_12m_3cat", "client_condom_lastsex_3cat", "ngo_access_lifetime_3cat", "alcohol_30d_bin", "city_travel_12m_cat",
-  "violence_any_ever_3cat", "violence_rape_12m_3cat", "violence_rape_ever",
-  "violence_physical_abuse_ever", "violence_police", "used_syringe_last_3cat", "underage_first_sw_bin"
-)
-
-# binary outcome for Cox
-sw_negative_cohort$beating_bin <- ifelse(sw_negative_cohort$beating_end == "Yes", 1, 0)
-
-# recode exposures to binary
-sw_negative_cohort <- sw_negative_cohort %>%
-  mutate(across(all_of(vars),
-    ~ factor(ifelse(. == "Yes", "Yes", "No"), levels = c("No", "Yes"))
-  ))
-
-# calculate person-years
-sw_negative_cohort <- sw_negative_cohort %>%
-  mutate(py = days_risk / 365.25)
+num_incident_cases_condom
+total_person_years_condom
+incidence_rate_condom
 
 # save dataset
-saveRDS(sw_negative_cohort, "sw_incident_beating_dataset.rds")
-write_xlsx(sw_negative_cohort, "sw_incident_beating_dataset.xlsx")
+saveRDS(sw_negative_cohort, "sw_incident_condom_dataset.rds")
+write_xlsx(sw_negative_cohort, "sw_incident_condom_dataset.xlsx")
+
+## injecting drug use analysis
+
+# load data
+sw_data_long_idu <- readRDS("sw_data_long.rds")
+
+# check past 30 days drug use
+table(sw_data_long_idu$drugs_30d_bin, sw_data_long_idu$source_year)
+
+# check last time injected syringe sharing
+table(sw_data_long_idu$used_syringe_last, sw_data_long_idu$source_year)
+
+# check past 12 months
+table(sw_data_long_idu$idu_12m_bin, sw_data_long_idu$source_year)
+
+# check lifetime
+table(sw_data_long_idu$idu_ever_3cat, sw_data_long_idu$source_year)
+
+# define inconsistent condom use
+sw_data_long_idu <- sw_data_long_idu %>%
+    mutate(
+      condom_lastsex_bin = case_when(
+      client_condom_lastsex_3cat == "No"  ~ "Yes",
+      client_condom_lastsex_3cat == "Yes" ~ "No",
+      client_condom_lastsex_3cat == "Missing / Unknown" ~ NA_character_
+    ))
+
+# check condom use at first visit
+first_condom <- sw_data_long_condom %>%
+  arrange(id, interview_dte) %>%
+  group_by(id) %>%
+  slice_min(interview_dte, n = 1) %>%
+  ungroup()
+
+# check baseline condom use prevalence
+first_condom %>%
+  count(condom_lastsex)
+
+# ids with inconsistent condom use at first visit
+no_condom_first_ids <- first_condom %>%
+  filter(condom_lastsex_bin == 1) %>%
+  pull(id)
+
+# define condom use incidence cohort
+sw_nocondom_cohort <- sw_data_long_condom %>%
+  filter(id %in% no_condom_first_ids) %>%
+  arrange(id, year)
+
+# lag between end and start 
+sw_nocondom_cohort <- sw_nocondom_cohort %>%
+  arrange(id, interview_dte) %>%
+  group_by(id) %>%
+  mutate(
+    visit_number = row_number(),
+    condom_start = lag(condom_lastsex_bin),
+    interview_dte_start = lag(interview_dte),
+    condom_end = condom_lastsex_bin,
+    interview_dte_end = interview_dte
+  ) %>%
+  ungroup()
+
+# remove first visit (no prior interval)
+sw_nocondom_cohort <- sw_nocondom_cohort %>%
+  filter(visit_number != 1)
+
+# remove rows where condom use is inconsistent at start and end
+sw_nocondom_cohort <- sw_nocondom_cohort %>%
+  filter(!(condom_start == "Yes" & condom_end == "Yes"))
+
+# remove missing outcome
+sw_nocondom_cohort <- sw_nocondom_cohort %>%
+  filter(!is.na(condom_end))
+
+# days at risk
+sw_nocondom_cohort <- sw_nocondom_cohort %>%
+  mutate(
+    days_risk = ifelse(
+      condom_end == "Yes" & condom_start == "No",
+      as.numeric(interview_dte_end - interview_dte_start) / 2,
+      as.numeric(interview_dte_end - interview_dte_start)
+    )
+  )
+
+# check
+sum(sw_nocondom_cohort$days_risk < 0, na.rm = TRUE)
+sum(sw_nocondom_cohort$days_risk == 0, na.rm = TRUE)
+
+# --------------------------------------------------
+# INCIDENT VIOLENCE CALCULATION
+# --------------------------------------------------
+
+num_incident_cases_condom <- sum(sw_nocondom_cohort$condom_end == "Yes", na.rm = TRUE)
+
+total_person_years_condom <- sum(sw_nocondom_cohort$days_risk, na.rm = TRUE) / 365.25
+
+incidence_rate_condom <- (num_incident_cases_condom / total_person_years_condom) * 100
+
+num_incident_cases_condom
+total_person_years_condom
+incidence_rate_condom
+
+# save dataset
+saveRDS(sw_negative_cohort, "sw_incident_condom_dataset.rds")
+write_xlsx(sw_negative_cohort, "sw_incident_condom_dataset.xlsx")

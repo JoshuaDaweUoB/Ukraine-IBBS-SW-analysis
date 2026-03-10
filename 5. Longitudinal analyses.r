@@ -140,10 +140,10 @@ write_xlsx(results_df, "cox_model_results_hiv.xlsx")
 
 ## rape incidence
 
-# Load dataset
+# load dataset
 sw_negative_cohort_rape <- readRDS("sw_incident_rape_dataset.rds")
 
-# Ensure correct types
+# variable types
 sw_negative_cohort_rape <- sw_negative_cohort_rape %>%
   mutate(
     rape_bin = as.numeric(rape_bin),
@@ -151,10 +151,10 @@ sw_negative_cohort_rape <- sw_negative_cohort_rape %>%
     year = as.factor(year)
   )
 
-# -----------------------------
-# DEFINE EXPOSURE VARIABLES
-# -----------------------------
+# binary outcome for Cox
+sw_norape_cohort$rape_bin <- ifelse(sw_norape_cohort$rape_end == "Yes", 1, 0)
 
+# exposures
 exposure_vars <- c(
   "condom_access_12m_3cat",
   "client_condom_lastsex_3cat",
