@@ -7,8 +7,6 @@ setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/PhD Papers/Pa
 # load clean cross sectional data
 sw_combined_clean <- readRDS("sw_combined_clean.rds")
 
-table(sw_combined_clean$idu_ever_3cat, sw_combined_clean$year)
-
 # check levels of each variable
 levels_list <- lapply(sw_combined_clean, unique)
 
@@ -302,6 +300,7 @@ write_xlsx(sw_norape_cohort, "sw_incident_rape_dataset.xlsx")
 # load data
 sw_data_long_beating <- readRDS("sw_data_long.rds")
 
+# check beating at first visit
 first_beating <- sw_data_long_beating %>%
   arrange(id, interview_dte) %>%
   group_by(id) %>%
@@ -351,12 +350,11 @@ sw_nobeating_cohort <- sw_nobeating_cohort %>%
 sw_nobeating_cohort <- sw_nobeating_cohort %>%
   mutate(
     days_risk = ifelse(
-      beating_end == "Yes" & beating_start == "No",
-      as.numeric(interview_dte_end - interview_dte_start) / 2,
-      as.numeric(interview_dte_end - interview_dte_start)
+      beating_end == "Yes" & beating_start == "No", ## if positive at end of f/u
+      as.numeric(interview_dte_end - interview_dte_start) / 2, ## then divide time at risk in half
+      as.numeric(interview_dte_end - interview_dte_start) ## otherwise leave as is
     )
   )
-
 # check
 sum(sw_nobeating_cohort$days_risk < 0, na.rm = TRUE)
 sum(sw_nobeating_cohort$days_risk == 0, na.rm = TRUE)
@@ -373,6 +371,10 @@ incidence_rate_beating <- (num_incident_cases_beating / total_person_years_beati
 num_incident_cases_beating
 total_person_years_beating
 incidence_rate_beating
+
+# calculate person-years
+sw_nobeating_cohort <- sw_nobeating_cohort %>%
+  mutate(py = days_risk / 365.25)
 
 # save dataset
 saveRDS(sw_nobeating_cohort, "sw_incident_beating_dataset.rds")
@@ -393,7 +395,7 @@ sw_data_long_condom <- sw_data_long_condom %>%
     ))
 
 # check past 30 days
-table(sw_data_long_condom$condom_lastsex_bin, sw_data_long_condom$source_year)
+table(sw_data_long_condom$condom_lastsex_bin, sw_data_long_condom$year)
 
 # check condom use at first visit
 first_condom <- sw_data_long_condom %>%
@@ -404,7 +406,7 @@ first_condom <- sw_data_long_condom %>%
 
 # check baseline condom use prevalence
 first_condom %>%
-  count(condom_lastsex)
+  count(condom_lastsex_bin)
 
 # ids with inconsistent condom use at first visit
 no_condom_first_ids <- first_condom %>%
@@ -445,9 +447,9 @@ sw_nocondom_cohort <- sw_nocondom_cohort %>%
 sw_nocondom_cohort <- sw_nocondom_cohort %>%
   mutate(
     days_risk = ifelse(
-      condom_end == "Yes" & condom_start == "No",
-      as.numeric(interview_dte_end - interview_dte_start) / 2,
-      as.numeric(interview_dte_end - interview_dte_start)
+      condom_end == "Yes" & condom_start == "No", ## if positive at end of f/u
+      as.numeric(interview_dte_end - interview_dte_start) / 2, ## then divide time at risk in half
+      as.numeric(interview_dte_end - interview_dte_start) ## otherwise leave as is
     )
   )
 
@@ -455,14 +457,13 @@ sw_nocondom_cohort <- sw_nocondom_cohort %>%
 sum(sw_nocondom_cohort$days_risk < 0, na.rm = TRUE)
 sum(sw_nocondom_cohort$days_risk == 0, na.rm = TRUE)
 
-# --------------------------------------------------
-# INCIDENT VIOLENCE CALCULATION
-# --------------------------------------------------
-
+# incident rape cases
 num_incident_cases_condom <- sum(sw_nocondom_cohort$condom_end == "Yes", na.rm = TRUE)
 
+# total person time in years
 total_person_years_condom <- sum(sw_nocondom_cohort$days_risk, na.rm = TRUE) / 365.25
 
+# incidence rate per 100 person-years
 incidence_rate_condom <- (num_incident_cases_condom / total_person_years_condom) * 100
 
 num_incident_cases_condom
@@ -478,101 +479,90 @@ write_xlsx(sw_negative_cohort, "sw_incident_condom_dataset.xlsx")
 # load data
 sw_data_long_idu <- readRDS("sw_data_long.rds")
 
-# check past 30 days drug use
-table(sw_data_long_idu$drugs_30d_bin, sw_data_long_idu$year)
-
-# check last time injected syringe sharing
-table(sw_data_long_idu$used_syringe_last, sw_data_long_idu$year)
-
 # check past 12 months
-table(sw_data_long_idu$idu_12m_bin, sw_data_long_idu$source_year)
+table(sw_data_long_idu$idu_12m_3cat, sw_data_long_idu$source_year)
 
 # check lifetime
 table(sw_data_long_idu$idu_ever_3cat, sw_data_long_idu$source_year)
 
-# define inconsistent condom use
-sw_data_long_idu <- sw_data_long_idu %>%
-    mutate(
-      condom_lastsex_bin = case_when(
-      client_condom_lastsex_3cat == "No"  ~ "Yes",
-      client_condom_lastsex_3cat == "Yes" ~ "No",
-      client_condom_lastsex_3cat == "Missing / Unknown" ~ NA_character_
-    ))
-
-# check condom use at first visit
-first_condom <- sw_data_long_condom %>%
+# check rape at first visit
+first_idu <- sw_data_long_idu %>%
   arrange(id, interview_dte) %>%
   group_by(id) %>%
   slice_min(interview_dte, n = 1) %>%
   ungroup()
 
-# check baseline condom use prevalence
-first_condom %>%
-  count(condom_lastsex)
+# check baseline violence
+first_idu %>%
+  count(idu_ever_3cat)
 
-# ids with inconsistent condom use at first visit
-no_condom_first_ids <- first_condom %>%
-  filter(condom_lastsex_bin == 1) %>%
+# IDs with no injecting at first visit
+no_idu_first_ids <- first_idu %>%
+  filter(idu_ever_3cat == "No") %>%
   pull(id)
 
-# define condom use incidence cohort
-sw_nocondom_cohort <- sw_data_long_condom %>%
-  filter(id %in% no_condom_first_ids) %>%
+# define incidence cohort (violence-free at baseline)
+sw_noidu_cohort <- sw_data_long_idu %>%
+  filter(id %in% no_idu_first_ids) %>%
   arrange(id, year)
 
-# lag between end and start 
-sw_nocondom_cohort <- sw_nocondom_cohort %>%
+# lag rape date and interview date
+sw_noidu_cohort <- sw_noidu_cohort %>%
   arrange(id, interview_dte) %>%
   group_by(id) %>%
   mutate(
     visit_number = row_number(),
-    condom_start = lag(condom_lastsex_bin),
+    idu_start = lag(idu_ever_3cat),
     interview_dte_start = lag(interview_dte),
-    condom_end = condom_lastsex_bin,
+    idu_end = idu_ever_3cat,
     interview_dte_end = interview_dte
   ) %>%
   ungroup()
 
-# remove first visit (no prior interval)
-sw_nocondom_cohort <- sw_nocondom_cohort %>%
+# remove first visit
+sw_noidu_cohort <- sw_noidu_cohort %>%
   filter(visit_number != 1)
 
-# remove rows where condom use is inconsistent at start and end
-sw_nocondom_cohort <- sw_nocondom_cohort %>%
-  filter(!(condom_start == "Yes" & condom_end == "Yes"))
+# remove rows where rape yes at start and yes at end
+sw_noidu_cohort <- sw_noidu_cohort %>%
+  filter(!(idu_start == "Yes" & idu_end == "Yes"))
 
 # remove missing outcome
-sw_nocondom_cohort <- sw_nocondom_cohort %>%
-  filter(!is.na(condom_end))
+sw_noidu_cohort <- sw_noidu_cohort %>%
+  filter(!is.na(idu_end))
 
 # days at risk
-sw_nocondom_cohort <- sw_nocondom_cohort %>%
+sw_noidu_cohort <- sw_noidu_cohort %>%
   mutate(
     days_risk = ifelse(
-      condom_end == "Yes" & condom_start == "No",
-      as.numeric(interview_dte_end - interview_dte_start) / 2,
-      as.numeric(interview_dte_end - interview_dte_start)
+      idu_end == "Yes" & idu_start == "No", ## if positive at end of f/u
+      as.numeric(interview_dte_end - interview_dte_start) / 2, ## then divide time at risk in half
+      as.numeric(interview_dte_end - interview_dte_start) ## otherwise leave as is
     )
   )
 
 # check
-sum(sw_nocondom_cohort$days_risk < 0, na.rm = TRUE)
-sum(sw_nocondom_cohort$days_risk == 0, na.rm = TRUE)
+sum(sw_noidu_cohort$days_risk < 0, na.rm = TRUE)
+sum(sw_noidu_cohort$days_risk == 0, na.rm = TRUE)
 
-# --------------------------------------------------
-# INCIDENT VIOLENCE CALCULATION
-# --------------------------------------------------
+# incident rape cases
+num_incident_cases_idu <- sum(sw_noidu_cohort$idu_end == "Yes", na.rm = TRUE)
 
-num_incident_cases_condom <- sum(sw_nocondom_cohort$condom_end == "Yes", na.rm = TRUE)
+# total person time in years
+total_person_years_idu <- sum(sw_noidu_cohort$days_risk, na.rm = TRUE) / 365.25
 
-total_person_years_condom <- sum(sw_nocondom_cohort$days_risk, na.rm = TRUE) / 365.25
+# incidence rate per 100 person-years
+incidence_rate_idu <- (num_incident_cases_idu / total_person_years_idu) * 100
 
-incidence_rate_condom <- (num_incident_cases_condom / total_person_years_condom) * 100
+num_incident_cases_idu
+total_person_years_idu
+incidence_rate_idu
 
-num_incident_cases_condom
-total_person_years_condom
-incidence_rate_condom
+# calculate person-years
+sw_noidu_cohort <- sw_noidu_cohort %>%
+  mutate(py = days_risk / 365.25)
 
 # save dataset
-saveRDS(sw_negative_cohort, "sw_incident_condom_dataset.rds")
-write_xlsx(sw_negative_cohort, "sw_incident_condom_dataset.xlsx")
+saveRDS(sw_noidu_cohort, "sw_incident_idu_dataset.rds")
+write_xlsx(sw_noidu_cohort, "sw_incident_idu_dataset.xlsx")
+

@@ -421,6 +421,8 @@ if (length(missing_renamed) == 0) {
   print(missing_renamed)
 }
 
+table(sw_data_2013_clean$used_syringe_last)
+
 # load 2015 data
 sw_data_2015_raw <- read_excel("2015_IBBS_SW_TLS AND RDS_Data.xlsx")
 
@@ -556,7 +558,6 @@ rename_map_2015 <- c(
   syphilis_test_rslt = "Т2_4. Indicate the results of respondent's tests: yphilis"
 )
 
-
 # map to vars
 sw_data_2015_clean <- sw_data_2015_raw %>%
   rename(!!!setNames(rename_map_2015, names(rename_map_2015)))
@@ -570,6 +571,8 @@ if (length(missing_renamed) == 0) {
   cat("Missing renamed variables:\n")
   print(missing_renamed)
 }
+
+table(sw_data_2015_clean$used_syringe_last)
 
 # load 2017 data
 sw_data_2017_raw <- read_excel("2017-2018_IBBS_SW_TLS AND RDS_Data.xlsx")
@@ -706,6 +709,8 @@ if (length(missing_renamed) == 0) {
   cat("Missing renamed variables:\n")
   print(missing_renamed)
 }
+
+table(sw_data_2017_clean$used_syringe_last)
 
 # load 2021 data
 sw_data_2021_raw <- read_excel("2021_IBBS_SW_TLS_Data.xlsx")
@@ -1367,12 +1372,8 @@ sw_combined_raw <- sw_combined_raw %>%
       case_when(
         grepl("Yes|Yes, I have used during last 12 months \\(not last 30 days\\)|Yes, I have used during last 30 days", 
               idu_12m_bin, ignore.case = TRUE) ~ 1,
-        grepl("Yes", 
-              drugs_30d_bin, ignore.case = TRUE) ~ 1,
         grepl("^No$|Never used|Used in the past, but not in the last 12 months|Yes, I have used more than 12 months ago|Used in the past, but not in the last 12 months", 
-              idu_12m_bin, ignore.case = TRUE) ~ 0,
-        grepl("I used before, now I don’t|No", 
-              drugs_30d_bin, ignore.case = TRUE) ~ 0,              
+              idu_12m_bin, ignore.case = TRUE) ~ 0,       
         grepl("No answer|Difficult to answer|Difficult to answer/don’t remember|Refuse to answer|Difficult to say", 
               idu_12m_bin, ignore.case = TRUE) ~ 2,
         grepl("Difficult to answer", 
@@ -1444,6 +1445,18 @@ sw_combined_raw <- sw_combined_raw %>%
 table(sw_combined_raw$year, sw_combined_raw$idu_12m_3cat, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$idu_ever_3cat, useNA = "ifany")
 table(sw_combined_raw$idu_12m_3cat, sw_combined_raw$idu_ever_3cat, useNA = "ifany")
+
+# filter for injectors (idu_ever_3cat == "Yes")
+injectors <- sw_combined_clean %>%
+  filter(idu_ever_3cat == "Yes")
+
+injectors %>%
+  group_by(year) %>%
+  summarise(
+    num_shared = sum(used_syringe_last_3cat == "Yes", na.rm = TRUE),
+    total_injectors = n(),
+    percent_shared = (num_shared / total_injectors) * 100
+  )
 
 sw_combined_raw <- sw_combined_raw %>%
   mutate(

@@ -273,10 +273,13 @@ write_xlsx(results_df, "cox_model_results_rape.xlsx")
 
 ## beating incidence
 
-# Load dataset
+# load dataset
 sw_negative_cohort_beating <- readRDS("sw_incident_beating_dataset.rds")
 
-# Ensure correct types
+# binary outcome for Cox
+sw_negative_cohort_beating$beating_bin <- ifelse(sw_negative_cohort_beating$beating_end == "Yes", 1, 0)
+
+# variable types
 sw_negative_cohort_beating <- sw_negative_cohort_beating %>%
   mutate(
     beating_bin = as.numeric(beating_bin),
@@ -284,10 +287,7 @@ sw_negative_cohort_beating <- sw_negative_cohort_beating %>%
     year = as.factor(year)
   )
 
-# -----------------------------
-# DEFINE EXPOSURE VARIABLES
-# -----------------------------
-
+# exposures
 exposure_vars <- c(
   "condom_access_12m_3cat",
   "client_condom_lastsex_3cat",
@@ -302,7 +302,9 @@ exposure_vars <- c(
   "underage_first_sw_bin",
   "violence_support_ngo",
   "sw_partners_total_24h_5cat",
-  "sw_partners_clients_30d_4cat"
+  "sw_partners_clients_30d_4cat",
+  "idu_ever_3cat",
+  "idu_12m_3cat"    
 )
 
 # recode true binary Yes/No variables
@@ -318,7 +320,9 @@ binary_vars <- c(
   "violence_police",
   "used_syringe_last_3cat",
   "underage_first_sw_bin",
-  "violence_support_ngo"
+  "violence_support_ngo",
+  "idu_ever_3cat",
+  "idu_12m_3cat"    
 )
 
 sw_negative_cohort_beating <- sw_negative_cohort_beating %>%
@@ -327,9 +331,7 @@ sw_negative_cohort_beating <- sw_negative_cohort_beating %>%
              levels = c("No", "Yes"))
   ))
 
-# -----------------------------
-# RUN REGION-ADJUSTED COX MODELS
-# -----------------------------
+# hazard ratios
 
 results_list <- list()
 
@@ -393,29 +395,27 @@ for (var in exposure_vars) {
   }
 }
 
-
 results_df <- bind_rows(results_list)
 
 write_xlsx(results_df, "cox_model_results_beating.xlsx")
 
+# injecting drug use incidence
 
-## condom use incidence
+# load dataset
+sw_negative_cohort_idu <- readRDS("sw_incident_idu_dataset.rds")
 
-# Load dataset
-sw_negative_cohort_beating <- readRDS("sw_incident_beating_dataset.rds")
+# binary outcome for Cox
+sw_negative_cohort_idu$idu_bin <- ifelse(sw_negative_cohort_idu$idu_end == "Yes", 1, 0)
 
-# Ensure correct types
-sw_negative_cohort_beating <- sw_negative_cohort_beating %>%
+# variable types
+sw_negative_cohort_idu <- sw_negative_cohort_idu %>%
   mutate(
-    beating_bin = as.numeric(beating_bin),
+    idu_bin = as.numeric(idu_bin),
     ukraine_region = as.factor(ukraine_region),
     year = as.factor(year)
   )
 
-# -----------------------------
-# DEFINE EXPOSURE VARIABLES
-# -----------------------------
-
+# exposures
 exposure_vars <- c(
   "condom_access_12m_3cat",
   "client_condom_lastsex_3cat",
@@ -449,28 +449,26 @@ binary_vars <- c(
   "violence_support_ngo"
 )
 
-sw_negative_cohort_beating <- sw_negative_cohort_beating %>%
+sw_negative_cohort_idu <- sw_negative_cohort_idu %>%
   mutate(across(all_of(binary_vars),
     ~ factor(ifelse(. == "Yes", "Yes", "No"),
              levels = c("No", "Yes"))
   ))
 
-# -----------------------------
-# RUN REGION-ADJUSTED COX MODELS
-# -----------------------------
+# hazard ratios
 
 results_list <- list()
 
 for (var in exposure_vars) {
   
   # make sure exposure is factor
-  sw_negative_cohort_beating[[var]] <- as.factor(sw_negative_cohort_beating[[var]])
+  sw_negative_cohort_idu[[var]] <- as.factor(sw_negative_cohort_idu[[var]])
   
   formula <- as.formula(
-    paste("Surv(py, beating_bin) ~", var, "+ ukraine_region + year")
+    paste("Surv(py, idu_bin) ~", var, "+ ukraine_region + year")
   )
   
-  model <- coxph(formula, data = sw_negative_cohort_beating)
+  model <- coxph(formula, data = sw_negative_cohort_idu)
   
   tidy_mod <- tidy(model, exponentiate = TRUE, conf.int = TRUE)
   
@@ -479,15 +477,15 @@ for (var in exposure_vars) {
     filter(grepl(paste0("^", var), term))
   
   # get all exposure levels
-  levels_var <- levels(sw_negative_cohort_beating[[var]])
+  levels_var <- levels(sw_negative_cohort_idu[[var]])
   
   for (lev in levels_var) {
     
-    subset_data <- sw_negative_cohort_beating %>%
+    subset_data <- sw_negative_cohort_idu %>%
       filter(!is.na(.data[[var]]),
              .data[[var]] == lev)
     
-    cases <- sum(subset_data$beating_bin == 1, na.rm = TRUE)
+    cases <- sum(subset_data$idu_bin == 1, na.rm = TRUE)
     person_years <- sum(subset_data$py, na.rm = TRUE)
     
     # reference level
@@ -521,9 +519,6 @@ for (var in exposure_vars) {
   }
 }
 
-
 results_df <- bind_rows(results_list)
 
-write_xlsx(results_df, "cox_model_results_beating.xlsx")
-
-# condom incidence
+write_xlsx(results_df, "cox_model_results_idu.xlsx")
