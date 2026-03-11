@@ -7,8 +7,7 @@ setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/PhD Papers/Pa
 # load clean cross sectional data
 sw_combined_clean <- readRDS("sw_combined_clean.rds")
 
-table(sw_combined_clean$idu_12m_bin, sw_combined_clean$source_year)
-table(sw_combined_clean$idu_ever_3cat, sw_combined_clean$source_year)
+table(sw_combined_clean$idu_ever_3cat, sw_combined_clean$year)
 
 # check levels of each variable
 levels_list <- lapply(sw_combined_clean, unique)
@@ -480,10 +479,10 @@ write_xlsx(sw_negative_cohort, "sw_incident_condom_dataset.xlsx")
 sw_data_long_idu <- readRDS("sw_data_long.rds")
 
 # check past 30 days drug use
-table(sw_data_long_idu$drugs_30d_bin, sw_data_long_idu$source_year)
+table(sw_data_long_idu$drugs_30d_bin, sw_data_long_idu$year)
 
 # check last time injected syringe sharing
-table(sw_data_long_idu$used_syringe_last, sw_data_long_idu$source_year)
+table(sw_data_long_idu$used_syringe_last, sw_data_long_idu$year)
 
 # check past 12 months
 table(sw_data_long_idu$idu_12m_bin, sw_data_long_idu$source_year)

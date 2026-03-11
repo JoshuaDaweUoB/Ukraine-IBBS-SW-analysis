@@ -7,26 +7,22 @@ setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/PhD Papers/Pa
 ## rate ratios
 
 # load long hiv data
-sw_negative_cohort <- readRDS("sw_incidence_dataset.rds")
+sw_negative_cohort_hiv <- readRDS("sw_incidence_hiv_dataset.rds")
 
-sw_negative_cohort <- sw_negative_cohort %>%
+sw_negative_cohort_hiv <- sw_negative_cohort_hiv %>%
   mutate(
     hiv_test_rslt_bin = ifelse(hiv_test_rslt_bin == "Positive", 1, 0),
     hiv_test_rslt_bin = as.numeric(hiv_test_rslt_bin)
   )
 
 # ensure adjustment variables are factors
-sw_negative_cohort <- sw_negative_cohort %>%
+sw_negative_cohort_hiv <- sw_negative_cohort_hiv %>%
   mutate(
     ukraine_region = as.factor(ukraine_region),
     year = as.factor(year)
   )
 
-
-# -----------------------------
-# DEFINE EXPOSURE VARIABLES
-# -----------------------------
-
+# exposures
 exposure_vars <- c(
   "condom_access_12m_3cat",
   "client_condom_lastsex_3cat",
@@ -39,6 +35,8 @@ exposure_vars <- c(
   "violence_physical_abuse_ever",
   "violence_police",
   "used_syringe_last_3cat",
+  "idu_ever_3cat",
+  "idu_12m_3cat",
   "underage_first_sw_bin",
   "violence_support_ngo",
   "sw_partners_total_24h_5cat",
@@ -58,32 +56,36 @@ binary_vars <- c(
   "violence_physical_abuse_ever",
   "violence_police",
   "used_syringe_last_3cat",
+  "idu_ever_3cat",
+  "idu_12m_3cat",  
   "underage_first_sw_bin",
   "violence_support_ngo"
 )
 
-sw_negative_cohort <- sw_negative_cohort %>%
+table(sw_negative_cohort_hiv$idu_ever_3cat)
+
+sw_negative_cohort_hiv <- sw_negative_cohort_hiv %>%
   mutate(across(all_of(binary_vars),
     ~ factor(ifelse(. == "Yes", "Yes", "No"),
              levels = c("No", "Yes"))
   ))
 
-# -----------------------------
-# RUN REGION-ADJUSTED COX MODELS
-# -----------------------------
+table(sw_negative_cohort_hiv$idu_12m_3cat)
+
+# hazard ratios
 
 results_list <- list()
 
 for (var in exposure_vars) {
   
   # make sure exposure is factor
-  sw_negative_cohort[[var]] <- as.factor(sw_negative_cohort[[var]])
+  sw_negative_cohort_hiv[[var]] <- as.factor(sw_negative_cohort_hiv[[var]])
   
   formula <- as.formula(
     paste("Surv(py, hiv_test_rslt_bin) ~", var, "+ ukraine_region + year")
   )
   
-  model <- coxph(formula, data = sw_negative_cohort)
+  model <- coxph(formula, data = sw_negative_cohort_hiv)
   
   tidy_mod <- tidy(model, exponentiate = TRUE, conf.int = TRUE)
   
@@ -92,11 +94,11 @@ for (var in exposure_vars) {
     filter(grepl(paste0("^", var), term))
   
   # get all exposure levels
-  levels_var <- levels(sw_negative_cohort[[var]])
+  levels_var <- levels(sw_negative_cohort_hiv[[var]])
   
   for (lev in levels_var) {
     
-    subset_data <- sw_negative_cohort %>%
+    subset_data <- sw_negative_cohort_hiv %>%
       filter(!is.na(.data[[var]]),
              .data[[var]] == lev)
     
@@ -143,6 +145,9 @@ write_xlsx(results_df, "cox_model_results_hiv.xlsx")
 # load dataset
 sw_negative_cohort_rape <- readRDS("sw_incident_rape_dataset.rds")
 
+# binary outcome for Cox
+sw_negative_cohort_rape$rape_bin <- ifelse(sw_negative_cohort_rape$rape_end == "Yes", 1, 0)
+
 # variable types
 sw_negative_cohort_rape <- sw_negative_cohort_rape %>%
   mutate(
@@ -151,8 +156,6 @@ sw_negative_cohort_rape <- sw_negative_cohort_rape %>%
     year = as.factor(year)
   )
 
-# binary outcome for Cox
-sw_norape_cohort$rape_bin <- ifelse(sw_norape_cohort$rape_end == "Yes", 1, 0)
 
 # exposures
 exposure_vars <- c(
@@ -162,6 +165,7 @@ exposure_vars <- c(
   "street_sw_bin",
   "alcohol_30d_bin",
   "city_travel_12m_cat",
+  "violence_any_ever_3cat",
   "violence_beaten_ever",
   "violence_physical_abuse_ever",
   "violence_police",
@@ -169,7 +173,9 @@ exposure_vars <- c(
   "underage_first_sw_bin",
   "violence_support_ngo",
   "sw_partners_total_24h_5cat",
-  "sw_partners_clients_30d_4cat"
+  "sw_partners_clients_30d_4cat",
+  "idu_ever_3cat",
+  "idu_12m_3cat"   
 )
 
 # recode true binary Yes/No variables
@@ -180,12 +186,15 @@ binary_vars <- c(
   "street_sw_bin",
   "alcohol_30d_bin",
   "city_travel_12m_cat",
+  "violence_any_ever_3cat",
   "violence_beaten_ever",
   "violence_physical_abuse_ever",
   "violence_police",
   "used_syringe_last_3cat",
   "underage_first_sw_bin",
-  "violence_support_ngo"
+  "violence_support_ngo",
+  "idu_ever_3cat",
+  "idu_12m_3cat"  
 )
 
 sw_negative_cohort_rape <- sw_negative_cohort_rape %>%
@@ -194,9 +203,7 @@ sw_negative_cohort_rape <- sw_negative_cohort_rape %>%
              levels = c("No", "Yes"))
   ))
 
-# -----------------------------
-# RUN REGION-ADJUSTED COX MODELS
-# -----------------------------
+# hazard ratios
 
 results_list <- list()
 
@@ -259,7 +266,6 @@ for (var in exposure_vars) {
     }
   }
 }
-
 
 results_df <- bind_rows(results_list)
 

@@ -158,6 +158,7 @@ rename_map_2009 <- c(
   aids_center_bin = "F14. Please tell if you are registered with an AIDS center?",
   alcohol_30d_num = "С1. How often did you use alcohol in the LAST MONTH [30 days]?",
   drugs_30d_bin = "С2. Some people try to use various drugs. Do you use any drugs?",
+  idu_12m_bin = "C3. Have you used drugs through injection in the past 12 months?",
   used_syringe_last = "С4. Did you use common injection equipment (syringe or needle already used by someone) during your MOST RECENT INJECTION?",
   hiv_tested_lifetime = "F6. I don’t ask you about the result but I want to ask if you underwent HIV testing?",
   hiv_tested_12m = "F8. Let’s specify if that was during the RECENT 12 MONTHS?",
@@ -524,6 +525,7 @@ rename_map_2015 <- c(
   typology_primary_30d = "B3.7 . Please tell me , among the following ways to find your clients what is the PRIMARY for you?",
   aids_center_bin = "G14. Please say if you are registered in the AIDS center?",
   alcohol_30d_num = "С1. How often did you use alcohol or Alco pops in the LAST MONTH [30 days]?",
+  idu_12m_bin = "С3. Have you injected drugs (with the syringe) in the last 12 months?",
   idu_30d_bin = "С4. Have you injected drugs in the last 30 days (last month)?",
   idu_30d_num = "С4_1. Have you injected drugs in the last 30 days (last month)? - If “yes”, how often?",
   used_syringe_last = "С4.2. Did you used sterile syringe and needle when you last injected drug?",
@@ -553,6 +555,7 @@ rename_map_2015 <- c(
   hiv_vl = "VL_result",
   syphilis_test_rslt = "Т2_4. Indicate the results of respondent's tests: yphilis"
 )
+
 
 # map to vars
 sw_data_2015_clean <- sw_data_2015_raw %>%
@@ -816,6 +819,7 @@ rename_map_2021 <- c(
   typology_primary_30d = "b10 What method of search do you consider the main one for yourself",
   aids_center_bin = "k2 Were you registered as person living with HIV in a medical facility (e.g.  AIDS Center?)",
   alcohol_30d_num = "c4 How many times during the last month (30 days) did you use alcohol drinks?",
+  idu_12m_bin = "c6 Have you used any injectable drugs (with a syringe) or not?",
   used_syringe_last = "c9 Did you use a sterile needle and syringe during your last injecting drug use or not?",
   accessed_syringe_12m = "f6_10 Have you received following free items, from NGO or social worker within the last 12 months? - Sterile needles/syringes",
   age_inject = "c10_2 At what age did you try injectable drugs  for the first time",
@@ -920,14 +924,12 @@ write_xlsx(sw_combined_raw, "sw_combined_raw.xlsx")
 # load appended raw data
 sw_combined_raw <- readRDS("sw_combined_raw.rds")
 
-# Add meaningful year variable
+# year variable
 year_map <- c("1"=2008,"2"=2009,"3"=2011,"4"=2013,"5"=2015,"6"=2017,"7"=2021)
 sw_combined_raw$year <- year_map[sw_combined_raw$source_year]
 
-# check levels of each variable
+# overall levels
 levels_list <- lapply(sw_combined_raw, unique)
-
-# Convert to a data frame suitable for Excel
 max_length <- max(sapply(levels_list, length))
 levels_df <- as.data.frame(
   lapply(levels_list, function(x) {
@@ -937,8 +939,27 @@ levels_df <- as.data.frame(
   stringsAsFactors = FALSE
 )
 
-# Write to Excel
-write_xlsx(levels_df, "sw_combined_raw_levels.xlsx")
+# levels by year
+levels_by_year <- lapply(split(sw_combined_raw, sw_combined_raw$year), function(df) {
+  lapply(df, unique)
+})
+
+levels_by_year_df <- lapply(levels_by_year, function(levels_list) {
+  max_length <- max(sapply(levels_list, length))
+  as.data.frame(
+    lapply(levels_list, function(x) {
+      length(x) <- max_length
+      x
+    }),
+    stringsAsFactors = FALSE
+  )
+})
+
+# save
+write_xlsx(
+  c(list(Overall = levels_df), levels_by_year_df),
+  "sw_combined_raw_levels_by_year.xlsx"
+)
 
 # relevel education
 sw_combined_raw <- sw_combined_raw %>%
@@ -1256,7 +1277,7 @@ condom_vars <- c(
   "condom_access_12m_3cat"
 )
 
-# Crosstab each variable with year
+# tab each variable by year
 for (var in condom_vars) {
   cat(var)
   print(table(sw_combined_raw$year, sw_combined_raw[[var]], useNA = "ifany"))
@@ -1327,33 +1348,42 @@ sw_combined_raw <- sw_combined_raw %>%
       levels = c(0, 1, 2),
       labels = c("No", "Yes", "Missing / Unknown")
     ),
-    idu_12m_3cat = factor(
+
+    idu_ever_3cat = factor(
       case_when(
-        grepl("^No$|Never used|Used in the past, but not in the last 12 months|Yes, I have used more than 12 months ago", 
-              idu_12m_bin, ignore.case = TRUE) ~ 0,
-        grepl("Yes, I have used during last 12 months \\(not last 30 days\\)|Yes, I have used during last 30 days", 
-              idu_12m_bin, ignore.case = TRUE) ~ 1,
-        grepl("No answer|Difficult to answer|Difficult to answer/don’t remember|Refuse to answer", 
-              idu_12m_bin, ignore.case = TRUE) ~ 2,
+        grepl("Yes, I have used during last 12 months \\(not last 30 days\\)|Yes, I have used during last 30 days|Used in the past, but not in the last 12 months|Yes, I have used more than 12 months ago|Так, я вживав|Yes, I used it, but more than 12 months ago|Yes, I have been using them for the last 30 days", idu_12m_bin, ignore.case = TRUE) ~ 1,
+        used_syringe_last %in% c("Yes", "No", "I don't know how the syringe was filled", "Don’t remember", "No, I did not") ~ 1,
+        grepl("^No$|Never used", idu_12m_bin, ignore.case = TRUE) ~ 0,
+        drugs_30d_bin %in% c("No question asked", "No") ~ 0,
+        used_syringe_last %in% c("No question asked") ~ 0,
+        grepl("No answer|Difficult to answer|Difficult to answer/don’t remember|Refuse to answer|Never used", idu_12m_bin, ignore.case = TRUE) ~ 2,
         TRUE ~ NA_real_
       ),
       levels = c(0, 1, 2),
       labels = c("No", "Yes", "Missing / Unknown")
     ),
-    
-    idu_ever_3cat = factor(
+
+     idu_12m_3cat = factor(
       case_when(
-        grepl("^No$|Never used", idu_12m_bin, ignore.case = TRUE) ~ 0,
-        grepl("Yes, I have used during last 12 months \\(not last 30 days\\)|Yes, I have used during last 30 days|Used in the past, but not in the last 12 months|Yes, I have used more than 12 months ago",
+        grepl("Yes|Yes, I have used during last 12 months \\(not last 30 days\\)|Yes, I have used during last 30 days", 
               idu_12m_bin, ignore.case = TRUE) ~ 1,
-        grepl("No answer|Difficult to answer|Difficult to answer/don’t remember|Refuse to answer", 
+        grepl("Yes", 
+              drugs_30d_bin, ignore.case = TRUE) ~ 1,
+        grepl("^No$|Never used|Used in the past, but not in the last 12 months|Yes, I have used more than 12 months ago|Used in the past, but not in the last 12 months", 
+              idu_12m_bin, ignore.case = TRUE) ~ 0,
+        grepl("I used before, now I don’t|No", 
+              drugs_30d_bin, ignore.case = TRUE) ~ 0,              
+        grepl("No answer|Difficult to answer|Difficult to answer/don’t remember|Refuse to answer|Difficult to say", 
               idu_12m_bin, ignore.case = TRUE) ~ 2,
+        grepl("Difficult to answer", 
+              drugs_30d_bin, ignore.case = TRUE) ~ 2,
+        idu_ever_3cat == "No" ~ 0,
         TRUE ~ NA_real_
       ),
       levels = c(0, 1, 2),
-      labels = c("Never", "Ever", "Missing / Unknown")
+      labels = c("No", "Yes", "Missing / Unknown")
     ),
-    
+       
     idu_30d_num_numeric = case_when(
       grepl("^Never$", idu_30d_num, ignore.case = TRUE) ~ 0,
       grepl("^No answer$", idu_30d_num, ignore.case = TRUE) ~ NA_real_,
@@ -1405,12 +1435,15 @@ sw_combined_raw <- sw_combined_raw %>%
     )
   )
 
-table(sw_combined_raw$year, sw_combined_raw$drugs_30d_bin_3cat, useNA = "ifany")
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    idu_ever_3cat = ifelse(idu_12m_3cat == "Yes", "Yes", as.character(idu_ever_3cat)),
+    idu_ever_3cat = factor(idu_ever_3cat, levels = c("No", "Yes", "Missing / Unknown"))
+  )
+
 table(sw_combined_raw$year, sw_combined_raw$idu_12m_3cat, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$idu_ever_3cat, useNA = "ifany")
-table(sw_combined_raw$year, sw_combined_raw$idu_30d_use_3cat, useNA = "ifany")
-table(sw_combined_raw$year, sw_combined_raw$used_syringe_last_3cat, useNA = "ifany")
-table(sw_combined_raw$year, sw_combined_raw$used_syringe_30d_bin_3cat, useNA = "ifany")
+table(sw_combined_raw$idu_12m_3cat, sw_combined_raw$idu_ever_3cat, useNA = "ifany")
 
 sw_combined_raw <- sw_combined_raw %>%
   mutate(
