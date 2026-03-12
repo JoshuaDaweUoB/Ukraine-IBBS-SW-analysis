@@ -4,6 +4,19 @@ pacman::p_load(dplyr, tidyr, stringr, tibble, writexl, readxl, forcats, labelled
 ## set wd
 setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/PhD Papers/Paper 3a - Ukraine Sex Work HIV/data/SW data")
 
+# function to calculate IR 
+calc_ir <- function(cases, person_years) {
+  ir <- (cases / person_years) * 100
+  # 95% CI using Poisson approximation
+  lower <- (qchisq(0.025, 2 * cases) / 2) / person_years * 100
+  upper <- (qchisq(0.975, 2 * (cases + 1)) / 2) / person_years * 100
+  if (cases == 0) {
+    lower <- 0
+    upper <- (-log(0.05) / person_years) * 100
+  }
+  return(list(IR = ir, IR_lower = lower, IR_upper = upper))
+}
+
 ## rate ratios
 
 # load long hiv data
@@ -19,7 +32,8 @@ sw_negative_cohort_hiv <- sw_negative_cohort_hiv %>%
 sw_negative_cohort_hiv <- sw_negative_cohort_hiv %>%
   mutate(
     ukraine_region = as.factor(ukraine_region),
-    year = as.factor(year)
+    year = as.factor(year),
+    years_in_sw_3cat = as.factor(years_in_sw_3cat)
   )
 
 # exposures
@@ -31,6 +45,7 @@ exposure_vars <- c(
   "alcohol_30d_bin",
   "city_travel_12m_cat",
   "violence_any_ever_3cat",
+  "violence_rape_ever",
   "violence_beaten_ever",
   "violence_physical_abuse_ever",
   "violence_police",
@@ -39,8 +54,7 @@ exposure_vars <- c(
   "idu_12m_3cat",
   "underage_first_sw_bin",
   "violence_support_ngo",
-  "sw_partners_total_24h_5cat",
-  "sw_partners_clients_30d_4cat"
+  "sw_partners_clients_30d_3cat"
 )
 
 # recode true binary Yes/No variables
@@ -52,6 +66,7 @@ binary_vars <- c(
   "alcohol_30d_bin",
   "city_travel_12m_cat",
   "violence_any_ever_3cat",
+  "violence_rape_ever",
   "violence_beaten_ever",
   "violence_physical_abuse_ever",
   "violence_police",
@@ -77,37 +92,21 @@ table(sw_negative_cohort_hiv$idu_12m_3cat)
 results_list <- list()
 
 for (var in exposure_vars) {
-  
-  # make sure exposure is factor
   sw_negative_cohort_hiv[[var]] <- as.factor(sw_negative_cohort_hiv[[var]])
-  
   formula <- as.formula(
-    paste("Surv(py, hiv_test_rslt_bin) ~", var, "+ ukraine_region + year")
+    paste("Surv(py, hiv_test_rslt_bin) ~", var, "+ ukraine_region + year + years_in_sw_3cat")
   )
-  
   model <- coxph(formula, data = sw_negative_cohort_hiv)
-  
   tidy_mod <- tidy(model, exponentiate = TRUE, conf.int = TRUE)
-  
-  # keep only exposure rows
-  tidy_mod <- tidy_mod %>%
-    filter(grepl(paste0("^", var), term))
-  
-  # get all exposure levels
+  tidy_mod <- tidy_mod %>% filter(grepl(paste0("^", var), term))
   levels_var <- levels(sw_negative_cohort_hiv[[var]])
-  
   for (lev in levels_var) {
-    
     subset_data <- sw_negative_cohort_hiv %>%
-      filter(!is.na(.data[[var]]),
-             .data[[var]] == lev)
-    
+      filter(!is.na(.data[[var]]), .data[[var]] == lev)
     cases <- sum(subset_data$hiv_test_rslt_bin == 1, na.rm = TRUE)
     person_years <- sum(subset_data$py, na.rm = TRUE)
-    
-    # reference level
+    ir_res <- calc_ir(cases, person_years)
     if (lev == levels_var[1]) {
-      
       results_list[[length(results_list) + 1]] <- data.frame(
         Variable = var,
         Level = lev,
@@ -115,14 +114,13 @@ for (var in exposure_vars) {
         CI_lower = NA,
         CI_upper = NA,
         Cases = cases,
-        Person_Years = person_years
+        Person_Years = person_years,
+        IR_100PY = ir_res$IR,
+        IR_100PY_lower = ir_res$IR_lower,
+        IR_100PY_upper = ir_res$IR_upper
       )
-      
     } else {
-      
-      row_match <- tidy_mod %>%
-        filter(grepl(lev, term))
-      
+      row_match <- tidy_mod %>% filter(grepl(lev, term))
       results_list[[length(results_list) + 1]] <- data.frame(
         Variable = var,
         Level = lev,
@@ -130,7 +128,10 @@ for (var in exposure_vars) {
         CI_lower = row_match$conf.low,
         CI_upper = row_match$conf.high,
         Cases = cases,
-        Person_Years = person_years
+        Person_Years = person_years,
+        IR_100PY = ir_res$IR,
+        IR_100PY_lower = ir_res$IR_lower,
+        IR_100PY_upper = ir_res$IR_upper
       )
     }
   }
@@ -153,7 +154,8 @@ sw_negative_cohort_rape <- sw_negative_cohort_rape %>%
   mutate(
     rape_bin = as.numeric(rape_bin),
     ukraine_region = as.factor(ukraine_region),
-    year = as.factor(year)
+    year = as.factor(year),
+    years_in_sw_3cat = as.factor(years_in_sw_3cat)
   )
 
 
@@ -172,8 +174,7 @@ exposure_vars <- c(
   "used_syringe_last_3cat",
   "underage_first_sw_bin",
   "violence_support_ngo",
-  "sw_partners_total_24h_5cat",
-  "sw_partners_clients_30d_4cat",
+  "sw_partners_clients_30d_3cat",
   "idu_ever_3cat",
   "idu_12m_3cat"   
 )
@@ -208,37 +209,21 @@ sw_negative_cohort_rape <- sw_negative_cohort_rape %>%
 results_list <- list()
 
 for (var in exposure_vars) {
-  
-  # make sure exposure is factor
   sw_negative_cohort_rape[[var]] <- as.factor(sw_negative_cohort_rape[[var]])
-  
   formula <- as.formula(
-    paste("Surv(py, rape_bin) ~", var, "+ ukraine_region + year")
+    paste("Surv(py, rape_bin) ~", var, "+ ukraine_region + year + years_in_sw_3cat")
   )
-  
   model <- coxph(formula, data = sw_negative_cohort_rape)
-  
   tidy_mod <- tidy(model, exponentiate = TRUE, conf.int = TRUE)
-  
-  # keep only exposure rows
-  tidy_mod <- tidy_mod %>%
-    filter(grepl(paste0("^", var), term))
-  
-  # get all exposure levels
+  tidy_mod <- tidy_mod %>% filter(grepl(paste0("^", var), term))
   levels_var <- levels(sw_negative_cohort_rape[[var]])
-  
   for (lev in levels_var) {
-    
     subset_data <- sw_negative_cohort_rape %>%
-      filter(!is.na(.data[[var]]),
-             .data[[var]] == lev)
-    
+      filter(!is.na(.data[[var]]), .data[[var]] == lev)
     cases <- sum(subset_data$rape_bin == 1, na.rm = TRUE)
     person_years <- sum(subset_data$py, na.rm = TRUE)
-    
-    # reference level
+    ir_res <- calc_ir(cases, person_years)
     if (lev == levels_var[1]) {
-      
       results_list[[length(results_list) + 1]] <- data.frame(
         Variable = var,
         Level = lev,
@@ -246,14 +231,13 @@ for (var in exposure_vars) {
         CI_lower = NA,
         CI_upper = NA,
         Cases = cases,
-        Person_Years = person_years
+        Person_Years = person_years,
+        IR_100PY = ir_res$IR,
+        IR_100PY_lower = ir_res$IR_lower,
+        IR_100PY_upper = ir_res$IR_upper
       )
-      
     } else {
-      
-      row_match <- tidy_mod %>%
-        filter(grepl(lev, term))
-      
+      row_match <- tidy_mod %>% filter(grepl(lev, term))
       results_list[[length(results_list) + 1]] <- data.frame(
         Variable = var,
         Level = lev,
@@ -261,7 +245,10 @@ for (var in exposure_vars) {
         CI_lower = row_match$conf.low,
         CI_upper = row_match$conf.high,
         Cases = cases,
-        Person_Years = person_years
+        Person_Years = person_years,
+        IR_100PY = ir_res$IR,
+        IR_100PY_lower = ir_res$IR_lower,
+        IR_100PY_upper = ir_res$IR_upper
       )
     }
   }
@@ -301,8 +288,7 @@ exposure_vars <- c(
   "used_syringe_last_3cat",
   "underage_first_sw_bin",
   "violence_support_ngo",
-  "sw_partners_total_24h_5cat",
-  "sw_partners_clients_30d_4cat",
+  "sw_partners_clients_30d_3cat",
   "idu_ever_3cat",
   "idu_12m_3cat"    
 )
@@ -336,37 +322,21 @@ sw_negative_cohort_beating <- sw_negative_cohort_beating %>%
 results_list <- list()
 
 for (var in exposure_vars) {
-  
-  # make sure exposure is factor
   sw_negative_cohort_beating[[var]] <- as.factor(sw_negative_cohort_beating[[var]])
-  
   formula <- as.formula(
-    paste("Surv(py, beating_bin) ~", var, "+ ukraine_region + year")
+    paste("Surv(py, beating_bin) ~", var, "+ ukraine_region + year + years_in_sw_3cat")
   )
-  
   model <- coxph(formula, data = sw_negative_cohort_beating)
-  
   tidy_mod <- tidy(model, exponentiate = TRUE, conf.int = TRUE)
-  
-  # keep only exposure rows
-  tidy_mod <- tidy_mod %>%
-    filter(grepl(paste0("^", var), term))
-  
-  # get all exposure levels
+  tidy_mod <- tidy_mod %>% filter(grepl(paste0("^", var), term))
   levels_var <- levels(sw_negative_cohort_beating[[var]])
-  
   for (lev in levels_var) {
-    
     subset_data <- sw_negative_cohort_beating %>%
-      filter(!is.na(.data[[var]]),
-             .data[[var]] == lev)
-    
+      filter(!is.na(.data[[var]]), .data[[var]] == lev)
     cases <- sum(subset_data$beating_bin == 1, na.rm = TRUE)
     person_years <- sum(subset_data$py, na.rm = TRUE)
-    
-    # reference level
+    ir_res <- calc_ir(cases, person_years)
     if (lev == levels_var[1]) {
-      
       results_list[[length(results_list) + 1]] <- data.frame(
         Variable = var,
         Level = lev,
@@ -374,14 +344,13 @@ for (var in exposure_vars) {
         CI_lower = NA,
         CI_upper = NA,
         Cases = cases,
-        Person_Years = person_years
+        Person_Years = person_years,
+        IR_100PY = ir_res$IR,
+        IR_100PY_lower = ir_res$IR_lower,
+        IR_100PY_upper = ir_res$IR_upper
       )
-      
     } else {
-      
-      row_match <- tidy_mod %>%
-        filter(grepl(lev, term))
-      
+      row_match <- tidy_mod %>% filter(grepl(lev, term))
       results_list[[length(results_list) + 1]] <- data.frame(
         Variable = var,
         Level = lev,
@@ -389,7 +358,10 @@ for (var in exposure_vars) {
         CI_lower = row_match$conf.low,
         CI_upper = row_match$conf.high,
         Cases = cases,
-        Person_Years = person_years
+        Person_Years = person_years,
+        IR_100PY = ir_res$IR,
+        IR_100PY_lower = ir_res$IR_lower,
+        IR_100PY_upper = ir_res$IR_upper
       )
     }
   }
@@ -423,14 +395,15 @@ exposure_vars <- c(
   "street_sw_bin",
   "alcohol_30d_bin",
   "city_travel_12m_cat",
+  "violence_any_ever_3cat",
   "violence_rape_ever",
+  "violence_beaten_ever",
   "violence_physical_abuse_ever",
   "violence_police",
   "used_syringe_last_3cat",
   "underage_first_sw_bin",
   "violence_support_ngo",
-  "sw_partners_total_24h_5cat",
-  "sw_partners_clients_30d_4cat"
+  "sw_partners_clients_30d_3cat"
 )
 
 # recode true binary Yes/No variables
@@ -441,7 +414,9 @@ binary_vars <- c(
   "street_sw_bin",
   "alcohol_30d_bin",
   "city_travel_12m_cat",
+  "violence_any_ever_3cat",
   "violence_rape_ever",
+  "violence_beaten_ever",
   "violence_physical_abuse_ever",
   "violence_police",
   "used_syringe_last_3cat",
@@ -456,41 +431,24 @@ sw_negative_cohort_idu <- sw_negative_cohort_idu %>%
   ))
 
 # hazard ratios
-
 results_list <- list()
 
 for (var in exposure_vars) {
-  
-  # make sure exposure is factor
   sw_negative_cohort_idu[[var]] <- as.factor(sw_negative_cohort_idu[[var]])
-  
   formula <- as.formula(
-    paste("Surv(py, idu_bin) ~", var, "+ ukraine_region + year")
+    paste("Surv(py, idu_bin) ~", var, "+ ukraine_region + year + years_in_sw_3cat")
   )
-  
   model <- coxph(formula, data = sw_negative_cohort_idu)
-  
   tidy_mod <- tidy(model, exponentiate = TRUE, conf.int = TRUE)
-  
-  # keep only exposure rows
-  tidy_mod <- tidy_mod %>%
-    filter(grepl(paste0("^", var), term))
-  
-  # get all exposure levels
+  tidy_mod <- tidy_mod %>% filter(grepl(paste0("^", var), term))
   levels_var <- levels(sw_negative_cohort_idu[[var]])
-  
   for (lev in levels_var) {
-    
     subset_data <- sw_negative_cohort_idu %>%
-      filter(!is.na(.data[[var]]),
-             .data[[var]] == lev)
-    
+      filter(!is.na(.data[[var]]), .data[[var]] == lev)
     cases <- sum(subset_data$idu_bin == 1, na.rm = TRUE)
     person_years <- sum(subset_data$py, na.rm = TRUE)
-    
-    # reference level
+    ir_res <- calc_ir(cases, person_years)
     if (lev == levels_var[1]) {
-      
       results_list[[length(results_list) + 1]] <- data.frame(
         Variable = var,
         Level = lev,
@@ -498,14 +456,13 @@ for (var in exposure_vars) {
         CI_lower = NA,
         CI_upper = NA,
         Cases = cases,
-        Person_Years = person_years
+        Person_Years = person_years,
+        IR_100PY = ir_res$IR,
+        IR_100PY_lower = ir_res$IR_lower,
+        IR_100PY_upper = ir_res$IR_upper
       )
-      
     } else {
-      
-      row_match <- tidy_mod %>%
-        filter(grepl(lev, term))
-      
+      row_match <- tidy_mod %>% filter(grepl(lev, term))
       results_list[[length(results_list) + 1]] <- data.frame(
         Variable = var,
         Level = lev,
@@ -513,7 +470,10 @@ for (var in exposure_vars) {
         CI_lower = row_match$conf.low,
         CI_upper = row_match$conf.high,
         Cases = cases,
-        Person_Years = person_years
+        Person_Years = person_years,
+        IR_100PY = ir_res$IR,
+        IR_100PY_lower = ir_res$IR_lower,
+        IR_100PY_upper = ir_res$IR_upper
       )
     }
   }

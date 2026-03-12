@@ -1006,6 +1006,7 @@ sw_combined_raw <- sw_combined_raw %>%
     age_numeric = suppressWarnings(as.numeric(age)),
     age_first_sex_numeric = suppressWarnings(as.numeric(age_first_sex)),
     age_first_sw_numeric = suppressWarnings(as.numeric(age_first_sw)),
+    years_in_sw = ifelse(age_first_sw_numeric <= 60, age_numeric - age_first_sw_numeric, NA),
     age_cat = factor(case_when(
       age_numeric < 18 ~ 0,
       age_numeric >= 18 & age_numeric <= 24 ~ 1,
@@ -1014,10 +1015,16 @@ sw_combined_raw <- sw_combined_raw %>%
       TRUE ~ NA_real_
     ), levels = c(0, 1, 2, 3), labels = c("Underage", "18-24", "25-34", "35+")),
     age_bin = factor(case_when(
-      age_numeric <25 ~ 0,
+      age_numeric < 25 ~ 0,
       age_numeric >= 25 & age_numeric < 96 ~ 1,
       TRUE ~ NA_real_
     ), levels = c(0, 1), labels = c("No", "Yes")),
+    years_in_sw_3cat = factor(case_when(
+      years_in_sw <= 3 ~ 0,
+      years_in_sw > 3 & years_in_sw <= 9 ~ 1,
+      years_in_sw >= 10 ~ 2,
+      TRUE ~ NA_real_
+    ), levels = c(0, 1, 2), labels = c("0-3", "4-9", "10+")),
     age_first_sex_cat = factor(case_when(
       age_first_sex_numeric < 18 ~ 0,
       age_first_sex_numeric >= 18 & age_first_sex_numeric <= 24 ~ 1,
@@ -1037,6 +1044,11 @@ sw_combined_raw <- sw_combined_raw %>%
     ), levels = c(0, 1), labels = c("No", "Yes"))
   )
 
+summary(sw_combined_raw$years_in_sw)
+summary(sw_combined_raw$age_numeric)
+summary(sw_combined_raw$age_first_sw_numeric)
+
+table(sw_combined_raw$years_in_sw_3cat, useNA = "ifany")
 table(sw_combined_raw$age_cat, useNA = "ifany")
 table(sw_combined_raw$age_first_sex_cat, useNA = "ifany")
 table(sw_combined_raw$age_bin, useNA = "ifany")
@@ -1100,16 +1112,15 @@ sw_combined_raw <- sw_combined_raw %>%
       levels = 0:4,
       labels = c("No client partners", "1-3", "4-9", "10-19", "20+")
     ),
-    sw_partners_clients_30d_4cat = factor(
+    sw_partners_clients_30d_3cat = factor(
       case_when(
         sw_partners_clients_30d >= 0  & sw_partners_clients_30d <= 19  ~ 0,
         sw_partners_clients_30d >= 20 & sw_partners_clients_30d <= 49  ~ 1,
-        sw_partners_clients_30d >= 50 & sw_partners_clients_30d <= 74  ~ 2,
-        sw_partners_clients_30d >= 75 ~ 3,
+        sw_partners_clients_30d >= 50 ~ 2,
         TRUE ~ NA_real_
       ), 
-      levels = 0:3, 
-      labels = c("0-19","20-49","50-74","75+")
+      levels = 0:2, 
+      labels = c("0-19","20-49","50+")
     ),     
     sw_partners_nonclients_7d_5cat = factor(case_when(
       sw_partners_nonclients_7d == 0 ~ 0,
@@ -1160,7 +1171,7 @@ sw_combined_raw <- sw_combined_raw %>%
     )
 
 # tab categorical variables
-table(sw_combined_raw$year, sw_combined_raw$sw_partners_clients_30d_4cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$sw_partners_clients_30d_3cat, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$sw_partners_clients_7d_4cat, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$sw_partners_nonclients_30d_5cat, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$sw_partners_nonclients_7d_5cat, useNA = "ifany")
@@ -1427,7 +1438,7 @@ sw_combined_raw <- sw_combined_raw %>%
     used_syringe_30d_bin_3cat = factor(
       case_when(
         grepl("^No$|Never$|No question asked$", used_syringe_30d_bin, ignore.case = TRUE) ~ 0,
-        grepl("Always|Not always, but more than in a half of cases \\(>50% cases\\)|In a half of cases \\(50% cases\\)|Less than in a half of cases \\(<50% cases\\)", used_syringe_30d_bin, ignore.case = TRUE) ~ 1,
+        grepl("Always|Not always, but more than in a half of cases \\(>50% cases\\)|In a half of cases \\(50% cases\\)|Less than in a half of cases \\(<50% cases\\)", used_syringe_30d_bin, ignore.case = TRUE) ~ 1,
         grepl("No answer|I don't know how the syringe was filled|Don’t remember|Refusal to answer|Don't know/don't remember", used_syringe_30d_bin, ignore.case = TRUE) ~ 2,
         TRUE ~ NA_real_
       ),
@@ -1666,6 +1677,7 @@ table(sw_combined_raw$year, sw_combined_raw$typology_primary_3cat, useNA = "ifan
 table(sw_combined_raw$year, sw_combined_raw$typology_primary_30d_3cat, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$typology_primary_6m_3cat, useNA = "ifany")
 
+# age of partners
 sw_combined_raw <- sw_combined_raw %>%
   mutate(
     partners_age_6m_h = case_when(
