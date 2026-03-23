@@ -1118,7 +1118,7 @@ sw_combined_raw <- sw_combined_raw %>%
         sw_partners_clients_30d >= 20 & sw_partners_clients_30d <= 49  ~ 1,
         sw_partners_clients_30d >= 50 ~ 2,
         TRUE ~ NA_real_
-      ), 
+      ),
       levels = 0:2, 
       labels = c("0-19","20-49","50+")
     ),     

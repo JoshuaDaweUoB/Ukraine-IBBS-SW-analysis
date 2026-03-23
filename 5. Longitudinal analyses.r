@@ -22,19 +22,14 @@ calc_ir <- function(cases, person_years) {
 # load long hiv data
 sw_negative_cohort_hiv <- readRDS("sw_incidence_hiv_dataset.rds")
 
-sw_negative_cohort_hiv <- sw_negative_cohort_hiv %>%
-  mutate(
-    hiv_test_rslt_bin = ifelse(hiv_test_rslt_bin == "Positive", 1, 0),
-    hiv_test_rslt_bin = as.numeric(hiv_test_rslt_bin)
-  )
-
-# ensure adjustment variables are factors
-sw_negative_cohort_hiv <- sw_negative_cohort_hiv %>%
-  mutate(
-    ukraine_region = as.factor(ukraine_region),
-    year = as.factor(year),
-    years_in_sw_3cat = as.factor(years_in_sw_3cat)
-  )
+# list of dataframes
+data_frames <- list(
+  overall = sw_negative_cohort_hiv,
+  idu = sw_negative_cohort_hiv %>% filter(idu_ever_3cat == "Yes"),
+  noidu = sw_negative_cohort_hiv %>% filter(idu_ever_3cat == "No"),
+  street = sw_negative_cohort_hiv %>% filter(street_sw_bin == "Yes"),
+  nostreet = sw_negative_cohort_hiv %>% filter(street_sw_bin == "No")
+)
 
 # exposures
 exposure_vars <- c(
@@ -77,69 +72,121 @@ binary_vars <- c(
   "violence_support_ngo"
 )
 
-table(sw_negative_cohort_hiv$idu_ever_3cat)
+# loop over dataframes
+results_all <- list()
 
-sw_negative_cohort_hiv <- sw_negative_cohort_hiv %>%
-  mutate(across(all_of(binary_vars),
-    ~ factor(ifelse(. == "Yes", "Yes", "No"),
-             levels = c("No", "Yes"))
-  ))
+for (dataset_name in names(data_frames)) {
 
-table(sw_negative_cohort_hiv$idu_12m_3cat)
+  df <- data_frames[[dataset_name]]
+
+  # recode outcome
+  df <- df %>%
+    mutate(
+      hiv_test_rslt_bin = ifelse(hiv_test_rslt_bin == "Positive", 1, 0),
+      hiv_test_rslt_bin = as.numeric(hiv_test_rslt_bin)
+    )
+
+  # adjustment variables
+  df <- df %>%
+    mutate(
+      ukraine_region = as.factor(ukraine_region),
+      year = as.factor(year),
+      years_in_sw_3cat = as.factor(years_in_sw_3cat)
+    )
+
+  # binary recode
+  df <- df %>%
+    mutate(across(all_of(binary_vars),
+      ~ factor(ifelse(. == "Yes", "Yes", "No"),
+               levels = c("No", "Yes"))
+    ))
+
+  results_list <- list()
+
+}
+
+results_all <- list()
 
 # hazard ratios
 
 results_list <- list()
 
-for (var in exposure_vars) {
-  sw_negative_cohort_hiv[[var]] <- as.factor(sw_negative_cohort_hiv[[var]])
-  formula <- as.formula(
-    paste("Surv(py, hiv_test_rslt_bin) ~", var, "+ ukraine_region + year + years_in_sw_3cat")
-  )
-  model <- coxph(formula, data = sw_negative_cohort_hiv)
-  tidy_mod <- tidy(model, exponentiate = TRUE, conf.int = TRUE)
-  tidy_mod <- tidy_mod %>% filter(grepl(paste0("^", var), term))
-  levels_var <- levels(sw_negative_cohort_hiv[[var]])
-  for (lev in levels_var) {
-    subset_data <- sw_negative_cohort_hiv %>%
-      filter(!is.na(.data[[var]]), .data[[var]] == lev)
-    cases <- sum(subset_data$hiv_test_rslt_bin == 1, na.rm = TRUE)
-    person_years <- sum(subset_data$py, na.rm = TRUE)
-    ir_res <- calc_ir(cases, person_years)
-    if (lev == levels_var[1]) {
-      results_list[[length(results_list) + 1]] <- data.frame(
-        Variable = var,
-        Level = lev,
-        HR = 1,
-        CI_lower = NA,
-        CI_upper = NA,
-        Cases = cases,
-        Person_Years = person_years,
-        IR_100PY = ir_res$IR,
-        IR_100PY_lower = ir_res$IR_lower,
-        IR_100PY_upper = ir_res$IR_upper
-      )
-    } else {
-      row_match <- tidy_mod %>% filter(grepl(lev, term))
-      results_list[[length(results_list) + 1]] <- data.frame(
-        Variable = var,
-        Level = lev,
-        HR = row_match$estimate,
-        CI_lower = row_match$conf.low,
-        CI_upper = row_match$conf.high,
-        Cases = cases,
-        Person_Years = person_years,
-        IR_100PY = ir_res$IR,
-        IR_100PY_lower = ir_res$IR_lower,
-        IR_100PY_upper = ir_res$IR_upper
-      )
+for (dataset_name in names(data_frames)) {
+
+  df <- data_frames[[dataset_name]]
+
+  # recode outcome
+  df <- df %>%
+    mutate(
+      hiv_test_rslt_bin = ifelse(hiv_test_rslt_bin == "Positive", 1, 0),
+      hiv_test_rslt_bin = as.numeric(hiv_test_rslt_bin)
+    )
+
+  # adjustment variables
+  df <- df %>%
+    mutate(
+      ukraine_region = as.factor(ukraine_region),
+      year = as.factor(year),
+      years_in_sw_3cat = as.factor(years_in_sw_3cat)
+    )
+
+  # binary recode
+  df <- df %>%
+    mutate(across(all_of(binary_vars),
+      ~ factor(ifelse(. == "Yes", "Yes", "No"),
+               levels = c("No", "Yes"))
+    ))
+
+  for (var in exposure_vars) {
+    df[[var]] <- as.factor(df[[var]])
+    formula <- as.formula(
+      paste("Surv(py, hiv_test_rslt_bin) ~", var, "+ ukraine_region + year + years_in_sw_3cat")
+    )
+    model <- coxph(formula, data = df)
+    tidy_mod <- tidy(model, exponentiate = TRUE, conf.int = TRUE)
+    tidy_mod <- tidy_mod %>% filter(grepl(paste0("^", var), term))
+    levels_var <- levels(df[[var]])
+    for (lev in levels_var) {
+      subset_data <- df %>%
+        filter(!is.na(.data[[var]]), .data[[var]] == lev)
+      cases <- sum(subset_data$hiv_test_rslt_bin == 1, na.rm = TRUE)
+      person_years <- sum(subset_data$py, na.rm = TRUE)
+      ir_res <- calc_ir(cases, person_years)
+      if (lev == levels_var[1]) {
+        results_list[[length(results_list) + 1]] <- data.frame(
+          Variable = var,
+          Level = lev,
+          HR = 1,
+          CI_lower = NA,
+          CI_upper = NA,
+          Cases = cases,
+          Person_Years = person_years,
+          IR_100PY = ir_res$IR,
+          IR_100PY_lower = ir_res$IR_lower,
+          IR_100PY_upper = ir_res$IR_upper
+        )
+      } else {
+        row_match <- tidy_mod %>% filter(grepl(lev, term))
+        results_list[[length(results_list) + 1]] <- data.frame(
+          Variable = var,
+          Level = lev,
+          HR = row_match$estimate,
+          CI_lower = row_match$conf.low,
+          CI_upper = row_match$conf.high,
+          Cases = cases,
+          Person_Years = person_years,
+          IR_100PY = ir_res$IR,
+          IR_100PY_lower = ir_res$IR_lower,
+          IR_100PY_upper = ir_res$IR_upper
+        )
+      }
     }
+
+    results_all[[dataset_name]] <- bind_rows(results_list)
   }
 }
 
-results_df <- bind_rows(results_list)
-
-write_xlsx(results_df, "cox_model_results_hiv.xlsx")
+write_xlsx(results_all, "cox_model_results_hiv.xlsx")
 
 ## rape incidence
 
