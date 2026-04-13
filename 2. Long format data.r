@@ -5,10 +5,10 @@ pacman::p_load(dplyr, tidyr, stringr, tibble, writexl, readxl, forcats, labelled
 setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/PhD Papers/Paper 3a - Ukraine Sex Work HIV/data/SW data")
 
 # load clean cross sectional data
-sw_combined_clean <- readRDS("sw_combined_clean.rds")
+sw_combined_clean_subset <- readRDS("sw_combined_clean_subset.rds")
 
 # check levels of each variable
-levels_list <- lapply(sw_combined_clean, unique)
+levels_list <- lapply(sw_combined_clean_subset, unique)
 
 # convert to df
 max_length <- max(sapply(levels_list, length))
@@ -20,19 +20,19 @@ levels_df <- as.data.frame(
   stringsAsFactors = FALSE
 )
 
-levels(sw_combined_clean$ngo_access_lifetime)
+levels(sw_combined_clean_subset$ngo_access_lifetime)
 
 # save
-write_xlsx(levels_df, "sw_combined_clean_levels.xlsx")
+write_xlsx(levels_df, "sw_combined_clean_subset_levels.xlsx")
 
 ## prepare longitudinal data 
 
 # load appended clean data
 sw_data_linkage <- read_excel("SW IBBS linkage.xlsx")
-sw_combined_clean <- readRDS("sw_combined_clean.rds")
+sw_combined_clean_subset <- readRDS("sw_combined_clean_subset.rds")
 
 # check date formatting 
-sw_combined_clean %>%
+sw_combined_clean_subset %>%
   filter(year %in% c(2013, 2015, 2017, 2021)) %>%
   select(year, interview_dte) %>%
   group_by(year) %>%
@@ -41,7 +41,7 @@ sw_combined_clean %>%
   print(n = Inf)
 
 # convert to date from character
-sw_combined_clean <- sw_combined_clean %>%
+sw_combined_clean_subset <- sw_combined_clean_subset %>%
   filter(year %in% c(2013, 2015, 2017, 2021)) %>%
   mutate(interview_dte = as.Date(interview_dte))  
 
@@ -70,7 +70,7 @@ linkage_long <- sw_data_linkage %>%
 # combine linkage keys and cleaned data
 sw_data_long <- linkage_long %>%
   left_join(
-    sw_combined_clean,
+    sw_combined_clean_subset,
     by = c("year" = "year", "year_id" = "id")
   ) %>%
   arrange(id, year)
