@@ -171,3 +171,55 @@ wb <- createWorkbook()
 addWorksheet(wb, "idu_12m_prevalence")
 writeData(wb, "idu_12m_prevalence", idu_12m_prev)
 saveWorkbook(wb, "idu_12m_prevalence_by_city_year.xlsx", overwrite = TRUE)
+
+## ngo access over time
+
+sw_combined_clean <- readRDS("sw_combined_clean.rds")
+
+sw_combined_clean <- sw_combined_clean %>%
+  mutate(
+    ngo_access_lifetime_3cat = case_when(
+      ngo_access_lifetime_3cat %in% c("Yes", "1") ~ "Yes",
+      ngo_access_lifetime_3cat %in% c("No", "0") ~ "No",
+      TRUE ~ NA_character_
+    )
+  )
+
+city_prev <- sw_combined_clean %>%
+  group_by(city, year) %>%
+  summarise(
+    n_total = n(),
+    no_prop = sum(ngo_access_lifetime_3cat == "No", na.rm = TRUE) / n_total,
+    yes_prop = sum(ngo_access_lifetime_3cat == "Yes", na.rm = TRUE) / n_total,
+    na_prop  = sum(is.na(ngo_access_lifetime_3cat)) / n_total,
+    .groups = "drop"
+  ) %>%
+  mutate(
+    level = "City",
+    yes = paste0(round(yes_prop * 100, 1), "%")
+  ) %>%
+  select(level, city, year, no_prop, yes, na_prop)
+
+overall_prev <- sw_combined_clean %>%
+  group_by(year) %>%
+  summarise(
+    n_total = n(),
+    no_prop = sum(ngo_access_lifetime_3cat == "No", na.rm = TRUE) / n_total,
+    yes_prop = sum(ngo_access_lifetime_3cat == "Yes", na.rm = TRUE) / n_total,
+    na_prop  = sum(is.na(ngo_access_lifetime_3cat)) / n_total,
+    .groups = "drop"
+  ) %>%
+  mutate(
+    level = "Overall",
+    city = "All cities",
+    yes = paste0(round(yes_prop * 100, 1), "%")
+  ) %>%
+  select(level, city, year, no_prop, yes, na_prop)
+
+ngo_prev <- bind_rows(city_prev, overall_prev) %>%
+  arrange(level, city, year)
+
+wb <- createWorkbook()
+addWorksheet(wb, "ngo_prevalence")
+writeData(wb, "ngo_prevalence", ngo_prev)
+saveWorkbook(wb, "ngo_prevalence_by_city_year.xlsx", overwrite = TRUE)

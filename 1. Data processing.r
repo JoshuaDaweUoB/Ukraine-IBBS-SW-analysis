@@ -1665,12 +1665,15 @@ sw_combined_raw <- sw_combined_raw %>%
     # 6-month typology
     typology_primary_6m_3cat = factor(
       case_when(
-        grepl("On a highway|In a sauna|In the street|At stations|At bus stops",
+        grepl("On a highway|In the street|At stations|At bus stops",
               typology_primary_6m, ignore.case = TRUE) ~ 0,
-        grepl("In a casino|club|bar|discotheque|At a hotel|Provide escort services|Phone calls|Internet|Through friends|acquaintances|pimps|other clients|I have regular clients",
+
+        grepl("In a sauna|In a casino|club|bar|discotheque|At a hotel|Provide escort services|Phone calls|Internet|Through friends|acquaintances|pimps|other clients|I have regular clients",
               typology_primary_6m, ignore.case = TRUE) ~ 1,
+
         grepl("No answer|Difficult to answer",
               typology_primary_6m, ignore.case = TRUE) ~ 2,
+
         TRUE ~ NA_real_
       ),
       levels = c(0, 1, 2),
@@ -1714,6 +1717,9 @@ sw_combined_raw <- sw_combined_raw %>%
     street_sw_bin = factor(street_sw_bin, levels = c("No", "Yes"))
   )
 table(sw_combined_raw$street_sw_bin, useNA = "ifany")
+table(sw_combined_raw$typology_primary_6m, sw_combined_raw$street_sw_bin, useNA = "ifany")
+table(sw_combined_raw$typology_primary_30d, sw_combined_raw$street_sw_bin, useNA = "ifany")
+table(sw_combined_raw$typology_primary_6m, sw_combined_raw$typology_primary_6m_3cat, useNA = "ifany")
 
 table(sw_combined_raw$year, sw_combined_raw$typology_primary_3cat, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$typology_primary_30d_3cat, useNA = "ifany")
