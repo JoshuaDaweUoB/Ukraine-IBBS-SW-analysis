@@ -156,6 +156,8 @@ rename_map_2009 <- c(
   ngo_access_lifetime = "D3.1 Are you a client of any public organization (have a card or an individual code) that works with female sex workers or injecting drug users?",
   typology_primary_6m = "А14.2 Please, tell me, which of the ways to find clients you indicated is the primary one for you?",
   aids_center_bin = "F14. Please tell if you are registered with an AIDS center?",
+  ngo_syringe_12m = "D5. What help or services did you receive from NGOs in the LAST 12 MONTHS? Syringe exchange",
+  ngo_condom_12m = "D5. What help or services did you receive from NGOs in the LAST 12 MONTHS? Obtaining condoms",
   alcohol_30d_num = "С1. How often did you use alcohol in the LAST MONTH [30 days]?",
   drugs_30d_bin = "С2. Some people try to use various drugs. Do you use any drugs?",
   used_syringe_last = "С4. Did you use common injection equipment (syringe or needle already used by someone) during your MOST RECENT INJECTION?",
@@ -247,6 +249,8 @@ rename_map_2011 <- c(
   cas_partner_condom_lastsex = "В17. Remember your last sexual contact with CASUAL partner from whom you RECEIVED NO FEE. Did you use a condom?",
   condom_access_12m = "D2. Did you receive condoms free of charge in the LAST 12 MONTHS (e.g. via educational and awareness-raising programs or projects, syringe exchange sites, counseling centers, centers of social services for family, children and youth, during actions, etc.)",
   ngo_access_lifetime = "D3.1 Are you a client of any non-governmental organization (have a card or an individual code) that works with female sex workers or injecting drug users?",
+  ngo_syringe_12m = "D5. What help or services did you receive from non-governmental organizations in the LAST 12 MONTHS? Syringe exchange",
+  ngo_condom_12m = "D5. What help or services did you receive from non-governmental organizations in the LAST 12 MONTHS? Obtaining condoms",
   typology_primary_6m = "А14.2 Please, tell me, which of the ways to find clients you indicated is the primary one for you?",
   aids_center_bin = "F14. Please tell if you are registered with an AIDS center?",
   alcohol_30d_num = "С1. How often did you use alcohol in the LAST MONTH [30 days]?",
@@ -279,6 +283,30 @@ if (length(missing_renamed) == 0) {
   cat("Missing renamed variables:\n")
   print(missing_renamed)
 }
+
+odesa_2011 <- sw_data_2011_clean %>%
+  mutate(
+    # 6-month typology
+    typology_primary_6m_3cat = factor(
+      case_when(
+        grepl("On a highway|In the street|At stations|At bus stops",
+              typology_primary_6m, ignore.case = TRUE) ~ 0,
+
+        grepl("In a sauna|In a casino|club|bar|discotheque|At a hotel|Provide escort services|Phone calls|Internet|Through friends|acquaintances|pimps|other clients|I have regular clients",
+              typology_primary_6m, ignore.case = TRUE) ~ 1,
+
+        grepl("No answer|Difficult to answer",
+              typology_primary_6m, ignore.case = TRUE) ~ 2,
+
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("Street/Outdoor", "Indoor/Clients", "Missing / Unknown")
+    ))
+
+odesa_2011 <- odesa_2011 %>% filter(city == "Odesa")
+
+table(odesa_2011$typology_primary_6m)
 
 # load 2013 data
 sw_data_2013_raw <- read_excel("2013_IBBS_FSW_TLS AND RDS_Data.xlsx")
@@ -388,6 +416,8 @@ rename_map_2013 <- c(
   sex_with_drugs_and_alcohol_30d = "С6_3 How often did you use the following during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration Alcohol + drugs",
   primary_drug_inj_30d = "С4.1. Which of the injecting drugs do you consider a primary one for you?",
   ngo_access_lifetime = "D3.Are you a client of any non-governmental organization (have a card or an individual code) that works with female sex workers?",
+  ngo_condom_12m = "D6_16 What help or services did you receive from NGO in the LAST 12 MONTHS?  Obtaining condoms",
+  ngo_syringe_12m = "D6_12 What help or services did you receive from NGO in the LAST 12 MONTHS?  Syringe exchange",
   violence_any_ever = "F1. Did you suffer violence at time of sexual services?",
   violence_rape_ever = "F1_2_1 If “yes”, how? Raped",
   violence_beaten_ever = "F1_2_3 If “yes”, how? Beaten",
@@ -423,6 +453,7 @@ if (length(missing_renamed) == 0) {
 }
 
 table(sw_data_2013_clean$used_syringe_last)
+table(sw_data_2013_clean$ngo_syringe_12m)
 
 # load 2015 data
 sw_data_2015_raw <- read_excel("2015_IBBS_SW_TLS AND RDS_Data.xlsx")
@@ -828,7 +859,9 @@ rename_map_2021 <- c(
   alcohol_30d_num = "c4 How many times during the last month (30 days) did you use alcohol drinks?",
   idu_ever_bin = "c6 Have you used any injectable drugs (with a syringe) or not?",
   used_syringe_last = "c9 Did you use a sterile needle and syringe during your last injecting drug use or not?",
-  accessed_syringe_12m = "f6_10 Have you received following free items, from NGO or social worker within the last 12 months? - Sterile needles/syringes",
+  ngo_condom_12m = "f6_1 Have you received following free items, from NGO or social worker within the last 12 months? - Male condoms",
+  ngo_condom_female_12m = "f7_2 Have you received following free items, from NGO or social worker within the last 30 days? - Female condoms",
+  ngo_syringe_12m = "f6_10 Have you received following free items, from NGO or social worker within the last 12 months? - Sterile needles/syringes",
   age_inject = "c10_2 At what age did you try injectable drugs  for the first time",
   mental_health = "g0 PHQ9 level",
   anxiety = "g1 GAD7 level",
@@ -925,7 +958,6 @@ sw_combined_raw <- bind_rows(datasets_aligned, .id = "source_year")
 # check and save
 dim(sw_combined_raw)
 names(sw_combined_raw)
-table(sw_combined_raw$year)
 saveRDS(sw_combined_raw, "sw_combined_raw.rds")
 write_xlsx(sw_combined_raw, "sw_combined_raw.xlsx")
 
@@ -977,7 +1009,6 @@ sw_combined_raw <- readRDS("sw_combined_raw.rds")
 # year variable
 year_map <- c("1"=2008,"2"=2009,"3"=2011,"4"=2013,"5"=2015,"6"=2017,"7"=2021)
 sw_combined_raw$year <- year_map[sw_combined_raw$source_year]
-
 
 # relevel education
 sw_combined_raw <- sw_combined_raw %>%
@@ -1185,8 +1216,7 @@ sw_combined_raw <- sw_combined_raw %>%
 
 # tab categorical variables
 table(sw_combined_raw$year, sw_combined_raw$sw_partners_clients_30d_3cat, useNA = "ifany")
-table(sw_combined_raw$year, sw_combined_raw$sw_partners_clients_7d_4cat, useNA = "ifany")
-table(sw_combined_raw$year, sw_combined_raw$sw_partners_nonclients_30d_5cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$sw_partners_clients_7d_3cat, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$sw_partners_nonclients_7d_5cat, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$sw_partners_total_7d_4cat, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$partners_sw_24h, useNA = "ifany")
@@ -1379,43 +1409,6 @@ sw_combined_raw <- sw_combined_raw %>%
       ),
       levels = c(0, 1, 2),
       labels = c("No", "Yes", "Missing / Unknown")))
-    
-sw_combined_raw <- sw_combined_raw %>%
-  mutate(
-    idu_ever_3cat = case_when(
-      # Any positive indication of ever injecting
-      grepl("Yes, I have been using them for the last 30 days|Yes, I used it, but more than 12 months ago|Так, я вживав/ла", idu_ever_bin, ignore.case = TRUE) ~ 1,
-      grepl("Yes, I have been using them for the last 30 days|Yes, I used it, but more than 12 months ago|Так, я вживав/ла", idu_12m_bin, ignore.case = TRUE) ~ 1,
-      grepl("^Yes$|Yes, I did$", used_syringe_last, ignore.case = TRUE) ~ 1,
-      
-      # Any clear "no" indication
-      grepl("^No$|Never used|No, I did not|Never used or never even tried", idu_ever_bin, ignore.case = TRUE) ~ 0,
-      grepl("^No$|Never used|No, I did not|Never used or never even tried", idu_12m_bin, ignore.case = TRUE) ~ 0,
-      grepl("^No$|No, I did not|Never$", used_syringe_last, ignore.case = TRUE) ~ 0,
-      
-      # Everything else is missing/unknown
-      TRUE ~ 2
-    ),
-    idu_ever_3cat = factor(idu_ever_3cat, levels = 0:2, labels = c("No", "Yes", "Missing / Unknown"))
-  )
-
-sw_combined_raw <- sw_combined_raw %>%
-  mutate(
-    idu_ever_3cat = factor(
-      case_when(
-        used_syringe_last %in% c("Yes", "No", "I don't know how the syringe was filled", "Don’t remember", "No, I did not") ~ 1,
-        grepl("Yes, I have used during last 12 months \\(not last 30 days\\)|Yes, I have used during last 30 days|Used in the past, but not in the last 12 months|Yes, I have used more than 12 months ago|Так, я вживав|Yes, I used it, but more than 12 months ago|Yes, I have been using them for the last 30 days", idu_12m_bin, ignore.case = TRUE) ~ 1,
-        grepl("Yes, I have been using them for the last 30 days|Yes, I used it, but more than 12 months ago|Так, я вживав/ла протягом останніх 12 місяців (але не протягом 30 днів)", idu_ever_bin, ignore.case = TRUE) ~ 1,
-        grepl("^No$|Never used", idu_12m_bin, ignore.case = TRUE) ~ 0,
-        drugs_30d_bin %in% c("No question asked", "No") ~ 0,
-        used_syringe_last %in% c("No question asked") ~ 0,
-        grepl("No answer|Difficult to answer|Difficult to answer/don’t remember|Refuse to answer|Never used", idu_12m_bin, ignore.case = TRUE) ~ 2,
-        TRUE ~ NA_real_
-      ),
-      levels = c(0, 1, 2),
-      labels = c("No", "Yes", "Missing / Unknown")
-    ))
-table(sw_combined_raw$idu_ever_3cat)
 
 sw_combined_raw <- sw_combined_raw %>%
   mutate(
@@ -1425,18 +1418,40 @@ sw_combined_raw <- sw_combined_raw %>%
               idu_12m_bin, ignore.case = TRUE) ~ 1,
         grepl("Yes, I have been using them for the last 30 days|Так, я вживав/ла протягом останніх 12 місяців (але не протягом 30 днів)", 
               idu_ever_bin, ignore.case = TRUE) ~ 1,
+        ngo_syringe_12m == "Yes" ~ 1,
         grepl("^No$|Never used|Used in the past, but not in the last 12 months|Yes, I have used more than 12 months ago|Used in the past, but not in the last 12 months", 
               idu_12m_bin, ignore.case = TRUE) ~ 0,       
         grepl("No answer|Difficult to answer|Difficult to answer/don’t remember|Refuse to answer|Difficult to say", 
               idu_12m_bin, ignore.case = TRUE) ~ 2,
         grepl("Difficult to answer", 
               drugs_30d_bin, ignore.case = TRUE) ~ 2,
-        idu_ever_3cat == "No" ~ 0,
         TRUE ~ NA_real_
       ),
       levels = c(0, 1, 2),
       labels = c("No", "Yes", "Missing / Unknown")
     ))
+table(sw_combined_raw$idu_12m_3cat, sw_combined_raw$year, useNA = "ifany")
+
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    idu_ever_3cat = factor(
+      case_when(
+        used_syringe_last %in% c("Yes", "No", "I don't know how the syringe was filled", "Don’t remember", "No, I did not") ~ 1,
+        grepl("Yes, I have used during last 12 months \\(not last 30 days\\)|Yes, I have used during last 30 days|Used in the past, but not in the last 12 months|Yes, I have used more than 12 months ago|Так, я вживав|Yes, I used it, but more than 12 months ago|Yes, I have been using them for the last 30 days", idu_12m_bin, ignore.case = TRUE) ~ 1,
+        grepl("Yes, I have been using them for the last 30 days|Yes, I used it, but more than 12 months ago|Так, я вживав/ла протягом останніх 12 місяців (але не протягом 30 днів)", idu_ever_bin, ignore.case = TRUE) ~ 1,
+        ngo_syringe_12m == "Yes" ~ 1,
+        idu_12m_3cat == "Yes" ~ 1,
+        grepl("^No$|Never used", idu_12m_bin, ignore.case = TRUE) ~ 0,
+        drugs_30d_bin %in% c("No question asked", "No") ~ 0,
+        used_syringe_last %in% c("No question asked") ~ 0,
+        grepl("No answer|Difficult to answer|Difficult to answer/don’t remember|Refuse to answer|Never used", idu_12m_bin, ignore.case = TRUE) ~ 2,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("No", "Yes", "Missing / Unknown")
+    ))
+
+table(sw_combined_raw$idu_ever_3cat, sw_combined_raw$year, useNA = "ifany")
 
 sw_combined_raw <- sw_combined_raw %>%
   mutate(       
@@ -1496,27 +1511,6 @@ sw_combined_raw <- sw_combined_raw %>%
       labels = c("No", "Yes", "Missing / Unknown")
     ))
 
-sw_combined_raw <- sw_combined_raw %>%
-  mutate(idu_ever_3cat = replace(idu_ever_3cat, idu_12m_3cat == "Yes", "Yes"))
-
-sw_combined_raw <- sw_combined_raw %>%
-  mutate(
-    idu_12m_3cat = if_else(idu_12m_3cat == "Missing / Unknown" & idu_ever_3cat == "No", "No", idu_12m_3cat))
-
-sw_combined_raw <- sw_combined_raw %>%
-  mutate(
-    idu_12m_3cat = replace(idu_12m_3cat, year == 2009, NA))
-
-sw_combined_raw <- sw_combined_raw %>%
-  mutate(
-    idu_12m_3cat = na_if(idu_12m_3cat, "Missing / Unknown"),
-    idu_ever_3cat = na_if(idu_ever_3cat, "Missing / Unknown")
-  )
-
-table(sw_combined_raw$year, sw_combined_raw$idu_12m_3cat, useNA = "ifany")
-table(sw_combined_raw$year, sw_combined_raw$idu_ever_3cat, useNA = "ifany")
-table(sw_combined_raw$idu_12m_3cat, sw_combined_raw$idu_ever_3cat, useNA = "ifany")
-
 ## ngo variables
 sw_combined_raw <- sw_combined_raw %>%
   mutate(
@@ -1570,6 +1564,31 @@ table(sw_combined_raw$year, sw_combined_raw$aids_center_bin_3cat, useNA = "ifany
 table(sw_combined_raw$year, sw_combined_raw$ngo_access_lifetime_3cat, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$ngo_access_12m_3cat, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$ngo_access_30d_3cat, useNA = "ifany")
+
+table(sw_combined_raw$year, sw_combined_raw$ngo_condom_12m, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$ngo_syringe_12m, useNA = "ifany")
+
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    ngo_condom_12m_bin = case_when(
+      grepl("^Yes$", ngo_condom_12m, ignore.case = TRUE) ~ "Yes",
+      grepl("^Yes$", ngo_condom_female_12m, ignore.case = TRUE) ~ "Yes",
+      grepl("^No$", ngo_condom_12m, ignore.case = TRUE) ~ "No",
+      TRUE ~ NA_character_
+    ),
+
+    ngo_syringe_12m_bin = case_when(
+      grepl("^Yes$", ngo_syringe_12m, ignore.case = TRUE) ~ "Yes",
+      grepl("^No$", ngo_syringe_12m, ignore.case = TRUE) ~ "No",
+      TRUE ~ NA_character_
+    )
+  )
+  
+table(sw_combined_raw$year, sw_combined_raw$ngo_condom_12m, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$ngo_syringe_12m, useNA = "ifany")
+
+table(sw_combined_raw$ngo_condom_12m_bin, useNA = "ifany")
+table(sw_combined_raw$ngo_syringe_12m_bin, useNA = "ifany")
 
 # HIV variables
 sw_combined_raw <- sw_combined_raw %>%
@@ -1728,21 +1747,21 @@ table(sw_combined_raw$year, sw_combined_raw$typology_primary_6m_3cat, useNA = "i
 # age of partners
 sw_combined_raw <- sw_combined_raw %>%
   mutate(
-    partners_age_6m_h = case_when(
+    partners_age_6m_3cat = case_when(
       grepl("Youth|Young men", partners_age_6m, ignore.case = TRUE) ~ 0,
       grepl("middle age", partners_age_6m, ignore.case = TRUE) ~ 1,
       grepl("above 50", partners_age_6m, ignore.case = TRUE) ~ 2,
       TRUE ~ NA_real_
     ),
-    partners_age_30d_h = case_when(
+    partners_age_30d_3cat = case_when(
       grepl("18-25|19-24|25-34|26-35|Young", partners_age_30d, ignore.case = TRUE) ~ 0,
       grepl("35-49|36-50|middle age|Middle-aged", partners_age_30d, ignore.case = TRUE) ~ 1,
       grepl("above 50|over 50", partners_age_30d, ignore.case = TRUE) ~ 2,
       TRUE ~ NA_real_
     ),
     partners_age_3cat = case_when(
-      year %in% c(2008, 2009, 2011) ~ partners_age_6m_h,
-      year %in% c(2013, 2015, 2017, 2021) ~ partners_age_30d_h,
+      year %in% c(2008, 2009, 2011) ~ partners_age_6m_3cat,
+      year %in% c(2013, 2015, 2017, 2021) ~ partners_age_30d_3cat,
       TRUE ~ NA_real_
     ),
 
@@ -1974,6 +1993,17 @@ table(sw_combined_raw$year, sw_combined_raw$ukraine_region, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$occupied, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$occupied_partial, useNA = "ifany")
 
+# restrict to FSWs
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    gender = ifelse(year %in% c(2008, 2009, 2011, 2013), "Female", gender)
+  )
+
+sw_combined_raw <- sw_combined_raw %>%
+  filter(gender == "Female")
+
+table(sw_combined_raw$gender, sw_combined_raw$year)
+
 sw_combined_raw_subset <- sw_combined_raw %>%
   filter(city %in% c("Cherkasy", "Dnipro", "Kharkiv", "Kropyvnytskyi", "Lviv", "Odesa", "Mariupol"))
 
@@ -1996,4 +2026,3 @@ saveRDS(sw_combined_raw_subset, "sw_combined_clean_subset.rds")
 saveRDS(sw_combined_raw_odesa, "sw_combined_clean_odesa.rds")
 saveRDS(sw_combined_raw_kharkiv, "sw_combined_clean_kharkiv.rds")
 saveRDS(sw_combined_raw_kropyvnytskyi, "sw_combined_clean_kropyvnytskyi.rds")
-
