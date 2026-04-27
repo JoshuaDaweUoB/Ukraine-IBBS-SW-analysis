@@ -62,7 +62,7 @@ rename_map_2008 <- c(
   idu_30d_num = "C4. How often have you used drugs through injection in the past 30 days?",
   used_syringe_last = "C5. During your most recent injection, did you use shared injecting equipment (syringe or needle) that someone else had already used?",
   used_syringe_30d_bin = "C6. In the past 30 days, how often did you use shared injecting equipment?",
-  ngo_access_lifetime = "D2.1. Over your lifetime, have you ever sought assistance from NGOs that work with women engaged in commercial sex?",
+  ngo_client_lifetime = "D2.1. Over your lifetime, have you ever sought assistance from NGOs that work with women engaged in commercial sex?",
   ngo_access_12m = "D2.2. In the past 12 months, have you sought assistance from NGOs that work with women engaged in commercial sex?",
   ngo_access_30d = "D2.3. In the past 30 days, have you sought assistance from NGOs that work with women engaged in commercial sex?",
   hiv_tested_lifetime = "G5. I don’t ask you about the result but I want to ask if you underwent HIV testing?",
@@ -71,7 +71,8 @@ rename_map_2008 <- c(
   hiv_status_selfreport = "G10.1 HIV status",
   blood_screen_bin = "N1. Was blood screening conducted or not?",
   hiv_test_rslt = "N3. HIV testing result:",
-  syphilis_test_rslt = "S3. Syphilis testing result"
+  syphilis_test_rslt = "S3. Syphilis testing result",
+  hiv_tested_ngo = "G3. Tell me, please, whether you approached any institution/organization to undergo HIV testing?"
 )
 
 # map to vars
@@ -88,6 +89,21 @@ if (length(missing_renamed) == 0) {
   cat("Missing renamed variables:\n")
   print(missing_renamed)
 }
+
+sw_data_2008_clean <- sw_data_2008_clean %>%
+  mutate(
+    hiv_tested_lifetime = case_when(
+      hiv_tested_ngo == "No" ~ "No",
+      TRUE ~ hiv_tested_lifetime
+    ),
+    hiv_tested_12m = case_when(
+      hiv_tested_ngo == "No" ~ "No",
+      TRUE ~ hiv_tested_12m
+    )    
+  )
+
+
+table(sw_data_2008_clean$hiv_tested_12m)
 
 # load 2009 data
 sw_data_2009_raw <- read_excel("2009_IBBS_FSW_TLS AND RDS_Data.xlsx")
@@ -153,7 +169,7 @@ rename_map_2009 <- c(
   cas_partner_condom_lastsex = "В13. Remember your last sexual contact with a CASUAL partner from whom you RECEIVED NO FEE. Did you use a condom?",
   perm_partner_condom_30d = "В18.2 Think again about events of the LAST 30 DAYS. Did you have a case of NOT using a condom with a PERMANENT PARTNER?",
   cas_partner_condom_30d = "В20.2 Think again about events of the LAST 30 DAYS. Did you have a case of NOT using a condom with CASUAL PARTNERS?",
-  ngo_access_lifetime = "D3.1 Are you a client of any public organization (have a card or an individual code) that works with female sex workers or injecting drug users?",
+  ngo_client_lifetime = "D3.1 Are you a client of any public organization (have a card or an individual code) that works with female sex workers or injecting drug users?",
   typology_primary_6m = "А14.2 Please, tell me, which of the ways to find clients you indicated is the primary one for you?",
   aids_center_bin = "F14. Please tell if you are registered with an AIDS center?",
   ngo_syringe_12m = "D5. What help or services did you receive from NGOs in the LAST 12 MONTHS? Syringe exchange",
@@ -164,10 +180,12 @@ rename_map_2009 <- c(
   hiv_tested_lifetime = "F6. I don’t ask you about the result but I want to ask if you underwent HIV testing?",
   hiv_tested_12m = "F8. Let’s specify if that was during the RECENT 12 MONTHS?",
   hiv_tested_result = "F11. I don’t ask you about the result, but did you receive your last test result?",
+  hiv_report_result = "F13. Do you want to report your HIV status?",
   hiv_status_selfreport = "F13.1 HIV status",
   blood_screen_bin = "І1. Was blood screening conducted or not?",
   hiv_test_rslt = "І3. HIV testing result",
-  syphilis_test_rslt = "S3. Syphilis testing result"
+  syphilis_test_rslt = "S3. Syphilis testing result",
+  hiv_tested_ngo = "F5. Tell me, please, whether you approached any institution/organization to undergo HIV testing?"
 )
 
 # map to vars
@@ -184,7 +202,31 @@ if (length(missing_renamed) == 0) {
   print(missing_renamed)
 }
 
+sw_data_2009_clean <- sw_data_2009_clean %>%
+  mutate(
+    hiv_tested_lifetime = case_when(
+      hiv_tested_ngo == "No" ~ "No",
+      TRUE ~ hiv_tested_lifetime    
+    ),
+    hiv_tested_12m = case_when(
+      hiv_tested_ngo == "No" ~ "No",
+      TRUE ~ hiv_tested_12m
+    )    
+  )
+
 table(sw_data_2009_clean$used_syringe_last)
+table(sw_data_2009_clean$hiv_tested_lifetime, useNA = "ifany")
+table(sw_data_2009_clean$hiv_tested_12m, useNA = "ifany")
+
+table(sw_data_2009_clean$hiv_status_selfreport, useNA = "ifany")
+sw_data_2009_clean <- sw_data_2009_clean %>%
+  mutate(
+    hiv_status_selfreport = case_when(
+      hiv_report_result == "No" ~ "Don't know",
+      TRUE ~ hiv_status_selfreport
+    )
+  )
+table(sw_data_2009_clean$hiv_status_selfreport, useNA = "ifany")
 
 # load 2011 data
 sw_data_2011_raw <- read_excel("2011_IBBS_FSW_TLS AND RDS_Data.xlsx")
@@ -248,7 +290,7 @@ rename_map_2011 <- c(
   perm_partner_condom_lastsex = "В13. Remember your last sexual contact with a PERMANENT partner from whom you RECEIVED NO FEE. Did you use a condom?",
   cas_partner_condom_lastsex = "В17. Remember your last sexual contact with CASUAL partner from whom you RECEIVED NO FEE. Did you use a condom?",
   condom_access_12m = "D2. Did you receive condoms free of charge in the LAST 12 MONTHS (e.g. via educational and awareness-raising programs or projects, syringe exchange sites, counseling centers, centers of social services for family, children and youth, during actions, etc.)",
-  ngo_access_lifetime = "D3.1 Are you a client of any non-governmental organization (have a card or an individual code) that works with female sex workers or injecting drug users?",
+  ngo_client_lifetime = "D3.1 Are you a client of any non-governmental organization (have a card or an individual code) that works with female sex workers or injecting drug users?",
   ngo_syringe_12m = "D5. What help or services did you receive from non-governmental organizations in the LAST 12 MONTHS? Syringe exchange",
   ngo_condom_12m = "D5. What help or services did you receive from non-governmental organizations in the LAST 12 MONTHS? Obtaining condoms",
   typology_primary_6m = "А14.2 Please, tell me, which of the ways to find clients you indicated is the primary one for you?",
@@ -262,6 +304,7 @@ rename_map_2011 <- c(
   violence_any_ever = "V1. Have you ever been subjected to violence while providing sexual services? For example, you were verbally or physically humiliated / beaten / forced to provide sexual services for free?",
   hiv_tested_lifetime = "F6. I am not asking you about the result but I want to ask if you underwent HIV testing",
   hiv_tested_12m = "F8. Let’s specify if that was during the RECENT 12 MONTHS",
+  hiv_report_result = "F13. Do you want to report your HIV status?",
   hiv_tested_result = "F11. I am not asking you about the result, but did you receive your last test result?",
   hiv_status_selfreport = "F13.1 HIV status",
   art_current = "F15. Are you participating in ART program?",
@@ -283,6 +326,14 @@ if (length(missing_renamed) == 0) {
   cat("Missing renamed variables:\n")
   print(missing_renamed)
 }
+
+sw_data_2011_clean$hiv_tested_12m[
+  sw_data_2011_clean$hiv_tested_lifetime == "No"
+] <- "No"
+
+table(sw_data_2011_clean$hiv_tested_lifetime, useNA = "ifany")
+table(sw_data_2011_clean$hiv_tested_12m, useNA = "ifany")
+table(sw_data_2011_clean$hiv_tested_lifetime, sw_data_2011_clean$hiv_tested_12m, useNA = "ifany")
 
 odesa_2011 <- sw_data_2011_clean %>%
   mutate(
@@ -307,6 +358,16 @@ odesa_2011 <- sw_data_2011_clean %>%
 odesa_2011 <- odesa_2011 %>% filter(city == "Odesa")
 
 table(odesa_2011$typology_primary_6m)
+
+table(sw_data_2011_clean$hiv_status_selfreport, useNA = "ifany")
+sw_data_2011_clean <- sw_data_2011_clean %>%
+  mutate(
+    hiv_status_selfreport = case_when(
+      hiv_report_result == "No" ~ "Don't know",
+      TRUE ~ hiv_status_selfreport
+    )
+  )
+table(sw_data_2011_clean$hiv_status_selfreport, useNA = "ifany")
 
 # load 2013 data
 sw_data_2013_raw <- read_excel("2013_IBBS_FSW_TLS AND RDS_Data.xlsx")
@@ -415,7 +476,7 @@ rename_map_2013 <- c(
   sex_with_alcohol_30d = "С6_1. How often did you use the following during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration Alcohol, alco pops",
   sex_with_drugs_and_alcohol_30d = "С6_3 How often did you use the following during the LAST MONTH [30 days] before a sexual contact(s) with your client(s) from whom you received the remuneration Alcohol + drugs",
   primary_drug_inj_30d = "С4.1. Which of the injecting drugs do you consider a primary one for you?",
-  ngo_access_lifetime = "D3.Are you a client of any non-governmental organization (have a card or an individual code) that works with female sex workers?",
+  ngo_client_lifetime = "D3.Are you a client of any non-governmental organization (have a card or an individual code) that works with female sex workers?",
   ngo_condom_12m = "D6_16 What help or services did you receive from NGO in the LAST 12 MONTHS?  Obtaining condoms",
   ngo_syringe_12m = "D6_12 What help or services did you receive from NGO in the LAST 12 MONTHS?  Syringe exchange",
   violence_any_ever = "F1. Did you suffer violence at time of sexual services?",
@@ -563,9 +624,11 @@ rename_map_2015 <- c(
   idu_30d_bin = "С4. Have you injected drugs in the last 30 days (last month)?",
   idu_30d_num = "С4_1. Have you injected drugs in the last 30 days (last month)? - If “yes”, how often?",
   used_syringe_last = "С4.2. Did you used sterile syringe and needle when you last injected drug?",
-  ngo_access_lifetime = "D3. Are you a client of any non-governmental organization (have a card or an individual code) that works with sex workers",
+  ngo_client_lifetime = "D3. Are you a client of any non-governmental organization (have a card or an individual code) that works with sex workers",
   ngo_access_6m = "D4_2 Have you received female condoms from a representative of this NGO in the past 6 months?",
   harm_reduction_12m = "F7. Your access to prevention materials (e.g. syringes, condoms) and counseling in the past 12 months:",
+  ngo_condom_6m = "D4_1 Have you received male condoms from a representative of this NGO in the past 6 months?",
+  ngo_condom_female_6m = "D4_2 Have you received female condoms from a representative of this NGO in the past 6 months?",
   violence_any_ever = "F1. Did you suffer violence at time of sexual services?",
   violence_beaten_ever = "F2.1_4 If “yes”, how? - Beaten",
   violence_rape_ever = "F2.1_7 If “yes”, how? - Raped",
@@ -605,6 +668,7 @@ if (length(missing_renamed) == 0) {
 }
 
 table(sw_data_2015_clean$used_syringe_last)
+table(sw_data_2015_clean$ngo_condom_6m)
 
 # load 2017 data
 sw_data_2017_raw <- read_excel("2017-2018_IBBS_SW_TLS AND RDS_Data.xlsx")
@@ -701,9 +765,11 @@ rename_map_2017 <- c(
   drugs_12m_bin = "С2. Some people try to use various drugs. Do you use / Did you use any non-injection drugs?",
   idu_12m_bin = "C4. Have you injected drugs (with the syringe)?",
   used_syringe_last = "С6. Did you used sterile syringe and needle when you last injected drug?",
-  ngo_access_lifetime = "F2. Are you a client of any non-governmental organization (have a card or individual code), that provides prevention services for SW",
+  ngo_client_lifetime = "F2. Are you a client of any non-governmental organization (have a card or individual code), that provides prevention services for SW",
   prep_12m = "F10. Have you used PrEP in the last 12 months?",
   harm_reduction_12m = "F6. Your access to prevention materials (e.g. syringes, condoms) and counseling in the past 12 months:",
+  ngo_condom_6m = "F5_1 Have you received condoms from representatives of this NGO during the last 6 months? - Male condoms",
+  ngo_condom_female_6m = "F5_2 Have you received condoms from representatives of this NGO during the last 6 months? - Female condoms",
   violence_any_ever = "H1. Did you suffer violence at time of sexual services?",
   violence_beaten_ever = "H1_3 If “yes”, how?  - Beaten",
   violence_humiliated_ever = "H1_1 If “yes”, how? - Humiliated morally (verbally)",
@@ -865,7 +931,7 @@ rename_map_2021 <- c(
   age_inject = "c10_2 At what age did you try injectable drugs  for the first time",
   mental_health = "g0 PHQ9 level",
   anxiety = "g1 GAD7 level",
-  ngo_access_lifetime = "f2 Are you a client of a non-governmental organization that works on HIV prevention among sex workers, or not?",
+  ngo_client_lifetime = "f2 Are you a client of a non-governmental organization that works on HIV prevention among sex workers, or not?",
   prep_12m = "f15 Have you taken pre-exposure prophylaxis (PrEP) drugs within the last 12 months?",
   violence_any_ever = "h1 Have you ever experienced violence (for example, beatings, rapes, verbal humiliation, extortion, etc.) during your involvement in commercial sexual services?",
   violence_rape_ever = "h2_6 If yes, in what way? Raped",
@@ -895,6 +961,7 @@ rename_map_2021 <- c(
   avoided_hiv_treat_12m_violence = "k11_3 Have you ever avoided seeking HIV TREATMENT  in the last 12 months due to Fear of or concern about or experienced violence",
   avoided_hiv_treat_12m_police = "k11_4 Have you ever avoided seeking HIV TREATMENT  in the last 12 months due to Fear of or concern about or experienced police harassment or arrest",
   hiv_tested_lifetime = "i3 I am not asking you about the test result, but have you ever been tested for HIV?",
+  hiv_tested_12m = "i8 Please, try to recall when was the last time you were tested?",
   hiv_tested_result = "i9 I am not asking you about the test result, but did you receive it or not?",
   hiv_status_selfreport = "k1 Could you tell me your HIV status?",
   art_current = "FINAL ON ART (self + medical records + AIDSCenter)",
@@ -918,6 +985,8 @@ if (length(missing_renamed) == 0) {
   cat("Missing renamed variables:\n")
   print(missing_renamed)
 }
+
+table(sw_data_2021_clean$hiv_tested_12m)
 
 sw_data_2021_clean <- sw_data_2021_clean %>%
   mutate(idu_12m_bin = idu_ever_bin)
@@ -1514,12 +1583,12 @@ sw_combined_raw <- sw_combined_raw %>%
 ## ngo variables
 sw_combined_raw <- sw_combined_raw %>%
   mutate(
-    ngo_access_lifetime_3cat = factor(
+    ngo_client_lifetime_3cat = factor(
       case_when(
-        grepl("^No$", ngo_access_lifetime, ignore.case = TRUE) ~ 0,
-        grepl("^Yes$", ngo_access_lifetime, ignore.case = TRUE) ~ 1,
+        grepl("^No$", ngo_client_lifetime, ignore.case = TRUE) ~ 0,
+        grepl("^Yes$", ngo_client_lifetime, ignore.case = TRUE) ~ 1,
         grepl("No answer|Don’t remember|Don't know/don't remember|Refusal to answer",
-              ngo_access_lifetime, ignore.case = TRUE) ~ 2,
+              ngo_client_lifetime, ignore.case = TRUE) ~ 2,
         TRUE ~ NA_real_
       ),
       levels = c(0, 1, 2),
@@ -1561,7 +1630,7 @@ sw_combined_raw <- sw_combined_raw %>%
   )
 
 table(sw_combined_raw$year, sw_combined_raw$aids_center_bin_3cat, useNA = "ifany")
-table(sw_combined_raw$year, sw_combined_raw$ngo_access_lifetime_3cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$ngo_client_lifetime_3cat, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$ngo_access_12m_3cat, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$ngo_access_30d_3cat, useNA = "ifany")
 
@@ -1570,10 +1639,17 @@ table(sw_combined_raw$year, sw_combined_raw$ngo_syringe_12m, useNA = "ifany")
 
 sw_combined_raw <- sw_combined_raw %>%
   mutate(
-    ngo_condom_12m_bin = case_when(
+    ngo_condom_rec_bin = case_when(
       grepl("^Yes$", ngo_condom_12m, ignore.case = TRUE) ~ "Yes",
       grepl("^Yes$", ngo_condom_female_12m, ignore.case = TRUE) ~ "Yes",
+      grepl("^Yes$", ngo_condom_6m, ignore.case = TRUE) ~ "Yes",
+      grepl("^Yes$", ngo_condom_female_6m, ignore.case = TRUE) ~ "Yes",
       grepl("^No$", ngo_condom_12m, ignore.case = TRUE) ~ "No",
+      grepl("^No$", ngo_condom_female_12m, ignore.case = TRUE) ~ "No",
+      grepl("^No$", ngo_condom_6m, ignore.case = TRUE) ~ "No",
+      grepl("^No$", ngo_condom_female_6m, ignore.case = TRUE) ~ "No",
+      grepl("^No question asked$", ngo_condom_6m, ignore.case = TRUE) ~ "No",
+      grepl("^No question asked$", ngo_condom_female_6m, ignore.case = TRUE) ~ "No",
       TRUE ~ NA_character_
     ),
 
@@ -1587,10 +1663,44 @@ sw_combined_raw <- sw_combined_raw %>%
 table(sw_combined_raw$year, sw_combined_raw$ngo_condom_12m, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$ngo_syringe_12m, useNA = "ifany")
 
-table(sw_combined_raw$ngo_condom_12m_bin, useNA = "ifany")
+table(sw_combined_raw$ngo_condom_rec_bin, sw_combined_raw$year, useNA = "ifany")
+table(sw_combined_raw$ngo_condom_6m, sw_combined_raw$year, useNA = "ifany")
 table(sw_combined_raw$ngo_syringe_12m_bin, useNA = "ifany")
 
+# hiv and syphilis test results
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    hiv_test_rslt_bin = case_when(
+      year == 2017 & (grepl("No answer|No question asked", hiv_test_rslt, ignore.case = TRUE) | is.na(hiv_test_rslt)) ~ "Negative",
+      grepl("^Negative$", hiv_test_rslt, ignore.case = TRUE) ~ "Negative",
+      grepl("^Positive$", hiv_test_rslt, ignore.case = TRUE) ~ "Positive",
+      grepl("No answer|No question asked", hiv_test_rslt, ignore.case = TRUE) | is.na(hiv_test_rslt) ~ NA_character_,
+      TRUE ~ NA_character_
+    ),
+    hiv_test_rslt_bin = factor(
+      hiv_test_rslt_bin,
+      levels = c("Negative", "Positive")
+    ),
+    syphilis_test_rslt_3cat = case_when(
+      grepl("^Negative$", syphilis_test_rslt, ignore.case = TRUE) ~ "Negative",
+      grepl("^Positive$", syphilis_test_rslt, ignore.case = TRUE) ~ "Positive",
+      grepl("No answer|No question asked", syphilis_test_rslt, ignore.case = TRUE) ~ "Missing / Unknown",
+      TRUE ~ NA_character_
+    ),
+    syphilis_test_rslt_3cat = factor(
+      syphilis_test_rslt_3cat,
+      levels = c("Negative", "Positive", "Missing / Unknown")
+    )
+  )
+
+table(sw_combined_raw$year, sw_combined_raw$hiv_test_rslt_bin, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$syphilis_test_rslt_3cat, useNA = "ifany")
+
 # HIV variables
+table(sw_combined_raw$year, sw_combined_raw$hiv_tested_12m, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$hiv_tested_lifetime, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$hiv_status_selfreport, useNA = "ifany")
+
 sw_combined_raw <- sw_combined_raw %>%
   mutate(
     hiv_tested_lifetime_3cat = factor(
@@ -1606,8 +1716,8 @@ sw_combined_raw <- sw_combined_raw %>%
     
     hiv_tested_12m_3cat = factor(
       case_when(
-        grepl("Yes, it was during the recent 12 months|Yes, it was within the last 12 months", hiv_tested_12m, ignore.case = TRUE) ~ 1,
-        grepl("No, it was earlier than 12 months ago|No|I have not been tested for HIV", hiv_tested_12m, ignore.case = TRUE) ~ 0,
+        grepl("Yes, it was during the recent 12 months|Yes, it was within the last 12 months|Within the last 6-12 months|Within the last 6 months", hiv_tested_12m, ignore.case = TRUE) ~ 1,
+        grepl("No, it was earlier than 12 months ago|No|I have not been tested for HIV|More than 12 months ago", hiv_tested_12m, ignore.case = TRUE) ~ 0,
         grepl("No answer|Difficult to answer|Don't know/don't remember|Refusal to answer|No question asked", hiv_tested_12m, ignore.case = TRUE) ~ 2,
         TRUE ~ NA_real_
       ),
@@ -1628,20 +1738,35 @@ sw_combined_raw <- sw_combined_raw %>%
     
     hiv_status_selfreport_3cat = factor(
       case_when(
-        grepl("HIV negative|HIV-negative|Yes, HIV-negative", hiv_status_selfreport, ignore.case = TRUE) ~ 1,
-        grepl("HIV positive|HIV-positive|Yes, HIV-positive|Ні|No", hiv_status_selfreport, ignore.case = TRUE) ~ 0,
-        grepl("No answer|Difficult to answer|Don't know/don't remember|Refusal to answer|No question asked", hiv_status_selfreport, ignore.case = TRUE) ~ 2,
-        TRUE ~ NA_real_
+        grepl("HIV negative|HIV-negative|Yes, HIV-negative", hiv_status_selfreport, ignore.case = TRUE) ~ "HIV-negative",
+        grepl("HIV positive|HIV-positive|Yes, HIV-positive", hiv_status_selfreport, ignore.case = TRUE) ~ "HIV-positive",
+        grepl("No answer|Difficult to answer|Don't know/don't remember|Don't know|Refusal to answer|No question asked|^No$|^Hi$", 
+              hiv_status_selfreport, ignore.case = TRUE) ~ "Don't know",
+        TRUE ~ NA_character_
       ),
-      levels = c(0, 1, 2),
-      labels = c("No", "Yes", "Missing / Unknown")
+      levels = c("HIV-negative", "HIV-positive", "Don't know")
     )
   )
-
 table(sw_combined_raw$year, sw_combined_raw$hiv_tested_lifetime_3cat, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$hiv_tested_12m_3cat, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$hiv_tested_result_3cat, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$hiv_status_selfreport_3cat, useNA = "ifany")
+
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(hiv_positive_aware = factor(
+    case_when(
+      hiv_status_selfreport_3cat == "HIV-negative" & hiv_test_rslt_bin == "Positive" ~ 0,
+      hiv_status_selfreport_3cat == "HIV-positive" & hiv_test_rslt_bin == "Positive" ~ 1,
+      hiv_status_selfreport_3cat == "Don't know" & hiv_test_rslt_bin == "Positive" ~ 0,
+      TRUE ~ NA_real_
+      ),
+      levels = c(0, 1),
+      labels = c("HIV-unaware", "HIV-aware")
+    )
+  )
+
+table(sw_combined_raw$year, sw_combined_raw$hiv_positive_aware, useNA = "ifany")
+prop.table(table(sw_combined_raw$hiv_positive_aware, sw_combined_raw$year), margin = 2)
 
 # sexual activity past week
 sw_combined_raw <- sw_combined_raw %>%
@@ -1931,35 +2056,6 @@ sw_combined_raw <- sw_combined_raw %>%
   ))
 
 table(sw_combined_raw$avoided_healthcare_12m_stigma)
-
-# hiv and syphilis test results
-sw_combined_raw <- sw_combined_raw %>%
-  mutate(
-    hiv_test_rslt_bin = case_when(
-      year == 2017 & (grepl("No answer|No question asked", hiv_test_rslt, ignore.case = TRUE) | is.na(hiv_test_rslt)) ~ "Negative",
-      grepl("^Negative$", hiv_test_rslt, ignore.case = TRUE) ~ "Negative",
-      grepl("^Positive$", hiv_test_rslt, ignore.case = TRUE) ~ "Positive",
-      grepl("No answer|No question asked", hiv_test_rslt, ignore.case = TRUE) | is.na(hiv_test_rslt) ~ NA_character_,
-      TRUE ~ NA_character_
-    ),
-    hiv_test_rslt_bin = factor(
-      hiv_test_rslt_bin,
-      levels = c("Negative", "Positive")
-    ),
-    syphilis_test_rslt_3cat = case_when(
-      grepl("^Negative$", syphilis_test_rslt, ignore.case = TRUE) ~ "Negative",
-      grepl("^Positive$", syphilis_test_rslt, ignore.case = TRUE) ~ "Positive",
-      grepl("No answer|No question asked", syphilis_test_rslt, ignore.case = TRUE) ~ "Missing / Unknown",
-      TRUE ~ NA_character_
-    ),
-    syphilis_test_rslt_3cat = factor(
-      syphilis_test_rslt_3cat,
-      levels = c("Negative", "Positive", "Missing / Unknown")
-    )
-  )
-
-table(sw_combined_raw$year, sw_combined_raw$hiv_test_rslt_bin, useNA = "ifany")
-table(sw_combined_raw$year, sw_combined_raw$syphilis_test_rslt_3cat, useNA = "ifany")
 
 # create ukraine regions
 sw_combined_raw <- sw_combined_raw %>%
