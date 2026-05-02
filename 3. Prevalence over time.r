@@ -7,6 +7,65 @@ setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/PhD Papers/Pa
 # Load data
 sw_combined_clean <- readRDS("sw_combined_clean.rds")
 
+# years in SW 
+sw_combined_clean %>%
+  group_by(idu_ever_3cat) %>%
+  summarise(
+    n = sum(!is.na(years_in_sw)),
+    mean = mean(years_in_sw, na.rm = TRUE),
+    median = median(years_in_sw, na.rm = TRUE),
+    sd = sd(years_in_sw, na.rm = TRUE),
+    var = var(years_in_sw, na.rm = TRUE),
+    min = min(years_in_sw, na.rm = TRUE),
+    max = max(years_in_sw, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+## function to calculate exit rate
+exit_rate <- function(mean_years, var) {
+  1 / (mean_years + (var/mean_years))
+}
+
+## values
+idu_mean <- 9.3
+idu_var <- 35.9
+no_idu_mean <- 6.8
+no_idu_var <- 25.8
+
+## run function
+idu_exit <- exit_rate(idu_mean, idu_var)
+idu_exit
+no_idu_exit <- exit_rate(no_idu_mean, no_idu_var)
+no_idu_exit
+
+# rate of moving from younger to older FSW
+sw_combined_clean %>%
+  group_by(idu_ever_3cat) %>%
+  summarise(
+    mean = mean(age_first_sw_numeric, na.rm = TRUE),
+    .groups = "drop")
+
+young_to_old <- function(age_first_sw) {
+  25 - age_first_sw
+}
+
+idu_mean <- 22.7
+non_idu_mean <- 21.6
+
+idu_yto <- young_to_old(idu_mean)
+idu_yto
+
+non_idu_yto <- young_to_old(non_idu_mean)
+non_idu_yto
+
+# years in SW 
+sw_combined_clean %>%
+  group_by(idu_ever_3cat) %>%
+  summarise(
+    mean = mean(sw_partners_clients_30d, na.rm = TRUE),
+    .groups = "drop"
+  )
+
 # factor
 sw_combined_clean <- sw_combined_clean %>%
   mutate(idu_ever_3cat = factor(idu_ever_3cat, levels = c("No", "Yes")),
