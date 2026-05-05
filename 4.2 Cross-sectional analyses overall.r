@@ -369,8 +369,8 @@ vars <- c(
 sw_combined_clean <- sw_combined_clean %>%
   mutate(
     art_current_3cat = case_when(
-      art_current_3cat %in% c("Positive","1","Yes") ~ 1,
-      art_current_3cat %in% c("Negative","0","No") ~ 0,
+      art_current_3cat == "Yes" ~ 1,
+      art_current_3cat == "No" ~ 0,
       TRUE ~ NA_real_
     ),
     years_in_sw_3cat = as.factor(years_in_sw_3cat),
@@ -402,7 +402,7 @@ compute_results_overall <- function(df, vars) {
     rhs <- paste("years_in_sw_3cat", v, sep = " + ")
 
     model <- try(
-      glmer(as.formula(paste("art_current_3cat ~", rhs, "+ (1 | year) + (1 | city)")),
+      glmer(as.formula(paste("art_current_3cat ~", rhs, "+ year + (1 | city)")),
             data = dat,
             family = binomial(link = "logit"),
             control = glmerControl(optimizer = "bobyqa")),
@@ -511,8 +511,6 @@ final_output <- list(
 
 write_xlsx(final_output,
            "outputs_by_city/art_results_OVERALL.xlsx")
-
-
 
 ## condom access 12m
 

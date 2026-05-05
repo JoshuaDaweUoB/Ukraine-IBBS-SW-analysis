@@ -159,21 +159,6 @@ lambda_func <- function(p, years, var_p, var_years) {
   return(list(lambda = lambda, ci = ci))
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # factor
 sw_combined_clean <- sw_combined_clean %>%
   mutate(idu_ever_3cat = factor(idu_ever_3cat, levels = c("No", "Yes")),
