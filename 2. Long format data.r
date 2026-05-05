@@ -5,10 +5,10 @@ pacman::p_load(dplyr, tidyr, stringr, tibble, writexl, readxl, forcats, labelled
 setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/PhD Papers/Paper 3a - Ukraine Sex Work HIV/data/SW data")
 
 # load clean cross sectional data
-sw_combined_clean_subset <- readRDS("sw_combined_clean_subset.rds")
+sw_combined_clean <- readRDS("sw_combined_clean.rds")
 
 # check levels of each variable
-levels_list <- lapply(sw_combined_clean_subset, unique)
+levels_list <- lapply(sw_combined_clean, unique)
 
 # convert to df
 max_length <- max(sapply(levels_list, length))
@@ -20,19 +20,48 @@ levels_df <- as.data.frame(
   stringsAsFactors = FALSE
 )
 
-levels(sw_combined_clean_subset$ngo_access_lifetime)
+levels(sw_combined_clean$ngo_access_lifetime)
 
 # save
-write_xlsx(levels_df, "sw_combined_clean_subset_levels.xlsx")
+write_xlsx(levels_df, "sw_combined_clean_levels.xlsx")
 
 ## prepare longitudinal data 
 
 # load appended clean data
 sw_data_linkage <- read_excel("SW IBBS linkage.xlsx")
-sw_combined_clean_subset <- readRDS("sw_combined_clean_subset.rds")
+sw_combined_clean <- readRDS("sw_combined_clean.rds")
+
+# indicator for skipped years
+sw_data_linkage <- sw_data_linkage %>%
+  mutate(
+    w2013 = !is.na(`2013_id`),
+    w2015 = !is.na(`2015_id`),
+    w2017 = !is.na(`2017_id`),
+    w2021 = !is.na(`2021_id`)
+  )
+
+skip_flags <- sw_data_linkage %>%
+  group_by(UIC) %>%
+  summarise(
+    p2013 = any(w2013),
+    p2015 = any(w2015),
+    p2017 = any(w2017),
+    p2021 = any(w2021),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    skip_2015 = p2013 & !p2015 & (p2017 | p2021),
+    skip_2017 = (p2013 | p2015) & !p2017 & p2021,
+    skip_any = skip_2015 | skip_2017
+  ) %>%
+  select(UIC, skip_any)
+
+# attach skip flag
+sw_data_linkage <- sw_data_linkage %>%
+  left_join(skip_flags, by = "UIC")
 
 # check date formatting 
-sw_combined_clean_subset %>%
+sw_combined_clean %>%
   filter(year %in% c(2013, 2015, 2017, 2021)) %>%
   select(year, interview_dte) %>%
   group_by(year) %>%
@@ -41,7 +70,7 @@ sw_combined_clean_subset %>%
   print(n = Inf)
 
 # convert to date from character
-sw_combined_clean_subset <- sw_combined_clean_subset %>%
+sw_combined_clean <- sw_combined_clean %>%
   filter(year %in% c(2013, 2015, 2017, 2021)) %>%
   mutate(interview_dte = as.Date(interview_dte))  
 
@@ -70,10 +99,14 @@ linkage_long <- sw_data_linkage %>%
 # combine linkage keys and cleaned data
 sw_data_long <- linkage_long %>%
   left_join(
-    sw_combined_clean_subset,
+    sw_combined_clean,
     by = c("year" = "year", "year_id" = "id")
   ) %>%
   arrange(id, year)
+
+# delete those with missing survey years
+sw_data_long <- sw_data_long %>%
+  filter(skip_any == "FALSE")
 
 # check number of unique participants
 length(unique(sw_data_long$id))
@@ -253,8 +286,8 @@ sw_norape_cohort <- sw_norape_cohort %>%
   filter(visit_number != 1)
 
 # remove rows where rape yes at start and yes at end
-sw_norape_cohort <- sw_norape_cohort %>%
-  filter(!(rape_start == "Yes" & rape_end == "Yes"))
+#sw_norape_cohort <- sw_norape_cohort %>%
+#  filter(!(rape_start == "Yes" & rape_end == "Yes"))
 
 # remove missing outcome
 sw_norape_cohort <- sw_norape_cohort %>%
@@ -523,7 +556,7 @@ sw_noidu_cohort <- sw_noidu_cohort %>%
 sw_noidu_cohort <- sw_noidu_cohort %>%
   filter(visit_number != 1)
 
-# remove rows where rape yes at start and yes at end
+# remove rows where idu yes at start and yes at end
 sw_noidu_cohort <- sw_noidu_cohort %>%
   filter(!(idu_start == "Yes" & idu_end == "Yes"))
 
@@ -566,3 +599,243 @@ sw_noidu_cohort <- sw_noidu_cohort %>%
 saveRDS(sw_noidu_cohort, "sw_incident_idu_dataset.rds")
 write_xlsx(sw_noidu_cohort, "sw_incident_idu_dataset.xlsx")
 
+
+## steet-based sw analysis
+
+# load data
+first_sb <- readRDS("sw_data_long.rds")
+
+# baseline = street (Yes)
+ids_sb_baseline <- first_sb %>%
+  filter(street_sw_bin == "Yes") %>%
+  pull(id)
+
+# cohort
+cohort_sb <- sw_data_long_sb %>%
+  filter(id %in% ids_sb_baseline) %>%
+  arrange(id, interview_dte) %>%
+  group_by(id) %>%
+  mutate(
+    visit_number = row_number(),
+    sb_start = lag(street_sw_bin),
+    sb_end = street_sw_bin,
+    t_start = lag(interview_dte),
+    t_end = interview_dte
+  ) %>%
+  ungroup() %>%
+  filter(visit_number != 1) %>%
+  filter(sb_start == "Yes") %>%
+  filter(!is.na(sb_end))
+
+# event: Yes → No
+cohort_sb <- cohort_sb %>%
+  mutate(
+    event = ifelse(sb_start == "Yes" & sb_end == "No", 1, 0),
+    days_risk = ifelse(
+      event == 1,
+      as.numeric(t_end - t_start) / 2,
+      as.numeric(t_end - t_start)
+    ),
+    py = days_risk / 365.25
+  )
+
+# rate
+events_sb_to_indoor <- sum(cohort_sb$event)
+py_sb_to_indoor <- sum(cohort_sb$py)
+rate_sb_to_indoor <- (events_sb_to_indoor / py_sb_to_indoor) * 100
+
+events_sb_to_indoor
+py_sb_to_indoor
+rate_sb_to_indoor
+
+# calculate person-years
+cohort_sb <- cohort_sb %>%
+  mutate(py = days_risk / 365.25)
+
+# save dataset
+saveRDS(cohort_sb, "sw_incident_nosb_dataset.rds")
+write_xlsx(cohort_sb, "sw_incident_nosb_dataset.xlsx")
+
+# load data
+sw_data_long_sb <- readRDS("sw_data_long.rds")
+
+# baseline state
+first_sb <- sw_data_long_sb %>%
+  arrange(id, interview_dte) %>%
+  group_by(id) %>%
+  slice_min(interview_dte, n = 1) %>%
+  ungroup()
+
+# baseline = indoor (No)
+ids_indoor_baseline <- first_sb %>%
+  filter(street_sw_bin == "No") %>%
+  pull(id)
+
+# cohort
+cohort_indoor <- sw_data_long_sb %>%
+  filter(id %in% ids_indoor_baseline) %>%
+  arrange(id, interview_dte) %>%
+  group_by(id) %>%
+  mutate(
+    visit_number = row_number(),
+    sb_start = lag(street_sw_bin),
+    sb_end = street_sw_bin,
+    t_start = lag(interview_dte),
+    t_end = interview_dte
+  ) %>%
+  ungroup() %>%
+  filter(visit_number != 1) %>%
+  filter(sb_start == "No") %>%
+  filter(!is.na(sb_end))
+
+# event: No → Yes
+cohort_indoor <- cohort_indoor %>%
+  mutate(
+    event = ifelse(sb_start == "No" & sb_end == "Yes", 1, 0),
+    days_risk = ifelse(
+      event == 1,
+      as.numeric(t_end - t_start) / 2,
+      as.numeric(t_end - t_start)
+    ),
+    py = days_risk / 365.25
+  )
+
+# rate
+events_indoor_to_sb <- sum(cohort_indoor$event)
+py_indoor_to_sb <- sum(cohort_indoor$py)
+rate_indoor_to_sb <- (events_indoor_to_sb / py_indoor_to_sb) * 100
+events_indoor_to_sb
+py_indoor_to_sb
+rate_indoor_to_sb
+
+# calculate person-years
+sw_sb_cohort <- sw_sb_cohort %>%
+  mutate(py = days_risk / 365.25)
+
+# save dataset
+saveRDS(sw_sb_cohort, "sw_incident_sb_dataset.rds")
+write_xlsx(sw_sb_cohort, "sw_incident_sb_dataset.xlsx")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+calc_transition_rate <- function(data,
+                                 id_var = "id",
+                                 date_var = "interview_dte",
+                                 state_var,
+                                 baseline_state,
+                                 start_state,
+                                 end_state,
+                                 scale = 100,
+                                 save_data = FALSE,
+                                 rds_name = NULL,
+                                 xlsx_name = NULL) {
+
+  id <- sym(id_var)
+  date <- sym(date_var)
+  state <- sym(state_var)
+  
+  # baseline
+  first <- data %>%
+    arrange(!!id, !!date) %>%
+    group_by(!!id) %>%
+    slice_min(!!date, n = 1) %>%
+    ungroup()
+  
+  baseline_ids <- first %>%
+    filter(!!state == baseline_state) %>%
+    pull(!!id)
+  
+  # cohort
+  cohort <- data %>%
+    filter((!!id) %in% baseline_ids) %>%
+    arrange(!!id, !!date) %>%
+    group_by(!!id) %>%
+    mutate(
+      visit_number = row_number(),
+      state_start = lag(!!state),
+      state_end = !!state,
+      t_start = lag(!!date),
+      t_end = !!date
+    ) %>%
+    ungroup() %>%
+    filter(visit_number != 1) %>%
+    filter(state_start == start_state) %>%
+    filter(!is.na(state_end)) %>%
+    mutate(
+      event = ifelse(state_start == start_state & state_end == end_state, 1, 0),
+      days_risk = ifelse(
+        event == 1,
+        as.numeric(t_end - t_start) / 2,
+        as.numeric(t_end - t_start)
+      ),
+      py = days_risk / 365.25
+    )
+  
+  # results
+  events <- sum(cohort$event, na.rm = TRUE)
+  person_years <- sum(cohort$py, na.rm = TRUE)
+  rate <- (events / person_years) * scale
+  
+  # print results
+  cat("\n--- Transition summary ---\n")
+  cat("From:", start_state, "→ To:", end_state, "\n")
+  cat("Baseline:", baseline_state, "\n")
+  cat("Events:", events, "\n")
+  cat("Person-years:", round(person_years, 2), "\n")
+  cat("Rate per", scale, "PY:", round(rate, 3), "\n\n")
+  
+  # save
+  if (save_data) {
+    if (!is.null(rds_name)) saveRDS(cohort, rds_name)
+    if (!is.null(xlsx_name)) write_xlsx(cohort, xlsx_name)
+  }
+  
+  return(list(
+    events = events,
+    person_years = person_years,
+    rate = rate,
+    cohort = cohort
+  ))
+}
+
+## hiv incidence
+hiv_incidence <- calc_transition_rate(
+  data = sw_data_long,
+  state_var = "hiv_test_rslt_bin",
+  baseline_state = "Negative",
+  start_state = "Negative",
+  end_state = "Positive",
+  save_data = TRUE,
+  rds_name = "sw_incidence_hiv_dataset.rds",
+  xlsx_name = "sw_incidence_hiv_dataset.xlsx"
+)
+
+res_indoor_to_sb <- calc_transition_rate(
+  data = sw_data_long,
+  state_var = "street_sw_bin",
+  baseline_state = "No",
+  start_state = "No",
+  end_state = "Yes",
+  save_data = TRUE,
+  rds_name = "sw_incident_sb_dataset.rds",
+  xlsx_name = "sw_incident_sb_dataset.xlsx"
+)

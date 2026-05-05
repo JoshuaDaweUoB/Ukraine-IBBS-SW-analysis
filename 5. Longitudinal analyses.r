@@ -35,7 +35,7 @@ data_frames <- list(
 exposure_vars <- c(
   "condom_access_12m_3cat",
   "client_condom_lastsex_3cat",
-  "ngo_access_lifetime_3cat",
+  "ngo_client_lifetime",
   "street_sw_bin",
   "alcohol_30d_bin",
   "city_travel_12m_cat",
@@ -56,7 +56,7 @@ exposure_vars <- c(
 binary_vars <- c(
   "condom_access_12m_3cat",
   "client_condom_lastsex_3cat",
-  "ngo_access_lifetime_3cat",
+  "ngo_client_lifetime",
   "street_sw_bin",
   "alcohol_30d_bin",
   "city_travel_12m_cat",
@@ -205,12 +205,11 @@ sw_negative_cohort_rape <- sw_negative_cohort_rape %>%
     years_in_sw_3cat = as.factor(years_in_sw_3cat)
   )
 
-
 # exposures
 exposure_vars <- c(
   "condom_access_12m_3cat",
   "client_condom_lastsex_3cat",
-  "ngo_access_lifetime_3cat",
+  "ngo_client_lifetime",
   "street_sw_bin",
   "alcohol_30d_bin",
   "city_travel_12m_cat",
@@ -230,7 +229,7 @@ exposure_vars <- c(
 binary_vars <- c(
   "condom_access_12m_3cat",
   "client_condom_lastsex_3cat",
-  "ngo_access_lifetime_3cat",
+  "ngo_client_lifetime",
   "street_sw_bin",
   "alcohol_30d_bin",
   "city_travel_12m_cat",
@@ -325,7 +324,7 @@ sw_negative_cohort_beating <- sw_negative_cohort_beating %>%
 exposure_vars <- c(
   "condom_access_12m_3cat",
   "client_condom_lastsex_3cat",
-  "ngo_access_lifetime_3cat",
+  "ngo_client_lifetime",
   "street_sw_bin",
   "alcohol_30d_bin",
   "city_travel_12m_cat",
@@ -344,7 +343,7 @@ exposure_vars <- c(
 binary_vars <- c(
   "condom_access_12m_3cat",
   "client_condom_lastsex_3cat",
-  "ngo_access_lifetime_3cat",
+  "ngo_client_lifetime",
   "street_sw_bin",
   "alcohol_30d_bin",
   "city_travel_12m_cat",
@@ -438,7 +437,7 @@ sw_negative_cohort_idu <- sw_negative_cohort_idu %>%
 exposure_vars <- c(
   "condom_access_12m_3cat",
   "client_condom_lastsex_3cat",
-  "ngo_access_lifetime_3cat",
+  "ngo_client_lifetime",
   "street_sw_bin",
   "alcohol_30d_bin",
   "city_travel_12m_cat",
@@ -457,7 +456,7 @@ exposure_vars <- c(
 binary_vars <- c(
   "condom_access_12m_3cat",
   "client_condom_lastsex_3cat",
-  "ngo_access_lifetime_3cat",
+  "ngo_client_lifetime",
   "street_sw_bin",
   "alcohol_30d_bin",
   "city_travel_12m_cat",
@@ -529,3 +528,115 @@ for (var in exposure_vars) {
 results_df <- bind_rows(results_list)
 
 write_xlsx(results_df, "cox_model_results_idu.xlsx")
+
+# street-based sw incidence
+
+# load dataset
+sw_negative_cohort_sb <- readRDS("sw_incident_sb_dataset.rds")
+
+# binary outcome for Cox
+sw_negative_cohort_sb$sb_bin <- ifelse(sw_negative_cohort_sb$sb_end == "Yes", 1, 0)
+
+# variable types
+sw_negative_cohort_sb <- sw_negative_cohort_sb %>%
+  mutate(
+    sb_bin = as.numeric(sb_bin),
+    ukraine_region = as.factor(ukraine_region),
+    year = as.factor(year)
+  )
+
+# exposures
+exposure_vars <- c(
+  "condom_access_12m_3cat",
+  "client_condom_lastsex_3cat",
+  "ngo_client_lifetime",
+  "idu_ever_3cat",
+  "alcohol_30d_bin",
+  "city_travel_12m_cat",
+  "violence_any_ever_3cat",
+  "violence_rape_ever",
+  "violence_beaten_ever",
+  "violence_physical_abuse_ever",
+  "violence_police",
+  "used_syringe_last_3cat",
+  "underage_first_sw_bin",
+  "violence_support_ngo",
+  "sw_partners_clients_30d_3cat"
+)
+
+# recode true binary Yes/No variables
+binary_vars <- c(
+  "condom_access_12m_3cat",
+  "client_condom_lastsex_3cat",
+  "ngo_client_lifetime",
+  "idu_ever_3cat",
+  "alcohol_30d_bin",
+  "city_travel_12m_cat",
+  "violence_any_ever_3cat",
+  "violence_rape_ever",
+  "violence_beaten_ever",
+  "violence_physical_abuse_ever",
+  "violence_police",
+  "used_syringe_last_3cat",
+  "underage_first_sw_bin",
+  "violence_support_ngo"
+)
+
+sw_negative_cohort_sb <- sw_negative_cohort_sb %>%
+  mutate(across(all_of(binary_vars),
+    ~ factor(ifelse(. == "Yes", "Yes", "No"),
+             levels = c("No", "Yes"))
+  ))
+
+# hazard ratios
+results_list <- list()
+
+for (var in exposure_vars) {
+  sw_negative_cohort_sb[[var]] <- as.factor(sw_negative_cohort_sb[[var]])
+  formula <- as.formula(
+    paste("Surv(py, sb_bin) ~", var, "+ ukraine_region + year + years_in_sw_3cat")
+  )
+  model <- coxph(formula, data = sw_negative_cohort_sb)
+  tidy_mod <- tidy(model, exponentiate = TRUE, conf.int = TRUE)
+  tidy_mod <- tidy_mod %>% filter(grepl(paste0("^", var), term))
+  levels_var <- levels(sw_negative_cohort_sb[[var]])
+  for (lev in levels_var) {
+    subset_data <- sw_negative_cohort_sb %>%
+      filter(!is.na(.data[[var]]), .data[[var]] == lev)
+    cases <- sum(subset_data$sb_bin == 1, na.rm = TRUE)
+    person_years <- sum(subset_data$py, na.rm = TRUE)
+    ir_res <- calc_ir(cases, person_years)
+    if (lev == levels_var[1]) {
+      results_list[[length(results_list) + 1]] <- data.frame(
+        Variable = var,
+        Level = lev,
+        HR = 1,
+        CI_lower = NA,
+        CI_upper = NA,
+        Cases = cases,
+        Person_Years = person_years,
+        IR_100PY = ir_res$IR,
+        IR_100PY_lower = ir_res$IR_lower,
+        IR_100PY_upper = ir_res$IR_upper
+      )
+    } else {
+      row_match <- tidy_mod %>% filter(grepl(lev, term))
+      results_list[[length(results_list) + 1]] <- data.frame(
+        Variable = var,
+        Level = lev,
+        HR = row_match$estimate,
+        CI_lower = row_match$conf.low,
+        CI_upper = row_match$conf.high,
+        Cases = cases,
+        Person_Years = person_years,
+        IR_100PY = ir_res$IR,
+        IR_100PY_lower = ir_res$IR_lower,
+        IR_100PY_upper = ir_res$IR_upper
+      )
+    }
+  }
+}
+
+results_df <- bind_rows(results_list)
+
+write_xlsx(results_df, "cox_model_results_nonsb.xlsx")

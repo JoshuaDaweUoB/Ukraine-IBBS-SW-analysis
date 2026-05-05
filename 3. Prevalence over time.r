@@ -7,6 +7,65 @@ setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/PhD Papers/Pa
 # Load data
 sw_combined_clean <- readRDS("sw_combined_clean.rds")
 
+# proportion of FSWs in each compartment
+sw_combined_clean <- sw_combined_clean[sw_combined_clean$idu_ever_3cat != "Missing / Unknown", ]
+
+years_cats <- c("0-3", "4-9", "10+")
+
+for (i in years_cats) {
+
+# restrict to new SWs
+df <- sw_combined_clean %>%
+  filter(years_in_sw_3cat == i)
+
+table(df$years_in_sw_3cat)
+
+# Create contingency table
+tab <- table(df$idu_ever_3cat, df$street_sw_bin)
+
+# Total N
+N <- sum(tab)
+
+# calculate proportions
+omega_nonIDU_nonSB <- tab["No", "No"] / N
+omega_nonIDU_SB    <- tab["No", "Yes"] / N
+omega_IDU_nonSB    <- tab["Yes", "No"] / N
+omega_IDU_SB       <- tab["Yes", "Yes"] / N
+
+omega <- c(
+  omega_nonIDU_nonSB = omega_nonIDU_nonSB,
+  omega_nonIDU_SB    = omega_nonIDU_SB,
+  omega_IDU_nonSB    = omega_IDU_nonSB,
+  omega_IDU_SB       = omega_IDU_SB
+)
+
+# results
+print(omega)
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # years in SW 
 sw_combined_clean %>%
   group_by(idu_ever_3cat) %>%
@@ -66,6 +125,55 @@ sw_combined_clean %>%
     .groups = "drop"
   )
 
+## rate moving from non-NGO client to NGO clients
+
+# rate of ngo access by year
+sw_combined_clean <- sw_combined_clean %>%
+  mutate(
+    years_adj = ifelse(years_in_sw == 0, 0.5, years_in_sw),
+    ngo_ever = ifelse(ngo_client_lifetime_3cat == "Yes", 1,
+                 ifelse(ngo_client_lifetime_3cat == "No", 0, NA)),
+    rate_ngo = ngo_ever/years_adj,
+
+  )
+
+sw_combined_clean %>%
+  summarise(
+    p_ngo = mean(ngo_ever, na.rm = TRUE),
+    mean_years = mean(years_in_sw, na.rm = TRUE),
+    lambda_ngo = -log(1 - p_ngo) / mean_years,
+    )
+
+lambda_func <- function(p, years, var_p, var_years) {
+  
+  lambda <- -log(1 - p) / years
+  
+  var_lambda <- (1 / (years * (1 - p)))^2 * var_p +
+                (log(1 - p) / years^2)^2 * var_years  
+  
+  ci <- c(
+    lambda - 1.96 * sqrt(var_lambda),
+    lambda + 1.96 * sqrt(var_lambda)
+  )
+
+  return(list(lambda = lambda, ci = ci))
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # factor
 sw_combined_clean <- sw_combined_clean %>%
   mutate(idu_ever_3cat = factor(idu_ever_3cat, levels = c("No", "Yes")),
@@ -77,7 +185,7 @@ sw_combined_clean <- sw_combined_clean %>%
 
 # variables to summarise
 vars <- c(
-  "condom_access_12m_3cat", "client_condom_lastsex_3cat", "ngo_access_lifetime_3cat",
+  "condom_access_12m_3cat", "client_condom_lastsex_3cat", "ngo_client_lifetime",
   "ngo_condom_rec_bin", "ngo_syringe_12m_bin", "hiv_test_rslt_bin", "years_in_sw_3cat",
   "city_travel_12m_cat", "street_sw_bin", "alcohol_30d_bin", "used_syringe_last_3cat",
   "violence_any_ever_3cat", "violence_rape_12m_3cat",
@@ -343,9 +451,9 @@ sw_combined_clean <- readRDS("sw_combined_clean.rds")
 
 sw_combined_clean <- sw_combined_clean %>%
   mutate(
-    ngo_access_lifetime_3cat = case_when(
-      ngo_access_lifetime_3cat %in% c("Yes", "1") ~ "Yes",
-      ngo_access_lifetime_3cat %in% c("No", "0") ~ "No",
+    ngo_client_lifetime = case_when(
+      ngo_client_lifetime %in% c("Yes", "1") ~ "Yes",
+      ngo_client_lifetime %in% c("No", "0") ~ "No",
       TRUE ~ NA_character_
     )
   )
@@ -354,9 +462,9 @@ city_prev <- sw_combined_clean %>%
   group_by(city, year) %>%
   summarise(
     n_total = n(),
-    no_prop = sum(ngo_access_lifetime_3cat == "No", na.rm = TRUE) / n_total,
-    yes_prop = sum(ngo_access_lifetime_3cat == "Yes", na.rm = TRUE) / n_total,
-    na_prop  = sum(is.na(ngo_access_lifetime_3cat)) / n_total,
+    no_prop = sum(ngo_client_lifetime == "No", na.rm = TRUE) / n_total,
+    yes_prop = sum(ngo_client_lifetime == "Yes", na.rm = TRUE) / n_total,
+    na_prop  = sum(is.na(ngo_client_lifetime)) / n_total,
     .groups = "drop"
   ) %>%
   mutate(
@@ -369,9 +477,9 @@ overall_prev <- sw_combined_clean %>%
   group_by(year) %>%
   summarise(
     n_total = n(),
-    no_prop = sum(ngo_access_lifetime_3cat == "No", na.rm = TRUE) / n_total,
-    yes_prop = sum(ngo_access_lifetime_3cat == "Yes", na.rm = TRUE) / n_total,
-    na_prop  = sum(is.na(ngo_access_lifetime_3cat)) / n_total,
+    no_prop = sum(ngo_client_lifetime == "No", na.rm = TRUE) / n_total,
+    yes_prop = sum(ngo_client_lifetime == "Yes", na.rm = TRUE) / n_total,
+    na_prop  = sum(is.na(ngo_client_lifetime)) / n_total,
     .groups = "drop"
   ) %>%
   mutate(
