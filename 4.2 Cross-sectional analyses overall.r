@@ -14,25 +14,33 @@ sw_combined_clean <- sw_combined_clean %>%
   mutate(
       years_in_sw_3cat = as.factor(years_in_sw_3cat),
       city = as.factor(city),
-      year = as.factor(year)
+      year = as.factor(year),
     )
+
+sw_combined_clean <- sw_combined_clean %>%
+  mutate(
+    sw_clients_med_vs_low = case_when(
+      sw_partners_clients_30d_3cat == "20-49" ~ 1,
+      sw_partners_clients_30d_3cat == "0-19" ~ 0,
+      TRUE ~ NA_real_
+    )
+  )
+
+sw_combined_clean <- sw_combined_clean %>%
+  mutate(
+    sw_clients_high_vs_low = case_when(
+      sw_partners_clients_30d_3cat == "50+" ~ 1,
+      sw_partners_clients_30d_3cat == "0-19" ~ 0,
+      TRUE ~ NA_real_
+    )
+  )
 
 # exposures
 exposures <- c(
   "condom_access_12m_3cat","client_condom_lastsex_3cat","ngo_client_lifetime_3cat",
   "ngo_condom_rec_bin", "ngo_syringe_12m_bin", "ngo_condom_12m",
   "idu_ever_3cat","idu_12m_3cat", "street_sw_bin",
-  "sw_partners_clients_30d_3cat","violence_any_ever_3cat",
-  "violence_rape_12m_3cat","violence_rape_ever","violence_beaten_ever",
-  "violence_physical_abuse_ever","violence_police","violence_pimp"
-)
-
-# binary exposures
-binary_exposures <- c(
-  "condom_access_12m_3cat","client_condom_lastsex_3cat","ngo_client_lifetime_3cat",
-  "ngo_condom_rec_bin", "ngo_syringe_12m_bin", "ngo_condom_12m",
-  "idu_ever_3cat","idu_12m_3cat", "street_sw_bin",
-  "sw_partners_clients_30d_3cat","violence_any_ever_3cat",
+  "sw_clients_med_vs_low", "sw_clients_high_vs_low", "violence_any_ever_3cat",
   "violence_rape_12m_3cat","violence_rape_ever","violence_beaten_ever",
   "violence_physical_abuse_ever","violence_police","violence_pimp"
 )
@@ -62,24 +70,20 @@ for (i in outcomes) {
 }
 
 # make exposures binary
-for (i in binary_exposures) {
+for (i in exposures) {
   sw_combined_clean <- binary_function(sw_combined_clean, i)
 }
 
 ## overall datasets
 subgroup_data <- list(
-  overall   = sw_combined_clean,
-  idu       = sw_combined_clean %>% filter(idu_ever_3cat == 1),
-  no_idu    = sw_combined_clean %>% filter(idu_ever_3cat == 0),
-  street    = sw_combined_clean %>% filter(street_sw_bin == 1),
-  no_street = sw_combined_clean %>% filter(street_sw_bin == 0),
-  ngo       = sw_combined_clean %>% filter(ngo_condom_rec_bin == 1),
-  no_ngo    = sw_combined_clean %>% filter(ngo_condom_rec_bin == 0)
+ overall   = sw_combined_clean,
+ idu       = sw_combined_clean %>% filter(idu_ever_3cat == 1),
+ no_idu    = sw_combined_clean %>% filter(idu_ever_3cat == 0),
+ street    = sw_combined_clean %>% filter(street_sw_bin == 1),
+ no_street = sw_combined_clean %>% filter(street_sw_bin == 0),
+ ngo       = sw_combined_clean %>% filter(ngo_condom_rec_bin == 1),
+ no_ngo    = sw_combined_clean %>% filter(ngo_condom_rec_bin == 0)
 )
-
-# subgroups to model
-subgroups <- c("overall")
-#, "idu", "no_idu", "street", "no_street", "ngo", "no_ngo")
 
 skip_pairs <- list(
   idu = c("idu_ever_3cat", "idu_12m_3cat"),
@@ -115,9 +119,11 @@ for (s_name in names(subgroup_data)) {
         family = poisson(link = "log"),
         control = glmerControl(optimizer = "bobyqa")
       )
-    }, error = function(err) {
-      return(NULL)
-    })
+    },error = function(err) {
+  cat("FAILED:", s_name, "-", e, "\n")
+  print(err$message)
+  return(NULL)
+})
 
     if (is.null(pr_model)) next
 
@@ -144,9 +150,9 @@ for (s_name in names(subgroup_data)) {
   }
 }
 
-
 model_results_df <- bind_rows(model_results)
 
+# create table of prevalence ratios
 model_results_fmt <- model_results_df %>%
   mutate(
     pr = paste0(
@@ -160,53 +166,310 @@ model_results_fmt <- model_results_df %>%
   ) %>%
   select(subgroup, exposure, pr)
 
-summary_table_list <- lapply(exposures, function(v) {
+# add empty row to every odd row
+model_results_fmt <- model_results_fmt %>%
+  group_by(subgroup) %>%
+  group_modify(~{
 
-  df <- sw_combined_clean %>%
-    mutate(level = as.character(.data[[v]])) %>%
-    filter(!is.na(level), level != "") %>%
-    group_by(exposure = v, level) %>%
-    summarise(
-      n = n(),
-      cases = sum(hiv_test_rslt_bin == 1, na.rm = TRUE),
-      .groups = "drop"
-    ) %>%
-    mutate(
-      percent = (cases / n) * 100,
-      cases_pct = paste0(cases, " (", sprintf("%.1f", percent), "%)")
-    ) %>%
-    arrange(level) %>%
-    mutate(level = as.character(level))
+    df <- .x
 
-  if (nrow(df) > 0) {
-    df$level[1] <- paste0(df$level[1], " (ref.)")
-  }
+    # create ref rows
+    ref_rows <- df %>%
+      mutate(
+        exposure = "",
+        pr = "ref."
+      )
 
-  df
-})
+    # interleave rows
+    out <- bind_rows(ref_rows, df) %>%
+      arrange(rep(1:nrow(df), times = 2))
+
+    out
+  }) %>%
+  ungroup()
+
+model_results_fmt <- model_results_fmt %>%
+  mutate(exposure = na_if(exposure, "")) %>%
+  fill(exposure, .direction = "down") %>%
+  fill(exposure, .direction = "up") %>%
+  mutate(linkage = paste0(subgroup, exposure))
+
+# create table of frequencies
+summary_table_list <- list()
+
+for (s_name in names(subgroup_data)) {
+
+  df_sub <- subgroup_data[[s_name]]
+
+  tmp <- lapply(exposures, function(v) {
+
+    df_sub %>%
+      mutate(level = as.character(.data[[v]])) %>%
+      filter(!is.na(level), level != "") %>%
+      group_by(exposure = v, level) %>%
+      summarise(
+        n = n(),
+        cases = sum(hiv_test_rslt_bin == 1, na.rm = TRUE),
+        .groups = "drop"
+      ) %>%
+      mutate(
+        percent = (cases / n) * 100,
+        cases_pct = paste0(cases, " (", sprintf("%.1f", percent), "%)"),
+        subgroup = s_name
+      ) %>%
+      arrange(level)
+  })
+
+  summary_table_list[[s_name]] <- bind_rows(tmp)
+}
 
 summary_table <- bind_rows(summary_table_list)
 
-final_table_list <- list()
+summary_table <- summary_table %>%
+  mutate(linkage = paste0(subgroup, exposure))
 
-for (s in unique(model_results_fmt$subgroup)) {
+model_lookup <- model_results_fmt %>%
+  filter(pr != "ref.") %>%
+  distinct(linkage, pr)
 
-  pr_s <- model_results_fmt %>% filter(subgroup == s)
-
-  tmp <- summary_table %>%
-    mutate(subgroup = s) %>%
-    left_join(pr_s, by = "exposure") %>%
-    group_by(subgroup, exposure) %>%
-    mutate(pr = ifelse(row_number() == 1, pr, "")) %>%
-    ungroup()
-
-  final_table_list[[paste0(s, "_hiv")]] <- tmp
-}
-
-final_table <- bind_rows(final_table_list) %>%
-  select(subgroup, exposure, level, n, cases_pct, pr)
+final_table <- summary_table %>%
+  left_join(model_lookup, by = "linkage") %>%
+  group_by(linkage) %>%
+  mutate(
+    pr = if_else(row_number() == 1, "ref.", pr)
+  ) %>%
+  ungroup()
 
 View(final_table)
+
+# split final table into sheets by subgroup
+subgroups <- c("overall", "idu", "no_idu", "street", "no_street", "ngo", "no_ngo")
+
+subgroup_dfs <- list()
+
+for (i in subgroups) {
+
+  subgroup_dfs[[paste0(i, "_df")]] <- final_table %>%
+    filter(subgroup == i)
+}
+
+# save workbook
+wb <- createWorkbook()
+
+for (nm in names(subgroup_dfs)) {
+
+  addWorksheet(wb, nm)
+
+  writeData(
+    wb,
+    sheet = nm,
+    x = subgroup_dfs[[nm]]
+  )
+}
+
+saveWorkbook(
+  wb,
+  file = "hiv_pr_results.xlsx",
+  overwrite = TRUE
+)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# prevalence ratio modelling
+
+all_outcome_tables <- list()
+
+for (outcome in outcomes) {
+
+  model_results <- list()
+
+  for (s_name in names(subgroup_data)) {
+
+    for (e in exposures) {
+
+      if (!is.null(skip_pairs[[s_name]]) && e %in% skip_pairs[[s_name]]) {
+        next
+      }
+
+      cat("Running:", outcome, "-", s_name, "-", e, "\n")
+
+      model <- as.formula(
+        paste0(outcome, " ~ ", e, " + (1 | year) + (1 | city)")
+      )
+
+      pr_model <- tryCatch({
+        glmer(
+          model,
+          data = subgroup_data[[s_name]],
+          family = poisson(link = "log"),
+          control = glmerControl(optimizer = "bobyqa")
+        )
+      }, error = function(err) {
+        cat("FAILED:", outcome, "-", s_name, "-", e, "\n")
+        return(NULL)
+      })
+
+      if (is.null(pr_model)) next
+
+      coefs <- summary(pr_model)$coefficients
+
+      if (!(e %in% rownames(coefs))) next
+
+      estimate <- coefs[e, "Estimate"]
+      se <- coefs[e, "Std. Error"]
+
+      pr <- exp(estimate)
+      lb <- exp(estimate - 1.96 * se)
+      ub <- exp(estimate + 1.96 * se)
+
+      model_results[[paste(s_name, e, sep = "_")]] <- data.frame(
+        outcome = outcome,
+        subgroup = s_name,
+        exposure = e,
+        pr = pr,
+        lb = lb,
+        ub = ub
+      )
+    }
+  }
+
+  model_results_df <- bind_rows(model_results)
+
+  # create table of prevalence ratios
+  model_results_fmt <- model_results_df %>%
+    mutate(
+      pr = paste0(
+        sprintf("%.2f", pr),
+        " (",
+        sprintf("%.2f", lb),
+        "-",
+        sprintf("%.2f", ub),
+        ")"
+      )
+    ) %>%
+    select(outcome, subgroup, exposure, pr)
+
+  # add empty row to every odd row
+  model_results_fmt <- model_results_fmt %>%
+    group_by(outcome, subgroup) %>%
+    group_modify(~{
+
+      df <- .x
+
+      ref_rows <- df %>%
+        mutate(
+          exposure = "",
+          pr = "ref."
+        )
+
+      out <- bind_rows(ref_rows, df) %>%
+        arrange(rep(1:nrow(df), times = 2))
+
+      out
+    }) %>%
+    ungroup() %>%
+    mutate(exposure = na_if(exposure, "")) %>%
+    fill(exposure, .direction = "down") %>%
+    fill(exposure, .direction = "up") %>%
+    mutate(linkage = paste0(outcome, subgroup, exposure))
+
+  # create table of frequencies
+  summary_table_list <- list()
+
+  for (s_name in names(subgroup_data)) {
+
+    df_sub <- subgroup_data[[s_name]]
+
+    tmp <- lapply(exposures, function(v) {
+
+      df_sub %>%
+        mutate(level = as.character(.data[[v]])) %>%
+        filter(!is.na(level), level != "") %>%
+        group_by(exposure = v, level) %>%
+        summarise(
+          n = n(),
+          cases = sum(.data[[outcome]] == 1, na.rm = TRUE),
+          .groups = "drop"
+        ) %>%
+        mutate(
+          percent = (cases / n) * 100,
+          cases_pct = paste0(cases, " (", sprintf("%.1f", percent), "%)"),
+          subgroup = s_name,
+          outcome = outcome
+        ) %>%
+        arrange(level)
+    })
+
+    summary_table_list[[s_name]] <- bind_rows(tmp)
+  }
+
+  summary_table <- bind_rows(summary_table_list)
+
+  summary_table <- summary_table %>%
+    mutate(linkage = paste0(outcome, subgroup, exposure))
+
+  model_lookup <- model_results_fmt %>%
+    filter(pr != "ref.") %>%
+    distinct(linkage, pr)
+
+  final_table <- summary_table %>%
+    left_join(model_lookup, by = "linkage") %>%
+    group_by(linkage) %>%
+    mutate(
+      pr = if_else(row_number() == 1, "ref.", pr)
+    ) %>%
+    ungroup()
+
+  # split final table into sheets by subgroup
+  subgroups <- c("overall", "idu", "no_idu", "street", "no_street", "ngo", "no_ngo")
+
+  subgroup_dfs <- list()
+
+  for (i in subgroups) {
+
+    subgroup_dfs[[paste0(i, "_df")]] <- final_table %>%
+      filter(subgroup == i)
+  }
+
+  all_outcome_tables[[outcome]] <- subgroup_dfs
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 wb <- createWorkbook()
 
@@ -221,6 +484,7 @@ for (nm in names(final_table_list)) {
   )
 }
 
+# save
 saveWorkbook(
   wb,
   file = "hiv_pr_results.xlsx",
