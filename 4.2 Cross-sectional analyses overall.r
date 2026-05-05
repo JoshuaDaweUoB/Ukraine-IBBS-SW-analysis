@@ -1,10 +1,292 @@
 ## load packages
 pacman::p_load(dplyr, tidyr, stringr, tibble, writexl, readxl, forcats, labelled, 
                lubridate, broom, survival, ggplot2, scales, sandwich, lmtest, lme4, 
-               broom.mixed) 
+               broom.mixed, openxlsx) 
                
 ## set working directory
 setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/PhD Papers/Paper 3a - Ukraine Sex Work HIV/data/SW data")
+
+## load appended clean data
+sw_combined_clean <- readRDS("sw_combined_clean.rds")
+
+# factorise adjustment variables
+sw_combined_clean <- sw_combined_clean %>%
+  mutate(
+      years_in_sw_3cat = as.factor(years_in_sw_3cat),
+      city = as.factor(city),
+      year = as.factor(year)
+    )
+
+# exposures
+exposures <- c(
+  "condom_access_12m_3cat","client_condom_lastsex_3cat","ngo_client_lifetime_3cat",
+  "ngo_condom_rec_bin", "ngo_syringe_12m_bin", "ngo_condom_12m",
+  "idu_ever_3cat","idu_12m_3cat", "street_sw_bin",
+  "sw_partners_clients_30d_3cat","violence_any_ever_3cat",
+  "violence_rape_12m_3cat","violence_rape_ever","violence_beaten_ever",
+  "violence_physical_abuse_ever","violence_police","violence_pimp"
+)
+
+# binary exposures
+binary_exposures <- c(
+  "condom_access_12m_3cat","client_condom_lastsex_3cat","ngo_client_lifetime_3cat",
+  "ngo_condom_rec_bin", "ngo_syringe_12m_bin", "ngo_condom_12m",
+  "idu_ever_3cat","idu_12m_3cat", "street_sw_bin",
+  "sw_partners_clients_30d_3cat","violence_any_ever_3cat",
+  "violence_rape_12m_3cat","violence_rape_ever","violence_beaten_ever",
+  "violence_physical_abuse_ever","violence_police","violence_pimp"
+)
+
+# outcomes
+outcomes <- c(
+  "hiv_test_rslt_bin", "idu_ever_3cat", "street_sw_bin", 
+  "violence_any_ever_3cat", "violence_rape_ever", "violence_beaten_ever",
+  "client_condom_lastsex_3cat", "ngo_condom_rec_bin", "ngo_client_lifetime_3cat"
+)
+
+# binary function
+binary_function <- function(data, col_name){
+  data %>%
+    mutate(
+      !!col_name := case_when(
+        .data[[col_name]] %in% c("Positive","1","Yes") ~ 1,
+        .data[[col_name]] %in% c("Negative","0","No") ~ 0,
+        TRUE ~ NA_real_
+      )
+    )
+}
+
+# make outcomes binary
+for (i in outcomes) {
+  sw_combined_clean <- binary_function(sw_combined_clean, i)
+}
+
+# make exposures binary
+for (i in binary_exposures) {
+  sw_combined_clean <- binary_function(sw_combined_clean, i)
+}
+
+## overall datasets
+subgroup_data <- list(
+  overall   = sw_combined_clean,
+  idu       = sw_combined_clean %>% filter(idu_ever_3cat == 1),
+  no_idu    = sw_combined_clean %>% filter(idu_ever_3cat == 0),
+  street    = sw_combined_clean %>% filter(street_sw_bin == 1),
+  no_street = sw_combined_clean %>% filter(street_sw_bin == 0),
+  ngo       = sw_combined_clean %>% filter(ngo_condom_rec_bin == 1),
+  no_ngo    = sw_combined_clean %>% filter(ngo_condom_rec_bin == 0)
+)
+
+# subgroups to model
+subgroups <- c("overall")
+#, "idu", "no_idu", "street", "no_street", "ngo", "no_ngo")
+
+skip_pairs <- list(
+  idu = c("idu_ever_3cat", "idu_12m_3cat"),
+  no_idu = c("idu_ever_3cat", "idu_12m_3cat"),
+  street = c("street_sw_bin"),
+  no_street = c("street_sw_bin"),
+  ngo = c("ngo_condom_rec_bin"),
+  no_ngo = c("ngo_condom_rec_bin")
+)
+
+# prevalence ratio modelling
+
+model_results <- list()
+
+for (s_name in names(subgroup_data)) {
+
+  for (e in exposures) {
+
+    if (!is.null(skip_pairs[[s_name]]) && e %in% skip_pairs[[s_name]]) {
+      next
+    }
+
+    cat("Running:", s_name, "-", e, "\n")
+
+    model <- as.formula(
+      paste0("hiv_test_rslt_bin ~ ", e, " + (1 | year) + (1 | city)")
+    )
+
+    pr_model <- tryCatch({
+      glmer(
+        model,
+        data = subgroup_data[[s_name]],
+        family = poisson(link = "log"),
+        control = glmerControl(optimizer = "bobyqa")
+      )
+    }, error = function(err) {
+      return(NULL)
+    })
+
+    if (is.null(pr_model)) next
+
+    coefs <- summary(pr_model)$coefficients
+
+    if (!(e %in% rownames(coefs))) {
+      next
+    }
+
+    estimate <- coefs[e, "Estimate"]
+    se <- coefs[e, "Std. Error"]
+
+    pr <- exp(estimate)
+    lb <- exp(estimate - 1.96 * se)
+    ub <- exp(estimate + 1.96 * se)
+
+    model_results[[paste(s_name, e, sep = "_")]] <- data.frame(
+      subgroup = s_name,
+      exposure = e,
+      pr = pr,
+      lb = lb,
+      ub = ub
+    )
+  }
+}
+
+
+model_results_df <- bind_rows(model_results)
+
+model_results_fmt <- model_results_df %>%
+  mutate(
+    pr = paste0(
+      sprintf("%.2f", pr),
+      " (",
+      sprintf("%.2f", lb),
+      "-",
+      sprintf("%.2f", ub),
+      ")"
+    )
+  ) %>%
+  select(subgroup, exposure, pr)
+
+summary_table_list <- lapply(exposures, function(v) {
+
+  df <- sw_combined_clean %>%
+    mutate(level = as.character(.data[[v]])) %>%
+    filter(!is.na(level), level != "") %>%
+    group_by(exposure = v, level) %>%
+    summarise(
+      n = n(),
+      cases = sum(hiv_test_rslt_bin == 1, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    mutate(
+      percent = (cases / n) * 100,
+      cases_pct = paste0(cases, " (", sprintf("%.1f", percent), "%)")
+    ) %>%
+    arrange(level) %>%
+    mutate(level = as.character(level))
+
+  if (nrow(df) > 0) {
+    df$level[1] <- paste0(df$level[1], " (ref.)")
+  }
+
+  df
+})
+
+summary_table <- bind_rows(summary_table_list)
+
+final_table_list <- list()
+
+for (s in unique(model_results_fmt$subgroup)) {
+
+  pr_s <- model_results_fmt %>% filter(subgroup == s)
+
+  tmp <- summary_table %>%
+    mutate(subgroup = s) %>%
+    left_join(pr_s, by = "exposure") %>%
+    group_by(subgroup, exposure) %>%
+    mutate(pr = ifelse(row_number() == 1, pr, "")) %>%
+    ungroup()
+
+  final_table_list[[paste0(s, "_hiv")]] <- tmp
+}
+
+final_table <- bind_rows(final_table_list) %>%
+  select(subgroup, exposure, level, n, cases_pct, pr)
+
+View(final_table)
+
+wb <- createWorkbook()
+
+for (nm in names(final_table_list)) {
+
+  addWorksheet(wb, nm)
+
+  writeData(
+    wb,
+    sheet = nm,
+    x = final_table_list[[nm]]
+  )
+}
+
+saveWorkbook(
+  wb,
+  file = "hiv_pr_results.xlsx",
+  overwrite = TRUE
+)
+
+
+
+
+
+
+
+
+
+
+
+
+model_results[[paste(s_name, e, sep = "_")]] <- data.frame(
+  subgroup = s_name,
+  exposure = e,
+  pr = pr,
+  lb = lb,
+  ub = ub
+)
+
+model_results <- do.call(rbind, model_results)
+View(model_results)
+
+
+summary_table_function <- lapply(exposures, function(v) {
+  sw_combined_clean %>%
+    group_by(Variable = .data[[v]]) %>%
+    summarise(
+      N = n(),
+      Cases = sum(hiv_test_rslt_bin == 1, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    mutate(
+      Variable_name = v,
+      Percent = (N / sum(N)) * 100,
+      CountPercent = paste0(Cases, " (", round(Percent, 1), "%)")
+    )
+})
+
+summary_table <- bind_rows(summary_table)
+
+model_results_fmt <- model_results %>%
+  mutate(
+    PR = paste0(
+      sprintf("%.2f", pr),
+      " (",
+      sprintf("%.2f", lb),
+      "-",
+      sprintf("%.2f", ub),
+      ")"
+    )
+  )
+
+final_table <- summary_table %>%
+  left_join(
+    model_results_fmt %>% select(exposure, OR),
+    by = c("Variable_name" = "exposure")
+  )
+
+
+
 
 ## hiv 
 
@@ -1352,4 +1634,6 @@ final_output <- list(
 
 write_xlsx(final_output,
            "outputs_by_city/ngo_syringe_results_OVERALL.xlsx")
+
+
 
