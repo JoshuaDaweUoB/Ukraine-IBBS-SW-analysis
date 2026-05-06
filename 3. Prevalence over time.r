@@ -43,29 +43,6 @@ omega <- c(
 print(omega)
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # years in SW 
 sw_combined_clean %>%
   group_by(idu_ever_3cat) %>%
@@ -305,7 +282,7 @@ sw_combined_clean <- sw_combined_clean %>%
     )
   )
 
-# Helper function to return "n/N (pct)"
+# function to return "n/N (pct)"
 calc_str <- function(x) {
   N <- sum(!is.na(x))
   n <- sum(x == 1, na.rm = TRUE)
@@ -738,12 +715,6 @@ write.csv(final_table, "hiv_summary_table.csv", row.names = FALSE)
 
 sw_combined_clean <- readRDS("sw_combined_clean.rds")
 
-table(sw_combined_clean$year, sw_combined_clean$violence_rape_12m_3cat, useNA = "ifany")
-table(sw_combined_clean$year, sw_combined_clean$violence_rape_ever, useNA = "ifany")
-table(sw_combined_clean$violence_rape_12m_3cat, sw_combined_clean$violence_rape_ever, useNA = "ifany")
-prop.table(table(sw_combined_clean$sw_partners_clients_30d_3cat, sw_combined_clean$year), margin = 2)
-table(sw_combined_clean$ngo_syringe_12m_bin[sw_combined_clean$idu_ever_3cat == "Yes"])
-
 calc_prev <- function(x) {
   denom <- sum(!is.na(x))
   num <- sum(x == "Yes", na.rm = TRUE)
@@ -837,7 +808,7 @@ sw_combined_clean <- sw_combined_clean %>%
     art_current_3cat = as.character(art_current_3cat)
   )
 
-## helper functions
+## functions
 calc_prev_bin <- function(x) {
   sprintf("%d (%.1f%%)",
           sum(x == 1, na.rm = TRUE),
@@ -862,11 +833,8 @@ overall_data <- sw_combined_clean %>%
 
 ## stratified datasets
 idu_data        <- overall_data %>% filter(idu_ever_3cat == "Yes")
-table(idu_data$hiv_test_rslt_bin)
-table(idu_data$year[idu_data$hiv_test_rslt_bin == 1], idu_data$art_current_3cat[idu_data$hiv_test_rslt_bin == 1])
 
 no_idu_data     <- overall_data %>% filter(idu_ever_3cat == "No")
-table(no_idu_data$year[no_idu_data$hiv_test_rslt_bin == 1], no_idu_data$art_current_3cat[no_idu_data$hiv_test_rslt_bin == 1])
 
 street_data     <- overall_data %>% filter(street_sw_bin == "Yes")
 no_street_data  <- overall_data %>% filter(street_sw_bin == "No")
@@ -874,7 +842,7 @@ no_street_data  <- overall_data %>% filter(street_sw_bin == "No")
 ngo_data        <- overall_data %>% filter(ngo_client_lifetime_3cat == "Yes")
 no_ngo_data     <- overall_data %>% filter(ngo_client_lifetime_3cat == "No")
 
-## yearly summary (IMPORTANT: all HIV outcomes included)
+## yearly summary
 make_summary <- function(df) {
   df %>%
     group_by(year) %>%
@@ -946,3 +914,63 @@ stratified_hiv_table <- bind_rows(
 )
 
 write.csv(stratified_hiv_table, "hiv_stratified_table.csv", row.names = FALSE)
+
+# sex work stratified tables
+make_sw_table <- function(df, label) {
+
+  df %>%
+    group_by(year) %>%
+    summarise(
+      N = n(),
+
+      age_under25 = calc_prev_true(age_bin == "No"),
+      street_sw = calc_prev(street_sw_bin),
+      idu = calc_prev(idu_ever_3cat),
+      underage_first_sw = calc_prev(underage_first_sw_bin),
+      rape_ever = calc_prev(violence_rape_ever),
+      rape_12m = calc_prev(violence_rape_12m_3cat),
+      beaten_ever = calc_prev(violence_beaten_ever),
+      ngo_client_lifetime = calc_prev(ngo_client_lifetime_3cat),
+      condom_access_12m = calc_prev(condom_access_12m_3cat),
+      ngo_condom_rec = calc_prev(ngo_condom_rec_bin),
+
+      ngo_syringe_12m = calc_prev(
+        ifelse(idu_ever_3cat == "Yes", ngo_syringe_12m_bin, NA)
+      ),
+
+      high_clients_30d = calc_prev_true(
+        as.character(sw_partners_clients_30d_3cat) == "50+"
+      ),
+
+      used_syringe_last_3cat = calc_prev(
+        ifelse(idu_ever_3cat == "Yes", used_syringe_last_3cat, NA)
+      ),
+
+      client_condom_lastsex_3cat = calc_prev(client_condom_lastsex_3cat),
+
+      .groups = "drop"
+    ) %>%
+    mutate(group = label)
+}
+
+idu_sw_table       <- make_sw_table(idu_data, "IDU")
+no_idu_sw_table    <- make_sw_table(no_idu_data, "No IDU")
+street_sw_table    <- make_sw_table(street_data, "Street")
+no_street_sw_table <- make_sw_table(no_street_data, "Non-street")
+ngo_sw_table       <- make_sw_table(ngo_data, "NGO client")
+no_ngo_sw_table    <- make_sw_table(no_ngo_data, "No NGO")
+
+sw_overall_strata <- bind_rows(
+  idu_sw_table,
+  no_idu_sw_table,
+  street_sw_table,
+  no_street_sw_table,
+  ngo_sw_table,
+  no_ngo_sw_table
+)
+
+write.csv(
+  sw_overall_strata,
+  "stratified_characteristics_table.csv",
+  row.names = FALSE
+)

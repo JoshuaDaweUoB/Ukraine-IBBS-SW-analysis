@@ -73,7 +73,7 @@ for (i in outcomes) {
 for (i in exposures) {
   sw_combined_clean <- binary_function(sw_combined_clean, i)
 }
-
+table(sw_combined_clean$art_current_3cat)
 ## overall datasets
 subgroup_data <- list(
  overall   = sw_combined_clean,
@@ -150,8 +150,7 @@ for (outcome in outcomes) {
     }
   }
 
-  # 🔑 THIS WAS MISSING
-  model_results_df <- bind_rows(model_results)
+model_results_df <- bind_rows(model_results)
 
   cat("Building table for:", outcome, "\n")
 
@@ -165,7 +164,10 @@ for (outcome in outcomes) {
 
       df_sub %>%
         mutate(level = as.character(.data[[v]])) %>%
-        filter(!is.na(level), level != "") %>%
+          filter(
+          !is.na(level), level != "",
+          !is.na(.data[[outcome]])
+        ) %>%
         group_by(exposure = v, level) %>%
         summarise(
           n = n(),
@@ -209,8 +211,6 @@ for (outcome in outcomes) {
 
   final_tables[[outcome]] <- final_table
 }
-
-View(final_tables[["hiv_test_rslt_bin"]])
 
 # subgroups to save
 subgroups <- c("overall", "idu", "no_idu", "street", "no_street", "ngo", "no_ngo")
