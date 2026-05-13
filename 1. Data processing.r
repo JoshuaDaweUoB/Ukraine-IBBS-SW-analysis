@@ -331,6 +331,16 @@ sw_data_2011_clean$hiv_tested_12m[
   sw_data_2011_clean$hiv_tested_lifetime == "No"
 ] <- "No"
 
+sw_data_2011_clean$violence_any_ever <- recode(
+  sw_data_2011_clean$violence_any_ever,
+  "Так" = "Yes",
+  "Ні" = "No",
+  "ВАЖКО ВІДПОВІСТИ/ВІДМОВА ВІДПОВІДАТИ" = "Missing/Don't know",
+  "НЕМАЄ ВІДПОВІДІ" = "Missing/Don't know"
+)
+
+
+table(sw_data_2011_clean$violence_any_ever, useNA = "ifany")
 table(sw_data_2011_clean$hiv_tested_lifetime, useNA = "ifany")
 table(sw_data_2011_clean$hiv_tested_12m, useNA = "ifany")
 table(sw_data_2011_clean$hiv_tested_lifetime, sw_data_2011_clean$hiv_tested_12m, useNA = "ifany")
@@ -484,6 +494,9 @@ rename_map_2013 <- c(
   violence_beaten_ever = "F1_2_3 If “yes”, how? Beaten",
   violence_humiliated_ever = "F1_2_2 If “yes”, how? Humiliated morally ( verbally )",
   violence_physical_abuse_ever = "F1_2_4 If “yes”, how? Physically abused",
+  violence_forced_free_ever = "F1_2_5 If “yes”, how? Forced to provide sexual services free of charge",
+  violence_forced_perv_ever = "F1_2_6 If “yes”, how? Forced to provide sexual services in the form of perversion",
+  violence_forced_inject = "F1_2_7 If “yes”, how? Injected drugs against your will",
   violence_client = "F2_1 Who inflicted violence? Clients",
   violence_perm_partner = "F2_2 Who inflicted violence? Permanent sexual partner",
   violence_casual_partner = "F2_3 Who inflicted violence? Casual sexual partner",
@@ -513,6 +526,7 @@ if (length(missing_renamed) == 0) {
   print(missing_renamed)
 }
 
+table(sw_data_2013_clean$violence_any_ever)
 table(sw_data_2013_clean$used_syringe_last)
 table(sw_data_2013_clean$ngo_syringe_12m)
 
@@ -634,13 +648,16 @@ rename_map_2015 <- c(
   violence_rape_ever = "F2.1_7 If “yes”, how? - Raped",
   violence_humiliated_ever = "F2.1_1 If “yes”, how? - Humiliated morally (verbally)",
   violence_physical_abuse_ever = "F2.1_5 If “yes”, how? - Physically abused",
+  violence_forced_free_ever = "F2.1_6 If “yes”, how? - Forced to provide sexual services free of charge",
+  violence_forced_perv_ever = "F2.1_8 If “yes”, how? - Forced to provide sexual services in the form of perversion",
+  violence_forced_inject_ever ="F2.1_9 If “yes”, how? - Injected drugs against your will",
   violence_client = "F2_1 Who inflicted violence? - Clients",
   violence_perm_partner = "F2_2 Who inflicted violence? - Permanent sexual partner",
   violence_casual_partner = "F2_3 Who inflicted violence? - Casual sexual partner",
   violence_police = "F2_4 Who inflicted violence? - Law enforcement officer",
   violence_pimp = "F2_5 Who inflicted violence? - Pimp/manager of apartment",
   violence_fsw = "F2_8 Who inflicted violence? - Girls from among FSW",
-  violence_rape_12m = "F4. In the last 12 months have you ever been forced to provide sexual services for clients without any remuneration?",
+  violence_forced_any_12m = "F4. In the last 12 months have you ever been forced to provide sexual services for clients without any remuneration?",
   violence_support_ngo = "F3_1 Have you addressed any where or to anyone for help? - To NGO/ crisis center",
   hiv_tested_lifetime = "G5. I am not asking now about the test result, but have you ever had an HIV- test?",
   hiv_tested_12m = "G8. Let's be more precise. Was it within the last 12 months?",
@@ -667,6 +684,7 @@ if (length(missing_renamed) == 0) {
   print(missing_renamed)
 }
 
+table(sw_data_2015_clean$violence_any_ever, useNA = "ifany")
 table(sw_data_2015_clean$used_syringe_last)
 table(sw_data_2015_clean$ngo_condom_6m)
 
@@ -775,6 +793,9 @@ rename_map_2017 <- c(
   violence_humiliated_ever = "H1_1 If “yes”, how? - Humiliated morally (verbally)",
   violence_physical_abuse_ever = "H1_4 If “yes”, how?  - Physically abused",
   violence_rape_ever = "H1_6 If “yes”, how?  - Raped",
+  violence_forced_free_ever = "H1_5 If “yes”, how?  - Forced to provide sexual services free of charge",
+  violence_forced_perv_ever = "H1_7 If “yes”, how?  - Forced to provide sexual services in the form of perversion",
+  violence_forced_inject_ever = "H1_8 If “yes”, how?  - Injected drugs against your will",
   violence_client = "H2_1 Who inflicted violence? - Clients",
   violence_perm_partner = "H2_2 Who inflicted violence? - Permanent sexual partner",
   violence_casual_partner = "H2_3 Who inflicted violence? - Casual sexual partner",
@@ -782,7 +803,7 @@ rename_map_2017 <- c(
   violence_pimp = "H2_5 Who inflicted violence? - Pimp/manager of apartment",
   violence_fsw = "H2_8 Who inflicted violence? - Girls from among FSW",
   violence_support_ngo = "H3_1 Have you addressed anywhere or to anyone for help?  - To NGO/ crisis center",
-  violence_rape_12m = "H4.Were any situations when you was forced to provide sexual services without remuneration during the last 12 months?",
+  violence_forced_any_12m = "H4.Were any situations when you was forced to provide sexual services without remuneration during the last 12 months?",
   hiv_tested_lifetime = "G3.  I don’t ask about the result, but have ever been tested for HIV?",
   hiv_tested_12m = "G7. Let's be more precise. Was it within the last 12 months?",
   hiv_tested_result = "G9. Did you get your result of the last test?",
@@ -807,6 +828,10 @@ if (length(missing_renamed) == 0) {
   cat("Missing renamed variables:\n")
   print(missing_renamed)
 }
+
+table(sw_data_2017_clean$violence_any_ever, useNA = "ifany")
+table(sw_data_2017_clean$violence_forced_free_ever, useNA = "ifany")
+table(sw_data_2017_clean$violence_forced_perv_ever, useNA = "ifany")
 
 table(sw_data_2017_clean$used_syringe_last)
 prop.table(table(sw_data_2017_clean$idu_12m_bin, sw_data_2017_clean$city), margin = 2)
@@ -938,6 +963,9 @@ rename_map_2021 <- c(
   violence_beaten_ever = "h2_2 If yes, in what way? Beaten",
   violence_humiliated_ever = "h2_1 If yes, in what way? Verbally humiliated",
   violence_physical_abuse_ever = "h2_4 If yes, in what way? Harassed physically",
+  violence_forced_free_ever = "h2_5 If yes, in what way? Forced to provide free sexual services",
+  violence_forced_perv_ever = "h2_7 If yes, in what way? Forced to have sex in a form unacceptable to you",
+  violence_forced_inject_ever = "h2_8 If yes, in what way? Injected drugs against your will",
   violence_perm_partner = "h3_3 Who was the perpetrator? Permanent sexual partner",
   violence_casual_partner = "h3_4 Who was the perpetrator? Casual sexual partner",
   violence_police = "h3_5 Who was the perpetrator? Law enforcement officer",
@@ -986,7 +1014,11 @@ if (length(missing_renamed) == 0) {
   print(missing_renamed)
 }
 
+table(sw_data_2021_clean$violence_any_ever)
+table(sw_data_2021_clean$violence_rape_ever)
 table(sw_data_2021_clean$hiv_tested_12m)
+table(sw_data_2021_clean$violence_forced_free_ever)
+table(sw_data_2021_clean$violence_forced_perv_ever)
 
 sw_data_2021_clean <- sw_data_2021_clean %>%
   mutate(idu_12m_bin = idu_ever_bin)
@@ -1306,6 +1338,16 @@ sw_combined_raw <- sw_combined_raw %>%
       labels = c("No", "Yes", "Missing / Unknown")
     ),
 
+    client_condom_lastsex_bin = factor(
+      case_when(
+        client_condom_lastsex_3cat == "No" ~ 0,
+        client_condom_lastsex_3cat == "Yes" ~ 1,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1),
+      labels = c("No", "Yes")
+    ),    
+
     # client condom frequency past 30 days
     client_condom_freq_30d_5cat = factor(
       case_when(
@@ -1355,6 +1397,17 @@ sw_combined_raw <- sw_combined_raw %>%
       ),
       levels = c(0, 1, 2),
       labels = c("No", "Yes", "Missing / Unknown")
+    ),
+    
+    # condom access past 12 mths binary
+    condom_access_12m_bin = factor(
+      case_when(
+          condom_access_12m_3cat == "No" ~ 0,
+          condom_access_12m_3cat == "Yes" ~ 1,
+          TRUE ~ NA_real_
+      ),
+      levels = c(0, 1),
+      labels = c("No", "Yes")
     ),
 
     # client condom binary past 30 days
@@ -1520,6 +1573,19 @@ sw_combined_raw <- sw_combined_raw %>%
       labels = c("No", "Yes", "Missing / Unknown")
     ))
 
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    idu_ever_bin = factor(
+      case_when(
+        idu_ever_3cat == "No" ~ 0,
+        idu_ever_3cat == "Yes" ~ 1,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1),
+      labels = c("No", "Yes")
+    ))
+
+table(sw_combined_raw$idu_ever_bin, sw_combined_raw$year, useNA = "ifany")
 table(sw_combined_raw$idu_ever_3cat, sw_combined_raw$year, useNA = "ifany")
 
 sw_combined_raw <- sw_combined_raw %>%
@@ -1565,6 +1631,15 @@ sw_combined_raw <- sw_combined_raw %>%
       ),
       levels = c(0, 1, 2),
       labels = c("No", "Yes", "Missing / Unknown")
+    ),
+    used_syringe_last_bin = factor(
+      case_when(
+        used_syringe_last_3cat == "No" ~ 0,
+        used_syringe_last_3cat == "Yes" ~ 1,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1),
+      labels = c("No", "Yes")
     ))
 
 sw_combined_raw <- sw_combined_raw %>%
@@ -1594,6 +1669,15 @@ sw_combined_raw <- sw_combined_raw %>%
       levels = c(0, 1, 2),
       labels = c("No", "Yes", "Missing / Unknown")
     ),
+    ngo_client_lifetime_bin = factor(
+      case_when(
+        ngo_client_lifetime_3cat == "No" ~ 0,
+        ngo_client_lifetime_3cat == "Yes" ~ 1,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1),
+      labels = c("No", "Yes")
+    ),    
     ngo_access_12m_3cat = factor(
       case_when(
         grepl("^No$", ngo_access_12m, ignore.case = TRUE) ~ 0,
@@ -1660,8 +1744,8 @@ sw_combined_raw <- sw_combined_raw %>%
     )
   )
   
-table(sw_combined_raw$year, sw_combined_raw$ngo_condom_12m, useNA = "ifany")
-table(sw_combined_raw$year, sw_combined_raw$ngo_syringe_12m, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$ngo_condom_rec_bin, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$ngo_syringe_12m_bin, useNA = "ifany")
 
 table(sw_combined_raw$ngo_condom_rec_bin, sw_combined_raw$year, useNA = "ifany")
 table(sw_combined_raw$ngo_condom_6m, sw_combined_raw$year, useNA = "ifany")
@@ -1713,6 +1797,16 @@ sw_combined_raw <- sw_combined_raw %>%
       levels = c(0, 1, 2),
       labels = c("No", "Yes", "Missing / Unknown")
     ),
+
+    hiv_tested_lifetime_bin = factor(
+      case_when(
+      hiv_tested_lifetime_3cat == "Yes" ~ 1,
+      hiv_tested_lifetime_3cat == "No" ~ 0,
+      TRUE ~ NA_real_
+      ),
+      levels = c(0, 1),
+      labels = c("No", "Yes")
+    ),
     
     hiv_tested_12m_3cat = factor(
       case_when(
@@ -1725,6 +1819,16 @@ sw_combined_raw <- sw_combined_raw %>%
       labels = c("No", "Yes", "Missing / Unknown")
     ),
     
+      hiv_tested_12m_bin = factor(
+      case_when(
+      hiv_tested_12m_3cat == "Yes" ~ 1,
+      hiv_tested_12m_3cat == "No" ~ 0,
+      TRUE ~ NA_real_
+      ),
+      levels = c(0, 1),
+      labels = c("No", "Yes")
+    ),
+
     hiv_tested_result_3cat = factor(
       case_when(
         grepl("^Yes$|HIV-negative|Yes, HIV-negative", hiv_tested_result, ignore.case = TRUE) ~ 1,
@@ -1747,6 +1851,7 @@ sw_combined_raw <- sw_combined_raw %>%
       levels = c("HIV-negative", "HIV-positive", "Don't know")
     )
   )
+
 table(sw_combined_raw$year, sw_combined_raw$hiv_tested_lifetime_3cat, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$hiv_tested_12m_3cat, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$hiv_tested_result_3cat, useNA = "ifany")
@@ -1909,33 +2014,53 @@ sw_combined_raw <- sw_combined_raw %>%
         grepl("^Yes|Yes, currently|I’m currently participating", art_current, ignore.case = TRUE) ~ 1,  # On ART
         grepl("^No$|Participated, but now don’t receive|I used to earlier|No, but|NO, but", art_current, ignore.case = TRUE) ~ 0,  # Not on ART
         grepl("No question asked|No answer|I have used but stopped", art_current, ignore.case = TRUE) ~ 2,  # Missing / Unknown
-        TRUE ~ 2  # Catch any unexpected responses
+        TRUE ~ 2
       ),
       levels = c(0, 1, 2),
       labels = c("No", "Yes", "Missing / Unknown")
+    ),
+
+    art_current_bin = factor(
+      case_when(
+        art_current_3cat == "No" ~ 0,
+        art_current_3cat == "Yes" ~ 1,
+      TRUE ~ NA_real_
+      ),
+      levels = c(0, 1),
+      labels = c("No", "Yes")      
     )
   )
 
 table(sw_combined_raw$year, sw_combined_raw$art_current_3cat, useNA = "ifany")
 
 # violence variables
+table(sw_combined_raw$year, sw_combined_raw$violence_any_ever, useNA = "ifany")
+
 sw_combined_raw <- sw_combined_raw %>%
   mutate(
     violence_any_ever_3cat = factor(
       case_when(
-        grepl("^Yes|Так$", violence_any_ever, ignore.case = TRUE) ~ 1,
-        grepl("^No|Ні$", violence_any_ever, ignore.case = TRUE) ~ 0,
-        grepl("НЕМАЄ ВІДПОВІДІ|ВАЖКО ВІДПОВІСТИ|Refusal to answer|Don't know|Don't remember", 
-              violence_any_ever, ignore.case = TRUE) ~ 2,
-        TRUE ~ 2  # Catch any unexpected responses
+        violence_any_ever == "Yes" ~ 1,
+        violence_any_ever == "No" ~ 0,
+        violence_any_ever == "Refusal to answer" ~ 2,
+        violence_any_ever == "Don't know/don't remember" ~ 2,
+        violence_any_ever == "Missing/Don't know" ~ 2,
+        TRUE ~ 2 
       ),
       levels = c(0, 1, 2),
       labels = c("No", "Yes", "Missing / Unknown")
     )
   )
+table(sw_combined_raw$year, sw_combined_raw$violence_any_ever_3cat, useNA = "ifany")
+
+table(sw_combined_raw$violence_rape_ever, useNA = "ifany")
+table(sw_combined_raw$violence_forced_any_12m, useNA = "ifany")
 
 violence_vars <- c(
   "violence_rape_ever",
+  "violence_forced_free_ever",
+  "violence_forced_perv_ever",
+  "violence_forced_inject_ever",
   "violence_beaten_ever",
   "violence_humiliated_ever",
   "violence_physical_abuse_ever",
@@ -1948,43 +2073,149 @@ violence_vars <- c(
   "violence_support_ngo"
 )
 
-sw_combined_raw <- sw_combined_raw %>%
-  mutate(across(
-    all_of(violence_vars),
-    ~ factor(
+for (i in violence_vars) {
+  cat("var:", i)
+  print(table(sw_combined_raw[[i]]), useNA = "ifany")
+}
+
+# make cleaned _3cat violence vars
+for (i in violence_vars) {
+
+  sw_combined_raw <- sw_combined_raw %>%
+    mutate(
+      !!paste0(i, "_3cat") := factor(
         case_when(
-          grepl("^Yes$", ., ignore.case = TRUE) ~ 1,
-          grepl("^No$|No question asked", ., ignore.case = TRUE) ~ 0,
-          grepl("Don't know|Don't remember|Refusal to answer", ., ignore.case = TRUE) ~ 2,
-          TRUE ~ 2  # any unexpected responses
+          .data[[i]] == "Yes" ~ 1,
+          .data[[i]] == "No" ~ 0,
+          violence_any_ever_3cat == "No" ~ 0,
+          .data[[i]] == "Refusal to answer" ~ 2,
+          .data[[i]] == "Don't know/don't remember" ~ 2,
+          .data[[i]] == "Missing/Don't know" ~ 2,
+          TRUE ~ 2 
         ),
         levels = c(0, 1, 2),
-        labels = c("No", "Yes", "Missing / Unknown")
+        labels = c("No", "Yes", "Missing/Unknown")
       )
-  ))
+    )  
+}
 
+for (i in violence_vars) {
+  cat("var:", i, "_3cat")
+  print(table(sw_combined_raw[[paste0(i, "_3cat")]], sw_combined_raw$violence_any_ever_3cat, useNA = "ifany"))
+  }
+
+# forced sexual service
 sw_combined_raw <- sw_combined_raw %>%
   mutate(
-    violence_rape_12m_3cat = factor(
+    violence_forced_any_ever_3cat = factor(
       case_when(
-        grepl("^Yes$", violence_rape_12m, ignore.case = TRUE) ~ 1,
-        grepl("^No$", violence_rape_12m, ignore.case = TRUE) ~ 0,
-        grepl("Refuse to answer|Refused to answer", violence_rape_12m, ignore.case = TRUE) ~ 2,
-        TRUE ~ 2  # catch unexpected responses
+        violence_forced_free_ever_3cat == "Yes" ~ 1,
+        violence_forced_perv_ever_3cat == "Yes" ~ 1,
+        violence_forced_free_ever_3cat == "No" ~ 0,
+        violence_forced_perv_ever_3cat == "No" ~ 0,
+        violence_forced_free_ever_3cat == "Missing / Unknown" ~ 2,
+        violence_forced_perv_ever_3cat == "Missing / Unknown" ~ 2,
+
+        TRUE ~ 2 
       ),
       levels = c(0, 1, 2),
       labels = c("No", "Yes", "Missing / Unknown")
+    ),
+    violence_forced_any_ever_bin = factor(
+      case_when(
+        violence_forced_any_ever_3cat == "Yes" ~ 1,
+        violence_forced_any_ever_3cat == "No" ~ 0,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1),
+      labels = c("No", "Yes")
     )
+)
+
+table(sw_combined_raw$violence_forced_free_ever_3cat, useNA = "ifany")
+table(sw_combined_raw$violence_forced_perv_ever_3cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$violence_forced_any_ever_bin, useNA = "ifany")
+
+# past 12 months forced sexual services
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    violence_forced_any_12m_3cat = factor(
+      case_when(
+        violence_forced_any_12m == "Yes" ~ 1,
+        violence_forced_any_12m == "No" ~ 0,
+        violence_forced_any_ever_3cat == "No" & year == 2015 ~ 0,
+        violence_forced_any_ever_3cat == "No" & year == 2017 ~ 0,
+        violence_forced_any_12m == "Refusal to answer" ~ 2,
+        violence_forced_any_12m == "Don't know/don't remember" ~ 2,
+        violence_forced_any_12m == "Missing/Don't know" ~ 2,
+        TRUE ~ 2 
+      ),
+      levels = c(0, 1, 2),
+      labels = c("No", "Yes", "Missing / Unknown")
+    ),
+    violence_forced_any_12m_bin = factor(
+      case_when(
+        violence_forced_any_12m_3cat == "No" ~ 0,
+        violence_forced_any_12m_3cat == "Yes" ~ 1,
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1),
+      labels = c("No", "Yes")
+     )
   )
 
-table(sw_combined_raw$year, sw_combined_raw$violence_rape_12m_3cat, useNA = "ifany")
-table(sw_combined_raw$year, sw_combined_raw$violence_rape_ever, useNA = "ifany")
-table(sw_combined_raw$year, sw_combined_raw$violence_beaten_ever, useNA = "ifany")
-table(sw_combined_raw$year, sw_combined_raw$violence_humiliated_ever, useNA = "ifany")
-table(sw_combined_raw$year, sw_combined_raw$violence_physical_abuse_ever, useNA = "ifany")
-table(sw_combined_raw$year, sw_combined_raw$violence_client, useNA = "ifany")
-table(sw_combined_raw$year, sw_combined_raw$violence_any_ever_3cat, useNA = "ifany")
+# violence variables
+violence_vars <- c(
+  "violence_any_ever",
+  "violence_rape_ever",
+  "violence_forced_free_ever",
+  "violence_forced_perv_ever",
+  "violence_forced_any_ever",
+  "violence_forced_any_12m",
+  "violence_forced_inject_ever",
+  "violence_beaten_ever",
+  "violence_humiliated_ever",
+  "violence_physical_abuse_ever",
+  "violence_client",
+  "violence_perm_partner",
+  "violence_casual_partner",
+  "violence_police",
+  "violence_pimp",
+  "violence_fsw",
+  "violence_support_ngo"
+)
 
+# make cleaned _bin violence vars
+for (i in violence_vars) {
+
+  sw_combined_raw <- sw_combined_raw %>%
+    mutate(
+      !!paste0(i, "_bin") := factor(
+        case_when(
+          .data[[paste0(i, "_3cat")]] == "Yes" ~ 1,
+          .data[[paste0(i, "_3cat")]] == "No" ~ 0,
+          TRUE ~ NA
+        ),
+        levels = c(0, 1),
+        labels = c("No", "Yes")
+      )
+    )  
+}
+
+for (i in violence_vars) {
+  cat("var:", i, "_bin")
+  print(table(sw_combined_raw[[paste0(i, "_bin")]], useNA = "ifany"))
+  }
+
+for (i in violence_vars) {
+  cat("var:", i, "_3cat")
+  print(table(sw_combined_raw[[paste0(i, "_3cat")]], useNA = "ifany"))
+}
+
+print(violence_vars)
+length(violence_vars)
+
+# prep
 sw_combined_raw <- sw_combined_raw %>%
   mutate(
     prep_12m_3cat = factor(
@@ -1992,7 +2223,7 @@ sw_combined_raw <- sw_combined_raw %>%
         grepl("^Yes$|Yes, I have taken PrEP drugs and take it now|Yes, I have taken PrEP drugs but do not take it now", prep_12m, ignore.case = TRUE) ~ 1,
         grepl("^No$|No, I have not", prep_12m, ignore.case = TRUE) ~ 0,
         grepl("No question asked|Don’t remember|Refusal to answer|Don't know/don't remember", prep_12m, ignore.case = TRUE) ~ 2,
-        TRUE ~ 2  # any unexpected responses
+        TRUE ~ 2
       ),
       levels = c(0, 1, 2),
       labels = c("No", "Yes", "Missing / Unknown")

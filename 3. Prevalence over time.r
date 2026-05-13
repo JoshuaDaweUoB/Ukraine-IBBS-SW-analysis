@@ -1,5 +1,5 @@
 ## load packages
-pacman::p_load(dplyr, tidyr, stringr, tibble, writexl, readxl, forcats, labelled, lubridate, broom, survival, ggplot2, scales, openxlsx, readr)
+pacman::p_load(dplyr, tidyr, stringr, tibble, writexl, readxl, forcats, labelled, lubridate, broom, survival, ggplot2, scales, openxlsx, readr, magick)
 
 ## set wd
 setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/PhD Papers/Paper 3a - Ukraine Sex Work HIV/data/SW data")
@@ -8,7 +8,7 @@ setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/PhD Papers/Pa
 sw_combined_clean <- readRDS("sw_combined_clean.rds")
 
 # proportion of FSWs in each compartment
-sw_combined_clean <- sw_combined_clean[sw_combined_clean$idu_ever_3cat != "Missing / Unknown", ]
+sw_combined_clean <- sw_combined_clean[sw_combined_clean$idu_ever_bin != "Missing / Unknown", ]
 
 years_cats <- c("0-3", "4-9", "10+")
 
@@ -21,7 +21,7 @@ df <- sw_combined_clean %>%
 table(df$years_in_sw_3cat)
 
 # Create contingency table
-tab <- table(df$idu_ever_3cat, df$street_sw_bin)
+tab <- table(df$idu_ever_bin, df$street_sw_bin)
 
 # Total N
 N <- sum(tab)
@@ -45,7 +45,7 @@ print(omega)
 
 # years in SW 
 sw_combined_clean %>%
-  group_by(idu_ever_3cat) %>%
+  group_by(idu_ever_bin) %>%
   summarise(
     n = sum(!is.na(years_in_sw)),
     mean = mean(years_in_sw, na.rm = TRUE),
@@ -76,7 +76,7 @@ no_idu_exit
 
 # rate of moving from younger to older FSW
 sw_combined_clean %>%
-  group_by(idu_ever_3cat) %>%
+  group_by(idu_ever_bin) %>%
   summarise(
     mean = mean(age_first_sw_numeric, na.rm = TRUE),
     .groups = "drop")
@@ -96,7 +96,7 @@ non_idu_yto
 
 # years in SW 
 sw_combined_clean %>%
-  group_by(idu_ever_3cat) %>%
+  group_by(idu_ever_bin) %>%
   summarise(
     mean = mean(sw_partners_clients_30d, na.rm = TRUE),
     .groups = "drop"
@@ -108,8 +108,8 @@ sw_combined_clean %>%
 sw_combined_clean <- sw_combined_clean %>%
   mutate(
     years_adj = ifelse(years_in_sw == 0, 0.5, years_in_sw),
-    ngo_ever = ifelse(ngo_client_lifetime_3cat == "Yes", 1,
-                 ifelse(ngo_client_lifetime_3cat == "No", 0, NA)),
+    ngo_ever = ifelse(ngo_client_lifetime_bin == "Yes", 1,
+                 ifelse(ngo_client_lifetime_bin == "No", 0, NA)),
     rate_ngo = ngo_ever/years_adj,
 
   )
@@ -138,8 +138,7 @@ lambda_func <- function(p, years, var_p, var_years) {
 
 # factor
 sw_combined_clean <- sw_combined_clean %>%
-  mutate(idu_ever_3cat = factor(idu_ever_3cat, levels = c("No", "Yes")),
-        hiv_test_rslt_bin = case_when(
+  mutate(hiv_test_rslt_bin = case_when(
           hiv_test_rslt_bin %in% c("Positive","1","Yes") ~ "Yes",
           hiv_test_rslt_bin %in% c("Negative","0","No") ~ "No",
           TRUE ~ NA_character_),
@@ -147,366 +146,16 @@ sw_combined_clean <- sw_combined_clean %>%
 
 # variables to summarise
 vars <- c(
-  "condom_access_12m_3cat", "client_condom_lastsex_3cat", "ngo_client_lifetime",
+  "condom_access_12m_bin", "client_condom_lastsex_bin", "ngo_client_lifetime",
   "ngo_condom_rec_bin", "ngo_syringe_12m_bin", "hiv_test_rslt_bin", "years_in_sw_3cat",
-  "city_travel_12m_cat", "street_sw_bin", "alcohol_30d_bin", "used_syringe_last_3cat",
-  "violence_any_ever_3cat", "violence_rape_12m_3cat",
-  "violence_rape_ever", "violence_beaten_ever", "violence_physical_abuse_ever",
-  "violence_police", "violence_pimp", "violence_support_ngo", "age_bin",
-  "avoided_healthcare_12m_stigma", "avoided_healthcare_12m_violence",
-  "avoided_healthcare_12m_police", "avoided_hiv_test_12m_police",
-  "avoided_hiv_test_12m_violence", "avoided_hiv_test_12m_stigma", "underage_first_sw_bin"
+  "city_travel_12m_cat", "street_sw_bin", "alcohol_30d_bin", "used_syringe_last_bin",
+  "violence_any_ever_bin", "violence_forced_free_ever_bin", "violence_forced_perv_ever_bin",
+  "violence_forced_any_ever_bin", "violence_forced_any_12m_bin", "violence_forced_inject_ever_bin",
+  "violence_rape_ever_bin", "violence_beaten_ever_bin", "violence_physical_abuse_ever_bin",
+  "violence_police_bin", "violence_pimp_bin", "violence_support_ngo_bin", "age_bin", "underage_first_sw_bin"
 )
 
-# Add "Overall" pseudo-city
-sw_combined_clean <- bind_rows(sw_combined_clean, sw_combined_clean %>% mutate(city = "Overall"))
-
-sw_combined_clean <- bind_rows(
-  sw_combined_clean,
-  sw_combined_clean %>% mutate(street_sw_bin = "Overall")
-)
-
-sw_combined_clean <- sw_combined_clean %>%
-  mutate(street_sw_bin = factor(street_sw_bin, levels = c("No", "Yes", "Overall")))
-
-# Create a workbook
-wb <- createWorkbook()
-
-for (var in vars) {
-  
-  cat("Processing:", var, "\n")
-  
-  # Summarise by city/year and IDU status
-  summary_df <- sw_combined_clean %>%
-    filter(!is.na(.data[[var]]), !is.na(street_sw_bin)) %>%
-    group_by(city, year, street_sw_bin) %>%
-    summarise(
-      IDU_n = sum(.data[[var]] == "Yes" & idu_ever_3cat == "Yes", na.rm = TRUE),
-      IDU_denom = sum(idu_ever_3cat == "Yes", na.rm = TRUE),
-      IDU_pct = ifelse(IDU_denom > 0, round(IDU_n/IDU_denom*100,1), NA),
-      
-      No_IDU_n = sum(.data[[var]] == "Yes" & idu_ever_3cat == "No", na.rm = TRUE),
-      No_IDU_denom = sum(idu_ever_3cat == "No", na.rm = TRUE),
-      No_IDU_pct = ifelse(No_IDU_denom > 0, round(No_IDU_n/No_IDU_denom*100,1), NA),
-      
-      Overall_n = sum(.data[[var]] == "Yes", na.rm = TRUE),
-      Overall_denom = n(),
-      Overall_pct = round(Overall_n/Overall_denom*100,1),
-      
-      .groups = "drop"
-    ) %>%
-    arrange(city, year, street_sw_bin)
-  
-  # Name the sheet as first 10 characters of variable
-  sheet_name <- substr(var, 1, 25)
-  addWorksheet(wb, sheet_name)
-  writeData(wb, sheet = sheet_name, summary_df)
-}
-
-# Save workbook
-saveWorkbook(wb, "IDU_stratified_summary.xlsx", overwrite = TRUE)
-cat("Saved all summaries to IDU_stratified_summary.xlsx\n")
-
-## idu over time
-
-sw_combined_clean <- readRDS("sw_combined_clean.rds")
-
-sw_combined_clean <- sw_combined_clean %>%
-  mutate(
-    idu_ever_3cat = case_when(
-      idu_ever_3cat %in% c("Yes", "1") ~ "Yes",
-      idu_ever_3cat %in% c("No", "0") ~ "No",
-      TRUE ~ NA_character_
-    )
-  )
-
-city_prev <- sw_combined_clean %>%
-  group_by(city, year) %>%
-  summarise(
-    n_total = n(),
-    no_prop = sum(idu_ever_3cat == "No", na.rm = TRUE) / n_total,
-    yes_prop = sum(idu_ever_3cat == "Yes", na.rm = TRUE) / n_total,
-    na_prop  = sum(is.na(idu_ever_3cat)) / n_total,
-    .groups = "drop"
-  ) %>%
-  mutate(
-    level = "City",
-    yes = paste0(round(yes_prop * 100, 1), "%")
-  ) %>%
-  select(level, city, year, no_prop, yes, na_prop)
-
-overall_prev <- sw_combined_clean %>%
-  group_by(year) %>%
-  summarise(
-    n_total = n(),
-    no_prop = sum(idu_ever_3cat == "No", na.rm = TRUE) / n_total,
-    yes_prop = sum(idu_ever_3cat == "Yes", na.rm = TRUE) / n_total,
-    na_prop  = sum(is.na(idu_ever_3cat)) / n_total,
-    .groups = "drop"
-  ) %>%
-  mutate(
-    level = "Overall",
-    city = "All cities",
-    yes = paste0(round(yes_prop * 100, 1), "%")
-  ) %>%
-  select(level, city, year, no_prop, yes, na_prop)
-
-idu_prev <- bind_rows(city_prev, overall_prev) %>%
-  arrange(level, city, year)
-
-wb <- createWorkbook()
-addWorksheet(wb, "idu_prevalence")
-writeData(wb, "idu_prevalence", idu_prev)
-saveWorkbook(wb, "idu_prevalence_by_city_year.xlsx", overwrite = TRUE)
-
-## hiv prevalence tables
-
-# Load data
-sw_combined_clean <- readRDS("sw_combined_clean.rds")
-
-# Keep only selected cities
-cities_keep <- c("Cherkasy","Dnipro", "Kropyvnytskyi","Kyiv", "Mariupol","Odesa")
-
-sw_combined_clean <- sw_combined_clean %>%
-  filter(city %in% cities_keep)
-
-# Clean variables
-sw_combined_clean <- sw_combined_clean %>%
-  mutate(
-    idu_ever_3cat = factor(idu_ever_3cat, levels = c("No", "Yes")),
-    street_sw_bin = factor(street_sw_bin, levels = c("No", "Yes")),
-    hiv = case_when(
-      hiv_test_rslt_bin %in% c("Positive","1","Yes") ~ 1,
-      hiv_test_rslt_bin %in% c("Negative","0","No") ~ 0,
-      TRUE ~ NA_real_
-    )
-  )
-
-# function to return "n/N (pct)"
-calc_str <- function(x) {
-  N <- sum(!is.na(x))
-  n <- sum(x == 1, na.rm = TRUE)
-  if (N == 0) return(NA_character_)
-  paste0(n, "/", N, " (", round(n/N*100, 1), "%)")
-}
-
-# Create HIV table (by city)
-hiv_table <- sw_combined_clean %>%
-  group_by(city, year) %>%
-  summarise(
-    Overall = calc_str(hiv),
-
-    Street = calc_str(hiv[street_sw_bin == "Yes"]),
-    Indoor = calc_str(hiv[street_sw_bin == "No"]),
-
-    IDU = calc_str(hiv[idu_ever_3cat == "Yes"]),
-    Non_IDU = calc_str(hiv[idu_ever_3cat == "No"]),
-
-    Street_IDU = calc_str(hiv[street_sw_bin == "Yes" & idu_ever_3cat == "Yes"]),
-    Street_non_IDU = calc_str(hiv[street_sw_bin == "Yes" & idu_ever_3cat == "No"]),
-
-    Indoor_IDU = calc_str(hiv[street_sw_bin == "No" & idu_ever_3cat == "Yes"]),
-    Indoor_non_IDU = calc_str(hiv[street_sw_bin == "No" & idu_ever_3cat == "No"]),
-
-    .groups = "drop"
-  )
-
-# Create overall table (all cities combined)
-overall_table <- sw_combined_clean %>%
-  group_by(year) %>%
-  summarise(
-    Overall = calc_str(hiv),
-
-    Street = calc_str(hiv[street_sw_bin == "Yes"]),
-    Indoor = calc_str(hiv[street_sw_bin == "No"]),
-
-    IDU = calc_str(hiv[idu_ever_3cat == "Yes"]),
-    Non_IDU = calc_str(hiv[idu_ever_3cat == "No"]),
-
-    Street_IDU = calc_str(hiv[street_sw_bin == "Yes" & idu_ever_3cat == "Yes"]),
-    Street_non_IDU = calc_str(hiv[street_sw_bin == "Yes" & idu_ever_3cat == "No"]),
-
-    Indoor_IDU = calc_str(hiv[street_sw_bin == "No" & idu_ever_3cat == "Yes"]),
-    Indoor_non_IDU = calc_str(hiv[street_sw_bin == "No" & idu_ever_3cat == "No"]),
-
-    .groups = "drop"
-  )
-
-# Create Excel workbook
-wb <- createWorkbook()
-
-# Write one sheet per city
-for (ct in cities_keep) {
-  
-  df_city <- hiv_table %>%
-    filter(city == ct) %>%
-    select(-city)
-  
-  sheet_name <- substr(ct, 1, 31)
-  addWorksheet(wb, sheet_name)
-  writeData(wb, sheet_name, df_city)
-}
-
-# Add overall sheet
-addWorksheet(wb, "Overall")
-writeData(wb, "Overall", overall_table)
-
-# Save workbook
-saveWorkbook(wb, "HIV_prevalence_by_city.xlsx", overwrite = TRUE)
-
-## idu 12m
-
-# Load data
-sw_combined_clean <- readRDS("sw_combined_clean.rds")
-
-sw_combined_clean <- sw_combined_clean %>%
-  mutate(
-    idu_12m_3cat = case_when(
-      idu_12m_3cat %in% c("Yes", "1") ~ "Yes",
-      idu_12m_3cat %in% c("No", "0") ~ "No",
-      TRUE ~ NA_character_
-    )
-  )
-
-city_prev <- sw_combined_clean %>%
-  group_by(city, year) %>%
-  summarise(
-    n_total = n(),
-    no_prop = sum(idu_12m_3cat == "No", na.rm = TRUE) / n_total,
-    yes_prop = sum(idu_12m_3cat == "Yes", na.rm = TRUE) / n_total,
-    na_prop  = sum(is.na(idu_12m_3cat)) / n_total,
-    .groups = "drop"
-  ) %>%
-  mutate(
-    level = "City",
-    yes = paste0(round(yes_prop * 100, 1), "%")
-  ) %>%
-  select(level, city, year, no_prop, yes, na_prop)
-
-overall_prev <- sw_combined_clean %>%
-  group_by(year) %>%
-  summarise(
-    n_total = n(),
-    no_prop = sum(idu_12m_3cat == "No", na.rm = TRUE) / n_total,
-    yes_prop = sum(idu_12m_3cat == "Yes", na.rm = TRUE) / n_total,
-    na_prop  = sum(is.na(idu_12m_3cat)) / n_total,
-    .groups = "drop"
-  ) %>%
-  mutate(
-    level = "Overall",
-    city = "All cities",
-    yes = paste0(round(yes_prop * 100, 1), "%")
-  ) %>%
-  select(level, city, year, no_prop, yes, na_prop)
-
-idu_12m_prev <- bind_rows(city_prev, overall_prev) %>%
-  arrange(level, city, year)
-
-wb <- createWorkbook()
-addWorksheet(wb, "idu_12m_prevalence")
-writeData(wb, "idu_12m_prevalence", idu_12m_prev)
-saveWorkbook(wb, "idu_12m_prevalence_by_city_year.xlsx", overwrite = TRUE)
-
-## ngo access over time
-
-sw_combined_clean <- readRDS("sw_combined_clean.rds")
-
-sw_combined_clean <- sw_combined_clean %>%
-  mutate(
-    ngo_client_lifetime = case_when(
-      ngo_client_lifetime %in% c("Yes", "1") ~ "Yes",
-      ngo_client_lifetime %in% c("No", "0") ~ "No",
-      TRUE ~ NA_character_
-    )
-  )
-
-city_prev <- sw_combined_clean %>%
-  group_by(city, year) %>%
-  summarise(
-    n_total = n(),
-    no_prop = sum(ngo_client_lifetime == "No", na.rm = TRUE) / n_total,
-    yes_prop = sum(ngo_client_lifetime == "Yes", na.rm = TRUE) / n_total,
-    na_prop  = sum(is.na(ngo_client_lifetime)) / n_total,
-    .groups = "drop"
-  ) %>%
-  mutate(
-    level = "City",
-    yes = paste0(round(yes_prop * 100, 1), "%")
-  ) %>%
-  select(level, city, year, no_prop, yes, na_prop)
-
-overall_prev <- sw_combined_clean %>%
-  group_by(year) %>%
-  summarise(
-    n_total = n(),
-    no_prop = sum(ngo_client_lifetime == "No", na.rm = TRUE) / n_total,
-    yes_prop = sum(ngo_client_lifetime == "Yes", na.rm = TRUE) / n_total,
-    na_prop  = sum(is.na(ngo_client_lifetime)) / n_total,
-    .groups = "drop"
-  ) %>%
-  mutate(
-    level = "Overall",
-    city = "All cities",
-    yes = paste0(round(yes_prop * 100, 1), "%")
-  ) %>%
-  select(level, city, year, no_prop, yes, na_prop)
-
-ngo_prev <- bind_rows(city_prev, overall_prev) %>%
-  arrange(level, city, year)
-
-wb <- createWorkbook()
-addWorksheet(wb, "ngo_prevalence")
-writeData(wb, "ngo_prevalence", ngo_prev)
-saveWorkbook(wb, "ngo_prevalence_by_city_year.xlsx", overwrite = TRUE)
-
-# prevalence by region
-
-# Add "Overall" pseudo-region
-sw_combined_clean <- bind_rows(
-  sw_combined_clean,
-  sw_combined_clean %>% mutate(ukraine_region_4cat = "Overall")
-)
-
-sw_combined_clean <- bind_rows(
-  sw_combined_clean,
-  sw_combined_clean %>% mutate(street_sw_bin = "Overall")
-)
-
-sw_combined_clean <- sw_combined_clean %>%
-  mutate(street_sw_bin = factor(street_sw_bin, levels = c("No", "Yes", "Overall")))
-
-wb <- createWorkbook()
-
-for (var in vars) {
-  
-  cat("Processing:", var, "\n")
-  
-  summary_df <- sw_combined_clean %>%
-    filter(!is.na(.data[[var]]), !is.na(street_sw_bin)) %>%
-    group_by(ukraine_region_4cat, year, street_sw_bin) %>%
-    summarise(
-      IDU_n = sum(.data[[var]] == "Yes" & idu_ever_3cat == "Yes", na.rm = TRUE),
-      IDU_denom = sum(idu_ever_3cat == "Yes", na.rm = TRUE),
-      IDU_pct = ifelse(IDU_denom > 0, round(IDU_n/IDU_denom*100,1), NA),
-      
-      No_IDU_n = sum(.data[[var]] == "Yes" & idu_ever_3cat == "No", na.rm = TRUE),
-      No_IDU_denom = sum(idu_ever_3cat == "No", na.rm = TRUE),
-      No_IDU_pct = ifelse(No_IDU_denom > 0, round(No_IDU_n/No_IDU_denom*100,1), NA),
-      
-      Overall_n = sum(.data[[var]] == "Yes", na.rm = TRUE),
-      Overall_denom = n(),
-      Overall_pct = round(Overall_n/Overall_denom*100,1),
-      
-      .groups = "drop"
-    ) %>%
-    arrange(ukraine_region_4cat, year, street_sw_bin)
-  
-  sheet_name <- substr(var, 1, 25)
-  addWorksheet(wb, sheet_name)
-  writeData(wb, sheet = sheet_name, summary_df)
-}
-
-saveWorkbook(wb, "IDU_stratified_summary_by_region.xlsx", overwrite = TRUE)
+## some sort of shit graph thing
 
 sw <- readRDS("sw_combined_clean.rds") %>%
   mutate(
@@ -552,7 +201,7 @@ sw_combined_clean <- sw_combined_clean %>%
       TRUE ~ NA_real_
     ),
     
-    idu_ever_3cat = as.character(idu_ever_3cat),
+    idu_ever_bin = as.character(idu_ever_bin),
     street_sw_bin = as.character(street_sw_bin),
     age_bin = as.character(age_bin)
   )
@@ -579,14 +228,14 @@ make_summary <- function(df) {
 
       tested_lifetime = sprintf(
         "%d (%.1f%%)",
-        sum(hiv_tested_lifetime_3cat == "Yes", na.rm = TRUE),
-        mean(hiv_tested_lifetime_3cat == "Yes", na.rm = TRUE) * 100
+        sum(hiv_tested_lifetime_bin == "Yes", na.rm = TRUE),
+        mean(hiv_tested_lifetime_bin == "Yes", na.rm = TRUE) * 100
       ),
 
       tested_12m = sprintf(
         "%d (%.1f%%)",
-        sum(hiv_tested_12m_3cat == "Yes", na.rm = TRUE),
-        mean(hiv_tested_12m_3cat == "Yes", na.rm = TRUE) * 100
+        sum(hiv_tested_12m_bin == "Yes", na.rm = TRUE),
+        mean(hiv_tested_12m_bin == "Yes", na.rm = TRUE) * 100
       ),
 
       aware = sprintf(
@@ -598,7 +247,7 @@ make_summary <- function(df) {
     )
 
   idu <- df %>%
-    filter(idu_ever_3cat == "Yes") %>%
+    filter(idu_ever_bin == "Yes") %>%
     group_by(year) %>%
     summarise(
       hiv_idu = calc_prev(hiv_test_rslt_bin),
@@ -627,8 +276,8 @@ make_summary <- function(df) {
     summarise(
       art_current = sprintf(
         "%d (%.1f%%)",
-        sum(art_current_3cat == "Yes", na.rm = TRUE),
-        mean(art_current_3cat == "Yes", na.rm = TRUE) * 100
+        sum(art_current_bin == "Yes", na.rm = TRUE),
+        mean(art_current_bin == "Yes", na.rm = TRUE) * 100
       ),
       .groups = "drop"
     )
@@ -653,14 +302,14 @@ overall_table <- sw_combined_clean %>%
 
     tested_lifetime = sprintf(
       "%d (%.1f%%)",
-      sum(hiv_tested_lifetime_3cat == "Yes", na.rm = TRUE),
-      mean(hiv_tested_lifetime_3cat == "Yes", na.rm = TRUE) * 100
+      sum(hiv_tested_lifetime_bin == "Yes", na.rm = TRUE),
+      mean(hiv_tested_lifetime_bin == "Yes", na.rm = TRUE) * 100
     ),
 
     tested_12m = sprintf(
       "%d (%.1f%%)",
-      sum(hiv_tested_12m_3cat == "Yes", na.rm = TRUE),
-      mean(hiv_tested_12m_3cat == "Yes", na.rm = TRUE) * 100
+      sum(hiv_tested_12m_bin == "Yes", na.rm = TRUE),
+      mean(hiv_tested_12m_bin == "Yes", na.rm = TRUE) * 100
     ),
 
     aware = sprintf(
@@ -673,13 +322,13 @@ overall_table <- sw_combined_clean %>%
       sub <- sw_combined_clean %>% filter(hiv_test_rslt_bin == 1)
       sprintf(
         "%d (%.1f%%)",
-        sum(sub$art_current_3cat == "Yes", na.rm = TRUE),
-        mean(sub$art_current_3cat == "Yes", na.rm = TRUE) * 100
+        sum(sub$art_current_bin == "Yes", na.rm = TRUE),
+        mean(sub$art_current_bin == "Yes", na.rm = TRUE) * 100
       )
     },
 
     hiv_idu = {
-      sub <- sw_combined_clean %>% filter(idu_ever_3cat == "Yes")
+      sub <- sw_combined_clean %>% filter(idu_ever_bin == "Yes")
       sprintf(
         "%d (%.1f%%)",
         sum(sub$hiv_test_rslt_bin == 1, na.rm = TRUE),
@@ -736,21 +385,23 @@ make_sw_table <- function(df) {
 
       age_under25 = calc_prev_true(age_bin == "No"),
       street_sw = calc_prev(street_sw_bin),
-      idu = calc_prev(idu_ever_3cat),
+      idu = calc_prev(idu_ever_bin),
       underage_first_sw = calc_prev(underage_first_sw_bin),
-      rape_ever = calc_prev(violence_rape_ever),
-      rape_12m = calc_prev(violence_rape_12m_3cat),
-      beaten_ever = calc_prev(violence_beaten_ever),
-      ngo_client_lifetime = calc_prev(ngo_client_lifetime_3cat),
-      condom_access_12m = calc_prev(condom_access_12m_3cat),
+      violence_any = calc_prev(violence_any_ever_bin),
+      forced_sex_ever = calc_prev(violence_forced_any_ever_bin),
+      forced_sex_12m = calc_prev(violence_forced_any_12m_bin),
+      rape_ever = calc_prev(violence_rape_ever_bin),
+      beaten_ever = calc_prev(violence_beaten_ever_bin),
+      ngo_client_lifetime = calc_prev(ngo_client_lifetime_bin),
+      condom_access_12m = calc_prev(condom_access_12m_bin),
       ngo_condom_rec = calc_prev(ngo_condom_rec_bin),
 
-      ngo_syringe_12m = calc_prev(ngo_syringe_12m_bin[idu_ever_3cat == "Yes"]),
+      ngo_syringe_12m = calc_prev(ngo_syringe_12m_bin[idu_ever_bin == "Yes"]),
 
       high_clients_30d = calc_prev_true(as.character(sw_partners_clients_30d_3cat) == "50+"),
 
-      used_syringe_last_3cat = calc_prev(used_syringe_last_3cat[idu_ever_3cat == "Yes"]),
-      client_condom_lastsex_3cat = calc_prev(client_condom_lastsex_3cat),
+      used_syringe_last = calc_prev(used_syringe_last_bin[idu_ever_bin == "Yes"]),
+      client_condom_lastsex_bin = calc_prev(client_condom_lastsex_bin),
 
       .groups = "drop"
     )
@@ -764,23 +415,25 @@ overall_table <- sw_combined_clean %>%
     year = "Overall",
     N = n(),
 
-    age_under25 = calc_prev_true(age_bin == "No"),
-    street_sw = calc_prev(street_sw_bin),
-    idu = calc_prev(idu_ever_3cat),
-    underage_first_sw = calc_prev(underage_first_sw_bin),
-    rape_ever = calc_prev(violence_rape_ever),
-    rape_12m = calc_prev(violence_rape_12m_3cat),
-    beaten_ever = calc_prev(violence_beaten_ever),
-    ngo_client_lifetime = calc_prev(ngo_client_lifetime_3cat),
-    condom_access_12m = calc_prev(condom_access_12m_3cat),
-    ngo_condom_rec = calc_prev(ngo_condom_rec_bin),
+      age_under25 = calc_prev_true(age_bin == "No"),
+      street_sw = calc_prev(street_sw_bin),
+      idu = calc_prev(idu_ever_bin),
+      underage_first_sw = calc_prev(underage_first_sw_bin),
+      violence_any = calc_prev(violence_any_ever_bin),
+      forced_sex_ever = calc_prev(violence_forced_any_ever_bin),
+      forced_sex_12m = calc_prev(violence_forced_any_12m_bin),
+      rape_ever = calc_prev(violence_rape_ever_bin),
+      beaten_ever = calc_prev(violence_beaten_ever_bin),
+      ngo_client_lifetime = calc_prev(ngo_client_lifetime_bin),
+      condom_access_12m = calc_prev(condom_access_12m_bin),
+      ngo_condom_rec = calc_prev(ngo_condom_rec_bin),
 
-    ngo_syringe_12m = calc_prev(ngo_syringe_12m_bin[idu_ever_3cat == "Yes"]),
+      ngo_syringe_12m = calc_prev(ngo_syringe_12m_bin[idu_ever_bin == "Yes"]),
 
-    high_clients_30d = calc_prev_true(as.character(sw_partners_clients_30d_3cat) == "50+"),
+      high_clients_30d = calc_prev_true(as.character(sw_partners_clients_30d_3cat) == "50+"),
 
-    used_syringe_last_3cat = calc_prev(used_syringe_last_3cat[idu_ever_3cat == "Yes"]),
-    client_condom_lastsex_3cat = calc_prev(client_condom_lastsex_3cat)
+      used_syringe_last = calc_prev(used_syringe_last_bin[idu_ever_bin == "Yes"]),
+      client_condom_lastsex_bin = calc_prev(client_condom_lastsex_bin),
   )
   
 
@@ -801,11 +454,11 @@ sw_combined_clean <- sw_combined_clean %>%
       TRUE ~ NA_real_
     ),
 
-    idu_ever_3cat = as.character(idu_ever_3cat),
+    idu_ever_bin = as.character(idu_ever_bin),
     street_sw_bin = as.character(street_sw_bin),
-    ngo_client_lifetime_3cat = as.character(ngo_client_lifetime_3cat),
+    ngo_client_lifetime_bin = as.character(ngo_client_lifetime_bin),
     hiv_positive_aware = as.character(hiv_positive_aware),
-    art_current_3cat = as.character(art_current_3cat)
+    art_current_bin = as.character(art_current_bin)
   )
 
 ## functions
@@ -832,15 +485,15 @@ overall_data <- sw_combined_clean %>%
   filter(!is.na(hiv_test_rslt_bin))
 
 ## stratified datasets
-idu_data        <- overall_data %>% filter(idu_ever_3cat == "Yes")
+idu_data        <- overall_data %>% filter(idu_ever_bin == "Yes")
 
-no_idu_data     <- overall_data %>% filter(idu_ever_3cat == "No")
+no_idu_data     <- overall_data %>% filter(idu_ever_bin == "No")
 
 street_data     <- overall_data %>% filter(street_sw_bin == "Yes")
 no_street_data  <- overall_data %>% filter(street_sw_bin == "No")
 
-ngo_data        <- overall_data %>% filter(ngo_client_lifetime_3cat == "Yes")
-no_ngo_data     <- overall_data %>% filter(ngo_client_lifetime_3cat == "No")
+ngo_data        <- overall_data %>% filter(ngo_client_lifetime_bin == "Yes")
+no_ngo_data     <- overall_data %>% filter(ngo_client_lifetime_bin == "No")
 
 ## yearly summary
 make_summary <- function(df) {
@@ -851,13 +504,13 @@ make_summary <- function(df) {
 
       hiv_prev = calc_prev_bin(hiv_test_rslt_bin),
 
-      tested_lifetime = calc_prev_cat(hiv_tested_lifetime_3cat),
-      tested_12m = calc_prev_cat(hiv_tested_12m_3cat),
+      tested_lifetime = calc_prev_cat(hiv_tested_lifetime_bin),
+      tested_12m = calc_prev_cat(hiv_tested_12m_bin),
       aware = calc_prev_aware(hiv_positive_aware),
 
-      art_current = calc_prev_cat(ifelse(hiv_test_rslt_bin == 1, art_current_3cat, NA)),
+      art_current = calc_prev_cat(ifelse(hiv_test_rslt_bin == 1, art_current_bin, NA)),
 
-      hiv_idu = calc_prev_bin(ifelse(idu_ever_3cat == "Yes", hiv_test_rslt_bin, NA)),
+      hiv_idu = calc_prev_bin(ifelse(idu_ever_bin == "Yes", hiv_test_rslt_bin, NA)),
       hiv_street = calc_prev_bin(ifelse(street_sw_bin == "Yes", hiv_test_rslt_bin, NA)),
       hiv_u25 = calc_prev_bin(ifelse(age_bin == "No", hiv_test_rslt_bin, NA)),
 
@@ -866,15 +519,15 @@ make_summary <- function(df) {
 }
 
 ## tables
-idu_table       <- make_summary(idu_data) %>% mutate(group = "IDU")
+idu_table_hiv       <- make_summary(idu_data) %>% mutate(group = "IDU")
 
-no_idu_table    <- make_summary(no_idu_data) %>% mutate(group = "No IDU")
+no_idu_table_hiv    <- make_summary(no_idu_data) %>% mutate(group = "No IDU")
 
-street_table    <- make_summary(street_data) %>% mutate(group = "Street")
-no_street_table <- make_summary(no_street_data) %>% mutate(group = "Non-street")
+street_table_hiv    <- make_summary(street_data) %>% mutate(group = "Street")
+no_street_table_hiv <- make_summary(no_street_data) %>% mutate(group = "Non-street")
 
-ngo_table       <- make_summary(ngo_data) %>% mutate(group = "NGO client")
-no_ngo_table    <- make_summary(no_ngo_data) %>% mutate(group = "No NGO")
+ngo_table_hiv       <- make_summary(ngo_data) %>% mutate(group = "NGO client")
+no_ngo_table_hiv    <- make_summary(no_ngo_data) %>% mutate(group = "No NGO")
 
 ## overall rows
 make_overall <- function(df, label) {
@@ -883,20 +536,20 @@ make_overall <- function(df, label) {
       year = "Overall",
       N = n(),
       hiv_prev = calc_prev_bin(hiv_test_rslt_bin),
-      tested_lifetime = calc_prev_cat(hiv_tested_lifetime_3cat),
-      tested_12m = calc_prev_cat(hiv_tested_12m_3cat),
+      tested_lifetime = calc_prev_cat(hiv_tested_lifetime_bin),
+      tested_12m = calc_prev_cat(hiv_tested_12m_bin),
       aware = calc_prev_aware(hiv_positive_aware),
 
-      art_current = calc_prev_cat(ifelse(hiv_test_rslt_bin == 1, art_current_3cat, NA)),
+      art_current = calc_prev_cat(ifelse(hiv_test_rslt_bin == 1, art_current_bin, NA)),
 
-      hiv_idu = calc_prev_bin(ifelse(idu_ever_3cat == "Yes", hiv_test_rslt_bin, NA)),
+      hiv_idu = calc_prev_bin(ifelse(idu_ever_bin == "Yes", hiv_test_rslt_bin, NA)),
       hiv_street = calc_prev_bin(ifelse(street_sw_bin == "Yes", hiv_test_rslt_bin, NA)),
       hiv_u25 = calc_prev_bin(ifelse(age_bin == "No", hiv_test_rslt_bin, NA))      
     ) %>%
     mutate(group = label)
 }
 
-overall_strata <- bind_rows(
+overall_strata_hiv <- bind_rows(
   make_overall(idu_data, "IDU"),
   make_overall(no_idu_data, "No IDU"),
   make_overall(street_data, "Street"),
@@ -907,60 +560,53 @@ overall_strata <- bind_rows(
 
 ## final output
 stratified_hiv_table <- bind_rows(
-  idu_table, no_idu_table,
-  street_table, no_street_table,
-  ngo_table, no_ngo_table,
-  overall_strata
+  idu_table_hiv, no_idu_table_hiv,
+  street_table_hiv, no_street_table_hiv,
+  ngo_table_hiv, no_ngo_table_hiv,
+  overall_strata_hiv
 )
 
 write.csv(stratified_hiv_table, "hiv_stratified_table.csv", row.names = FALSE)
 
-# sex work stratified tables
-make_sw_table <- function(df, label) {
-
+## overall rows
+make_overall_characteristics <- function(df, label) {
   df %>%
-    group_by(year) %>%
     summarise(
+      year = "Overall",
       N = n(),
+
 
       age_under25 = calc_prev_true(age_bin == "No"),
       street_sw = calc_prev(street_sw_bin),
-      idu = calc_prev(idu_ever_3cat),
+      idu = calc_prev(idu_ever_bin),
       underage_first_sw = calc_prev(underage_first_sw_bin),
       rape_ever = calc_prev(violence_rape_ever),
-      rape_12m = calc_prev(violence_rape_12m_3cat),
+      forced_sex_12m = calc_prev(violence_forced_any_12m_bin),
+      forced_sex_ever = calc_prev(violence_forced_any_ever_bin),
       beaten_ever = calc_prev(violence_beaten_ever),
-      ngo_client_lifetime = calc_prev(ngo_client_lifetime_3cat),
-      condom_access_12m = calc_prev(condom_access_12m_3cat),
+      ngo_client_lifetime = calc_prev(ngo_client_lifetime_bin),
+      condom_access_12m = calc_prev(condom_access_12m_bin),
       ngo_condom_rec = calc_prev(ngo_condom_rec_bin),
 
       ngo_syringe_12m = calc_prev(
-        ifelse(idu_ever_3cat == "Yes", ngo_syringe_12m_bin, NA)
+        ifelse(idu_ever_bin == "Yes", ngo_syringe_12m_bin, NA)
       ),
 
       high_clients_30d = calc_prev_true(
         as.character(sw_partners_clients_30d_3cat) == "50+"
       ),
 
-      used_syringe_last_3cat = calc_prev(
-        ifelse(idu_ever_3cat == "Yes", used_syringe_last_3cat, NA)
+      used_syringe_last_bin = calc_prev(
+        ifelse(idu_ever_bin == "Yes", used_syringe_last_bin, NA)
       ),
 
-      client_condom_lastsex_3cat = calc_prev(client_condom_lastsex_3cat),
-
-      .groups = "drop"
+      client_condom_lastsex_bin = calc_prev(client_condom_lastsex_bin)
     ) %>%
     mutate(group = label)
 }
 
-idu_sw_table       <- make_sw_table(idu_data, "IDU")
-no_idu_sw_table    <- make_sw_table(no_idu_data, "No IDU")
-street_sw_table    <- make_sw_table(street_data, "Street")
-no_street_sw_table <- make_sw_table(no_street_data, "Non-street")
-ngo_sw_table       <- make_sw_table(ngo_data, "NGO client")
-no_ngo_sw_table    <- make_sw_table(no_ngo_data, "No NGO")
-
-sw_overall_strata <- bind_rows(
+## final output
+sw_stratified <- bind_rows(
   idu_sw_table,
   no_idu_sw_table,
   street_sw_table,
@@ -969,8 +615,383 @@ sw_overall_strata <- bind_rows(
   no_ngo_sw_table
 )
 
-write.csv(
-  sw_overall_strata,
-  "stratified_characteristics_table.csv",
-  row.names = FALSE
+sw_overall <- bind_rows(
+  make_overall_characteristics(idu_data, "IDU"),
+  make_overall_characteristics(no_idu_data, "No IDU"),
+  make_overall_characteristics(street_data, "Street"),
+  make_overall_characteristics(no_street_data, "Non-street"),
+  make_overall_characteristics(ngo_data, "NGO client"),
+  make_overall_characteristics(no_ngo_data, "No NGO")
 )
+
+final_table <- bind_rows(
+  sw_stratified,
+  sw_overall
+)
+
+write.csv(final_table, "stratified_characteristics_table.csv", row.names = FALSE)
+
+## figures of trends for IDU
+
+plot_vars <- c(
+  "age_under25",
+  "street_sw",
+  "underage_first_sw",
+  "rape_ever",
+  "forced_sex_12m",
+  "forced_sex_ever",
+  "beaten_ever",
+  "ngo_client_lifetime",
+  "condom_access_12m",
+  "ngo_condom_rec",
+  "high_clients_30d",
+  "client_condom_lastsex_bin",
+  "hiv_prev",
+  "tested_lifetime",
+  "aware",
+  "art_current"
+)
+
+idu_plot_df <- bind_rows(
+  idu_sw_table,
+  no_idu_sw_table,
+  idu_table_hiv,
+  no_idu_table_hiv
+) %>%
+  mutate(year = as.numeric(as.character(year)))
+
+dir.create("idu_trend_plots", showWarnings = FALSE)
+
+for (v in plot_vars) {
+
+  plot_df <- idu_plot_df %>%
+    filter(!is.na(.data[[v]])) %>%
+    mutate(
+      prev_num = as.numeric(sub(".*\\((.*)%\\).*", "\\1", .data[[v]])),
+      p = prev_num / 100,
+
+      n = 100,
+
+      se = sqrt(p * (1 - p) / n),
+
+      ci_low = (p - 1.96 * se) * 100,
+      ci_high = (p + 1.96 * se) * 100
+    ) %>%
+    filter(!is.na(prev_num))
+
+  year_breaks <- plot_df %>%
+    filter(!is.na(prev_num)) %>%
+    pull(year) %>%
+    unique() %>%
+    sort()
+    
+  p <- ggplot(
+    plot_df,
+    aes(x = year, y = prev_num, color = group, group = group)
+  ) +
+    geom_ribbon(
+      aes(ymin = ci_low, ymax = ci_high, fill = group),
+      alpha = 0.15,
+      color = NA,
+      show.legend = FALSE
+    ) +
+    geom_line(linewidth = 1.2, na.rm = TRUE) +
+    geom_point(size = 3, na.rm = TRUE) +
+    scale_x_continuous(
+      breaks = year_breaks,
+      limits = range(year_breaks)
+    ) +
+    labs(
+      title = paste0(v),      
+      x = "Year",
+      y = "Prevalence (%)",
+      color = NULL
+    ) +
+    theme_bw()
+
+  ggsave(
+    filename = paste0("idu_trend_plots/", v, "_idu_trend.png"),
+    plot = p,
+    width = 8,
+    height = 5,
+    dpi = 300
+  )
+}
+
+# combine plots
+img1 <- image_read("idu_trend_plots/ngo_client_lifetime_idu_trend.png")
+img2 <- image_read("idu_trend_plots/street_sw_idu_trend.png")
+img3 <- image_read("idu_trend_plots/underage_first_sw_idu_trend.png")
+img4 <- image_read("idu_trend_plots/age_under25_idu_trend.png")
+
+img5 <- image_read("idu_trend_plots/forced_sex_12m_idu_trend.png")
+img6 <- image_read("idu_trend_plots/forced_sex_ever_idu_trend.png")
+img7 <- image_read("idu_trend_plots/rape_ever_idu_trend.png")
+img8 <- image_read("idu_trend_plots/beaten_ever_idu_trend.png")
+
+img9 <- image_read("idu_trend_plots/tested_lifetime_idu_trend.png")
+img10 <- image_read("idu_trend_plots/hiv_prev_idu_trend.png")
+img11 <- image_read("idu_trend_plots/aware_idu_trend.png")
+img12 <- image_read("idu_trend_plots/art_current_idu_trend.png")
+
+#characteristics figure
+row1 <- image_append(c(img1, img2), stack = FALSE)
+row2 <- image_append(c(img3, img4), stack = FALSE)
+combined <- image_append(c(row1, row2), stack = TRUE)
+image_write(combined, "idu_trend_plots/combined_characteristics.png")
+
+# violence
+row1 <- image_append(c(img5, img6), stack = FALSE)
+row2 <- image_append(c(img7, img8), stack = FALSE)
+combined <- image_append(c(row1, row2), stack = TRUE)
+image_write(combined, "idu_trend_plots/combined_violence.png")
+
+# hiv outcomes
+row1 <- image_append(c(img9, img10), stack = FALSE)
+row2 <- image_append(c(img11, img12), stack = FALSE)
+combined <- image_append(c(row1, row2), stack = TRUE)
+image_write(combined, "idu_trend_plots/combined_hiv.png")
+
+## figures of trends for street-based
+
+plot_vars <- c(
+  "age_under25",
+  "idu",
+  "underage_first_sw",
+  "rape_ever",
+  "forced_sex_12m",
+  "forced_sex_ever",
+  "beaten_ever",
+  "ngo_client_lifetime",
+  "condom_access_12m",
+  "ngo_condom_rec",
+  "high_clients_30d",
+  "client_condom_lastsex_bin",
+  "hiv_prev",
+  "tested_lifetime",
+  "aware",
+  "art_current"
+)
+
+street_based_plot_df <- bind_rows(
+  street_sw_table,
+  no_street_sw_table,
+  street_table_hiv,
+  no_street_table_hiv
+) %>%
+  mutate(year = as.numeric(as.character(year)))
+
+dir.create("street_based_trend_plots", showWarnings = FALSE)
+
+for (v in plot_vars) {
+
+  plot_df <- street_based_plot_df %>%
+    filter(!is.na(.data[[v]])) %>%
+    mutate(
+      prev_num = as.numeric(sub(".*\\((.*)%\\).*", "\\1", .data[[v]])),
+      p = prev_num / 100,
+
+      n = 100,
+
+      se = sqrt(p * (1 - p) / n),
+
+      ci_low = (p - 1.96 * se) * 100,
+      ci_high = (p + 1.96 * se) * 100
+    ) %>%
+    filter(!is.na(prev_num))
+
+  year_breaks <- plot_df %>%
+    filter(!is.na(prev_num)) %>%
+    pull(year) %>%
+    unique() %>%
+    sort()
+    
+  p <- ggplot(
+    plot_df,
+    aes(x = year, y = prev_num, color = group, group = group)
+  ) +
+    geom_ribbon(
+      aes(ymin = ci_low, ymax = ci_high, fill = group),
+      alpha = 0.15,
+      color = NA,
+      show.legend = FALSE
+    ) +
+    geom_line(linewidth = 1.2, na.rm = TRUE) +
+    geom_point(size = 3, na.rm = TRUE) +
+    scale_x_continuous(
+      breaks = year_breaks,
+      limits = range(year_breaks)
+    ) +
+    labs(
+    title = paste0(v),      
+      x = "Year",
+      y = "Prevalence (%)",
+      color = NULL
+    ) +
+    theme_bw()
+
+  ggsave(
+    filename = paste0("street_based_trend_plots/", v, "_street_sw_trend.png"),
+    plot = p,
+    width = 8,
+    height = 5,
+    dpi = 300
+  )
+}
+
+# combine plots
+img1 <- image_read("street_based_trend_plots/ngo_client_lifetime_street_sw_trend.png")
+img2 <- image_read("street_based_trend_plots/idu_street_sw_trend.png")
+img3 <- image_read("street_based_trend_plots/underage_first_sw_street_sw_trend.png")
+img4 <- image_read("street_based_trend_plots/age_under25_street_sw_trend.png")
+
+img5 <- image_read("street_based_trend_plots/forced_sex_12m_street_sw_trend.png")
+img6 <- image_read("street_based_trend_plots/forced_sex_ever_street_sw_trend.png")
+img7 <- image_read("street_based_trend_plots/rape_ever_street_sw_trend.png")
+img8 <- image_read("street_based_trend_plots/beaten_ever_street_sw_trend.png")
+
+img9 <- image_read("street_based_trend_plots/tested_lifetime_street_sw_trend.png")
+img10 <- image_read("street_based_trend_plots/hiv_prev_street_sw_trend.png")
+img11 <- image_read("street_based_trend_plots/aware_street_sw_trend.png")
+img12 <- image_read("street_based_trend_plots/art_current_street_sw_trend.png")
+
+#characteristics figure
+row1 <- image_append(c(img1, img2), stack = FALSE)
+row2 <- image_append(c(img3, img4), stack = FALSE)
+combined <- image_append(c(row1, row2), stack = TRUE)
+image_write(combined, "street_based_trend_plots/combined_characteristics.png")
+
+# violence
+row1 <- image_append(c(img5, img6), stack = FALSE)
+row2 <- image_append(c(img7, img8), stack = FALSE)
+combined <- image_append(c(row1, row2), stack = TRUE)
+image_write(combined, "street_based_trend_plots/combined_violence.png")
+
+# hiv outcomes
+row1 <- image_append(c(img9, img10), stack = FALSE)
+row2 <- image_append(c(img11, img12), stack = FALSE)
+combined <- image_append(c(row1, row2), stack = TRUE)
+image_write(combined, "street_based_trend_plots/combined_hiv.png")
+
+## figures of trends for ngo
+
+plot_vars <- c(
+  "age_under25",
+  "idu",
+  "street_sw",
+  "underage_first_sw",
+  "rape_ever",
+  "forced_sex_12m",
+  "forced_sex_ever",
+  "beaten_ever",
+  "ngo_client_lifetime",
+  "condom_access_12m",
+  "ngo_condom_rec",
+  "high_clients_30d",
+  "client_condom_lastsex_bin",
+  "hiv_prev",
+  "tested_lifetime",
+  "aware",
+  "art_current"
+)
+
+ngo_sw_table_plot_df <- bind_rows(
+  ngo_sw_table,
+  no_ngo_sw_table,
+  ngo_table_hiv,
+  no_ngo_table_hiv
+) %>%
+  mutate(year = as.numeric(as.character(year)))
+
+dir.create("ngo_trend_plots", showWarnings = FALSE)
+
+for (v in plot_vars) {
+
+  plot_df <- ngo_sw_table_plot_df %>%
+    filter(!is.na(.data[[v]])) %>%
+    mutate(
+      prev_num = as.numeric(sub(".*\\((.*)%\\).*", "\\1", .data[[v]])),
+      p = prev_num / 100,
+
+      n = 100,
+
+      se = sqrt(p * (1 - p) / n),
+
+      ci_low = (p - 1.96 * se) * 100,
+      ci_high = (p + 1.96 * se) * 100
+    ) %>%
+    filter(!is.na(prev_num))
+
+  year_breaks <- plot_df %>%
+    filter(!is.na(prev_num)) %>%
+    pull(year) %>%
+    unique() %>%
+    sort()
+    
+  p <- ggplot(
+    plot_df,
+    aes(x = year, y = prev_num, color = group, group = group)
+  ) +
+    geom_ribbon(
+      aes(ymin = ci_low, ymax = ci_high, fill = group),
+      alpha = 0.15,
+      color = NA,
+      show.legend = FALSE
+    ) +
+    geom_line(linewidth = 1.2, na.rm = TRUE) +
+    geom_point(size = 3, na.rm = TRUE) +
+    scale_x_continuous(
+      breaks = year_breaks,
+      limits = range(year_breaks)
+    ) +
+    labs(
+      title = paste0(v),
+      x = "Year",
+      y = "Prevalence (%)",
+      color = NULL
+    ) +
+    theme_bw()
+
+  ggsave(
+    filename = paste0("ngo_trend_plots/", v, "_ngo_trend.png"),
+    plot = p,
+    width = 8,
+    height = 5,
+    dpi = 300
+  )
+}
+
+# combine plots
+img1 <- image_read("ngo_trend_plots/ngo_client_lifetime_ngo_trend.png")
+img2 <- image_read("ngo_trend_plots/street_sw_ngo_trend.png")
+img3 <- image_read("ngo_trend_plots/underage_first_sw_ngo_trend.png")
+img4 <- image_read("ngo_trend_plots/age_under25_ngo_trend.png")
+
+img5 <- image_read("ngo_trend_plots/forced_sex_12m_ngo_trend.png")
+img6 <- image_read("ngo_trend_plots/forced_sex_ever_ngo_trend.png")
+img7 <- image_read("ngo_trend_plots/rape_ever_ngo_trend.png")
+img8 <- image_read("ngo_trend_plots/beaten_ever_ngo_trend.png")
+
+img9 <- image_read("ngo_trend_plots/tested_lifetime_ngo_trend.png")
+img10 <- image_read("ngo_trend_plots/hiv_prev_ngo_trend.png")
+img11 <- image_read("ngo_trend_plots/aware_ngo_trend.png")
+img12 <- image_read("ngo_trend_plots/art_current_ngo_trend.png")
+
+#characteristics figure
+row1 <- image_append(c(img1, img2), stack = FALSE)
+row2 <- image_append(c(img3, img4), stack = FALSE)
+combined <- image_append(c(row1, row2), stack = TRUE)
+image_write(combined, "ngo_trend_plots/combined_characteristics.png")
+
+# violence
+row1 <- image_append(c(img5, img6), stack = FALSE)
+row2 <- image_append(c(img7, img8), stack = FALSE)
+combined <- image_append(c(row1, row2), stack = TRUE)
+image_write(combined, "ngo_trend_plots/combined_violence.png")
+
+# hiv outcomes
+row1 <- image_append(c(img9, img10), stack = FALSE)
+row2 <- image_append(c(img11, img12), stack = FALSE)
+combined <- image_append(c(row1, row2), stack = TRUE)
+image_write(combined, "ngo_trend_plots/combined_hiv.png")
+
