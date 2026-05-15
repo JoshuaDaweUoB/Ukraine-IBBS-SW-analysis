@@ -120,6 +120,28 @@ sw_data_long <- sw_data_long %>%
 
 saveRDS(sw_data_long, "sw_data_long.rds")
 
+## code to calculate rates for subgroups of subgroups
+
+# load data
+sw_data_long <- readRDS("sw_data_long.rds")
+
+sw_data_long_idu <- sw_data_long %>% filter(idu_ever_bin == "Yes")
+sw_data_long_noidu <- sw_data_long %>% filter(idu_ever_bin == "No")
+sw_data_long_street <- sw_data_long %>% filter(street_sw_bin == "Yes")
+sw_data_long_indoor <- sw_data_long %>% filter(street_sw_bin == "No")
+sw_data_long_ngo <- sw_data_long %>% filter(ngo_client_lifetime_bin == "Yes")
+sw_data_long_nongo <- sw_data_long %>% filter(ngo_client_lifetime_bin == "No")
+
+dataframes <- c(
+  "sw_data_long",
+  "sw_data_long_idu",
+  "sw_data_long_noidu",
+  "sw_data_long_street",
+  "sw_data_long_indoor",
+  "sw_data_long_ngo",
+  "sw_data_long_nongo"
+)
+
 ## function to calculate incidence rates
 calc_transition_rate <- function(data,
                                  id_var = "id",
@@ -179,13 +201,20 @@ calc_transition_rate <- function(data,
   person_years <- sum(cohort$py, na.rm = TRUE)
   rate <- (events / person_years) * scale
   
+  # 95% CI
+  lower_ci <- (qchisq(0.025, 2 * events) / 2) / person_years * scale
+  upper_ci <- (qchisq(0.975, 2 * (events + 1)) / 2) / person_years * scale
+
   # print results
   cat("\n--- Transition summary ---\n")
   cat("From:", start_state, "→ To:", end_state, "\n")
   cat("Baseline:", baseline_state, "\n")
   cat("Events:", events, "\n")
   cat("Person-years:", round(person_years, 2), "\n")
-  cat("Rate per", scale, "PY:", round(rate, 3), "\n\n")
+  cat("Rate per", scale, "PY:", round(rate, 3), "\n")
+  cat("95% CI:", 
+      paste0("(", round(lower_ci, 3), ", ", round(upper_ci, 3), ")"), 
+      "\n\n")
   
   # save
   if (save_data) {
@@ -197,78 +226,177 @@ calc_transition_rate <- function(data,
     events = events,
     person_years = person_years,
     rate = rate,
+    lower_ci = lower_ci,
+    upper_ci = upper_ci,
     cohort = cohort
   ))
 }
 
-## hiv incidence
-hiv_incidence <- calc_transition_rate(
-  data = sw_data_long,
-  state_var = "hiv_test_rslt_bin",
-  baseline_state = "Negative",
-  start_state = "Negative",
-  end_state = "Positive",
-  save_data = TRUE,
-  rds_name = "sw_incidence_hiv_dataset.rds",
-  xlsx_name = "sw_incidence_hiv_dataset.xlsx"
+datasets_list <- list(
+  overall = "sw_data_long",
+  hiv = dataframes,
+  idu = dataframes,
+  noidu = dataframes,
+  street = dataframes,
+  indoor = dataframes,
+  ngo = dataframes,
+  nongo = dataframes
 )
 
-## rape incidence
-rape_incidence <- calc_transition_rate(
-  data = sw_data_long,
-  state_var = "violence_rape_ever",
-  baseline_state = "No",
-  start_state = "No",
-  end_state = "Yes",
-  save_data = TRUE,
-  rds_name = "sw_incident_rape_dataset.rds",
-  xlsx_name = "sw_incident_rape_dataset.xlsx"
+outcome_vars <- list(
+  overall = "hiv_test_rslt_bin",
+  hiv = "hiv_test_rslt_bin",
+  idu = "idu_12m_bin",
+  noidu = "idu_12m_bin",
+  street = "street_sw_bin",
+  indoor = "street_sw_bin",
+  ngo = "ngo_client_lifetime_bin",
+  nongo = "ngo_client_lifetime_bin"
 )
 
-## injecting drug use incidence
-idu_incidence <- calc_transition_rate(
-  data = sw_data_long,
-  state_var = "idu_12m_3cat",
-  baseline_state = "No",
-  start_state = "No",
-  end_state = "Yes",
-  save_data = TRUE,
-  rds_name = "sw_incident_idu_dataset.rds",
-  xlsx_name = "sw_incident_idu_dataset.xlsx"
+transition_states <- list(
+  overall = list(start = "Negative", end = "Positive"),
+  hiv = list(start = "Negative", end = "Positive"),
+  idu = list(start = "No", end = "Yes"),
+  noidu = list(start = "Yes", end = "No"),
+  street = list(start = "No", end = "Yes"),
+  indoor = list(start = "Yes", end = "No"),
+  ngo = list(start = "No", end = "Yes"),
+  nongo = list(start = "Yes", end = "No")
 )
 
-## cessation of IDU incidence
-noidu_incidence <- calc_transition_rate(
-  data = sw_data_long,
-  state_var = "idu_12m_3cat",
-  baseline_state = "Yes",
-  start_state = "Yes",
-  end_state = "No",
-  save_data = TRUE,
-  rds_name = "sw_incident_noidu_dataset.rds",
-  xlsx_name = "sw_incident_noidu_dataset.xlsx"
+baseline_states <- list(
+  overall = "Negative",
+  hiv = "Negative",
+  idu = "No",
+  noidu = "Yes",
+  street = "No",
+  indoor = "Yes",
+  ngo = "No",
+  nongo = "Yes"
 )
 
-## street based sw incidence
-sb_incidence <- calc_transition_rate(
-  data = sw_data_long,
-  state_var = "street_sw_bin",
-  baseline_state = "No",
-  start_state = "No",
-  end_state = "Yes",
-  save_data = TRUE,
-  rds_name = "sw_incident_sb_dataset.rds",
-  xlsx_name = "sw_incident_sb_dataset.xlsx"
+run_sheet <- function(datasets, state_var, baseline_state, start_state, end_state) {
+  results_table <- data.frame()
+
+  for (d in datasets) {
+    base_data <- get(d)
+
+    res_overall <- calc_transition_rate(
+      data = base_data,
+      state_var = state_var,
+      baseline_state = baseline_state,
+      start_state = start_state,
+      end_state = end_state,
+      save_data = FALSE
+    )
+
+    results_table <- bind_rows(
+      results_table,
+      data.frame(
+        dataset = d,
+        subgroup = "overall",
+        events = res_overall$events,
+        person_years = round(res_overall$person_years, 2),
+        incidence_rate = round(res_overall$rate, 3),
+        lower_ci = round(res_overall$lower_ci, 3),
+        upper_ci = round(res_overall$upper_ci, 3),
+        IR_95CI = sprintf(
+          "%.1f (%.1f-%.1f)",
+          res_overall$rate,
+          res_overall$lower_ci,
+          res_overall$upper_ci
+        )
+      )
+    )
+
+    for (sg in setdiff(names(subgroups), "overall")) {
+      dat <- dplyr::filter(base_data, !!subgroups[[sg]])
+
+      if (nrow(dat) == 0) next
+
+      res <- calc_transition_rate(
+        data = dat,
+        state_var = state_var,
+        baseline_state = baseline_state,
+        start_state = start_state,
+        end_state = end_state,
+        save_data = FALSE
+      )
+
+      results_table <- bind_rows(
+        results_table,
+        data.frame(
+          dataset = d,
+          subgroup = sg,
+          events = res$events,
+          person_years = round(res$person_years, 2),
+          incidence_rate = round(res$rate, 3),
+          lower_ci = round(res$lower_ci, 3),
+          upper_ci = round(res$upper_ci, 3),
+          IR_95CI = sprintf(
+            "%.1f (%.1f-%.1f)",
+            res$rate,
+            res$lower_ci,
+            res$upper_ci
+          )
+        )
+      )
+    }
+  }
+
+  results_table
+}
+
+all_sheets <- list()
+
+for (name in names(datasets_list)) {
+  states <- transition_states[[name]]
+  all_sheets[[name]] <- run_sheet(
+    datasets = datasets_list[[name]],
+    state_var = outcome_vars[[name]],
+    baseline_state = baseline_states[[name]],
+    start_state = states$start,
+    end_state = states$end
+  )
+}
+
+write_xlsx(
+  all_sheets,
+  "incidence_all_sheets.xlsx"
 )
 
-## indoor based sw incidence
-nosb_incidence <- calc_transition_rate(
-  data = sw_data_long,
-  state_var = "street_sw_bin",
-  baseline_state = "Yes",
-  start_state = "Yes",
-  end_state = "No",
-  save_data = TRUE,
-  rds_name = "sw_incident_nosb_dataset.rds",
-  xlsx_name = "sw_incident_nosb_dataset.xlsx"
-)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
