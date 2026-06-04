@@ -1,5 +1,5 @@
 ## load packages
-pacman::p_load(dplyr, tidyr, stringr, tibble, writexl, readxl, forcats, labelled, lubridate)
+pacman::p_load(dplyr, tidyr, stringr, tibble, writexl, readxl, forcats, labelled, lubridate, purrr, openxlsx)
 
 ## set wd
 setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/PhD Papers/Paper 3a - Ukraine Sex Work HIV/data/SW data")
@@ -125,12 +125,37 @@ saveRDS(sw_data_long, "sw_data_long.rds")
 # load data
 sw_data_long <- readRDS("sw_data_long.rds")
 
-sw_data_long_idu <- sw_data_long %>% filter(idu_ever_bin == "Yes")
-sw_data_long_noidu <- sw_data_long %>% filter(idu_ever_bin == "No")
-sw_data_long_street <- sw_data_long %>% filter(street_sw_bin == "Yes")
-sw_data_long_indoor <- sw_data_long %>% filter(street_sw_bin == "No")
-sw_data_long_ngo <- sw_data_long %>% filter(ngo_client_lifetime_bin == "Yes")
-sw_data_long_nongo <- sw_data_long %>% filter(ngo_client_lifetime_bin == "No")
+# status at first interview
+baseline_df <- sw_data_long %>%
+  arrange(id, interview_dte) %>%
+  group_by(id) %>%
+  slice(1) %>%
+  ungroup() %>%
+  transmute(
+    id,
+    first_idu = idu_ever_bin,
+    first_street = street_sw_bin,
+    first_ngo = ngo_client_lifetime_bin,
+    first_rape = violence_rape_ever_bin
+  )
+
+# join back to long df
+sw_data_long <- sw_data_long %>%
+  left_join(baseline_df, by = "id")
+
+## baseline-defined datasets (corrected)
+
+sw_data_long_idu <- sw_data_long %>% filter(first_idu == "Yes")
+sw_data_long_noidu <- sw_data_long %>% filter(first_idu == "No")
+
+sw_data_long_street <- sw_data_long %>% filter(first_street == "Yes")
+sw_data_long_indoor <- sw_data_long %>% filter(first_street == "No")
+
+sw_data_long_ngo <- sw_data_long %>% filter(first_ngo == "Yes")
+sw_data_long_nongo <- sw_data_long %>% filter(first_ngo == "No")
+
+sw_data_long_rape <- sw_data_long %>% filter(first_rape == "Yes")
+sw_data_long_norape <- sw_data_long %>% filter(first_rape == "No")
 
 dataframes <- c(
   "sw_data_long",
@@ -139,7 +164,20 @@ dataframes <- c(
   "sw_data_long_street",
   "sw_data_long_indoor",
   "sw_data_long_ngo",
-  "sw_data_long_nongo"
+  "sw_data_long_nongo",
+  "sw_data_long_rape",
+  "sw_data_long_norape"  
+)
+
+subgroups <- list(
+  idu = quote(first_idu == "Yes"),
+  noidu = quote(first_idu == "No"),
+  street = quote(first_street == "Yes"),
+  indoor = quote(first_street == "No"),
+  ngo = quote(first_ngo == "Yes"),
+  nongo = quote(first_ngo == "No"),
+  rape = quote(first_rape == "Yes"),
+  norape = quote(first_rape == "No")
 )
 
 ## function to calculate incidence rates
@@ -232,6 +270,8 @@ calc_transition_rate <- function(data,
   ))
 }
 
+## function to run over all combinations of subgroups
+
 datasets_list <- list(
   overall = "sw_data_long",
   hiv = dataframes,
@@ -240,7 +280,9 @@ datasets_list <- list(
   street = dataframes,
   indoor = dataframes,
   ngo = dataframes,
-  nongo = dataframes
+  nongo = dataframes,
+  rape = dataframes,
+  norape = dataframes
 )
 
 outcome_vars <- list(
@@ -251,7 +293,9 @@ outcome_vars <- list(
   street = "street_sw_bin",
   indoor = "street_sw_bin",
   ngo = "ngo_client_lifetime_bin",
-  nongo = "ngo_client_lifetime_bin"
+  nongo = "ngo_client_lifetime_bin",
+  rape = "violence_rape_ever_bin",
+  norape = "violence_rape_ever_bin"
 )
 
 transition_states <- list(
@@ -262,7 +306,9 @@ transition_states <- list(
   street = list(start = "No", end = "Yes"),
   indoor = list(start = "Yes", end = "No"),
   ngo = list(start = "No", end = "Yes"),
-  nongo = list(start = "Yes", end = "No")
+  nongo = list(start = "Yes", end = "No"),
+  rape = list(start = "No", end = "Yes"),
+  norape = list(start = "Yes", end = "No")
 )
 
 baseline_states <- list(
@@ -273,7 +319,9 @@ baseline_states <- list(
   street = "No",
   indoor = "Yes",
   ngo = "No",
-  nongo = "Yes"
+  nongo = "Yes",
+  rape = "No",
+  norape = "Yes"
 )
 
 run_sheet <- function(datasets, state_var, baseline_state, start_state, end_state) {
@@ -367,36 +415,90 @@ write_xlsx(
 )
 
 
+file <- "incidence_all_sheets.xlsx"
 
+hiv_df <- read_excel(file, sheet = "hiv")
+rape_df <- read_excel(file, sheet = "rape")
 
+hiv_df <- hiv_df %>%
+  dplyr::filter(subgroup %in% c(
+    "idu",
+    "noidu",
+    "street",
+    "indoor",
+    "rape",
+    "norape"
+  ))
 
+rape_df <- rape_df %>%
+  dplyr::filter(subgroup %in% c(
+    "idu",
+    "noidu",
+    "street",
+    "indoor"
+  ))
 
+compute_rr_table <- function(df, comparisons) {
 
+  df %>%
+    group_by(dataset) %>%
+    group_split() %>%
+    map_dfr(function(d) {
 
+      make_rr <- function(data, g1, g2) {
 
+        d1 <- data %>% filter(subgroup == g1)
+        d2 <- data %>% filter(subgroup == g2)
 
+        if (nrow(d1) == 0 || nrow(d2) == 0) return(NULL)
+        if (d1$events == 0 || d2$events == 0) return(NULL)
 
+        rr <- d1$incidence_rate / d2$incidence_rate
 
+        se_log_rr <- sqrt((1 / d1$events) + (1 / d2$events))
 
+        lower <- exp(log(rr) - 1.96 * se_log_rr)
+        upper <- exp(log(rr) + 1.96 * se_log_rr)
 
+        data.frame(
+          dataset = unique(d$dataset),
+          comparison = paste0(g1, "_vs_", g2),
+          RR = rr,
+          lower_CI = lower,
+          upper_CI = upper,
+          RR_95CI = sprintf("%.2f (%.2f–%.2f)", rr, lower, upper)
+        )
+      }
 
+      bind_rows(lapply(comparisons, function(x) {
+        make_rr(d, x[1], x[2])
+      }))
+    })
+}
 
+hiv_comparisons <- list(
+  c("idu", "noidu"),
+  c("street", "indoor"),
+  c("rape", "norape")
+)
 
+rape_comparisons <- list(
+  c("idu", "noidu"),
+  c("street", "indoor")
+)
 
+rr_hiv <- compute_rr_table(hiv_df, hiv_comparisons)
+rr_rape <- compute_rr_table(rape_df, rape_comparisons)
 
+wb <- createWorkbook()
 
+# HIV results (all datasets in one sheet)
+addWorksheet(wb, "hiv_rr")
+writeData(wb, "hiv_rr", rr_hiv)
 
+# RAPE results (all datasets in one sheet)
+addWorksheet(wb, "rape_rr")
+writeData(wb, "rape_rr", rr_rape)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+# save file
+saveWorkbook(wb, "rr_results.xlsx", overwrite = TRUE)
