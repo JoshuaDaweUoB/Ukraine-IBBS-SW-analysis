@@ -4,7 +4,7 @@ pacman::p_load(dplyr, tidyr, stringr, tibble, writexl, readxl, forcats, labelled
 ## set wd
 setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/PhD Papers/Paper 3a - Ukraine Sex Work HIV/data/SW data")
 
-# Load data
+# load data
 sw_combined_clean <- readRDS("sw_combined_clean.rds")
 
 # proportion of FSWs in each compartment
