@@ -37,19 +37,18 @@ sw_combined_clean <- sw_combined_clean %>%
 
 # exposures
 exposures <- c(
-  "condom_access_12m_3cat","client_condom_lastsex_3cat","ngo_client_lifetime_3cat",
+  "condom_access_12m_3cat","client_condom_lastsex_bin","ngo_client_lifetime_bin",
   "ngo_condom_rec_bin", "ngo_syringe_12m_bin", "ngo_condom_12m",
-  "idu_ever_3cat","idu_12m_3cat", "street_sw_bin",
-  "sw_clients_med_vs_low", "sw_clients_high_vs_low", "violence_any_ever_3cat",
-  "violence_rape_12m_3cat","violence_rape_ever","violence_beaten_ever",
-  "violence_physical_abuse_ever","violence_police","violence_pimp"
+  "idu_ever_bin","idu_12m_bin", "street_sw_bin",
+  "sw_clients_med_vs_low", "sw_clients_high_vs_low", 
+  "violence_any_ever_3cat", "violence_rape_ever_bin"
 )
 
 # outcomes
 outcomes <- c(
-  "hiv_test_rslt_bin", "idu_ever_3cat", "street_sw_bin", "art_current_3cat",
-  "violence_any_ever_3cat", "violence_rape_ever", "violence_beaten_ever",
-  "client_condom_lastsex_3cat", "ngo_condom_rec_bin", "ngo_client_lifetime_3cat"
+  "hiv_test_rslt_bin", "idu_ever_bin", "street_sw_bin", "art_current_bin",
+  "violence_any_ever_bin", "violence_rape_ever",
+  "client_condom_lastsex_bin", "ngo_condom_rec_bin", "ngo_client_lifetime_bin"
 )
 
 # binary function
@@ -73,16 +72,18 @@ for (i in outcomes) {
 for (i in exposures) {
   sw_combined_clean <- binary_function(sw_combined_clean, i)
 }
-table(sw_combined_clean$art_current_3cat)
+
 ## overall datasets
 subgroup_data <- list(
  overall   = sw_combined_clean,
- idu       = sw_combined_clean %>% filter(idu_ever_3cat == 1),
- no_idu    = sw_combined_clean %>% filter(idu_ever_3cat == 0),
+ idu       = sw_combined_clean %>% filter(idu_ever_bin == 1),
+ no_idu    = sw_combined_clean %>% filter(idu_ever_bin == 0),
  street    = sw_combined_clean %>% filter(street_sw_bin == 1),
  no_street = sw_combined_clean %>% filter(street_sw_bin == 0),
  ngo       = sw_combined_clean %>% filter(ngo_condom_rec_bin == 1),
- no_ngo    = sw_combined_clean %>% filter(ngo_condom_rec_bin == 0)
+ no_ngo    = sw_combined_clean %>% filter(ngo_condom_rec_bin == 0),
+ rape      = sw_combined_clean %>% filter(violence_rape_ever_bin == 1),
+ norape      = sw_combined_clean %>% filter(violence_rape_ever_bin == 0)
 )
 
 skip_pairs <- list(
@@ -91,7 +92,9 @@ skip_pairs <- list(
   street = c("street_sw_bin"),
   no_street = c("street_sw_bin"),
   ngo = c("ngo_condom_rec_bin"),
-  no_ngo = c("ngo_condom_rec_bin")
+  no_ngo = c("ngo_condom_rec_bin"),
+  rape = c("violence_rape_ever_bin"),
+  norape = c("violence_rape_ever_bin")
 )
 
 # prevalence ratio modelling
@@ -213,7 +216,7 @@ model_results_df <- bind_rows(model_results)
 }
 
 # subgroups to save
-subgroups <- c("overall", "idu", "no_idu", "street", "no_street", "ngo", "no_ngo")
+subgroups <- c("overall", "idu", "no_idu", "street", "no_street", "ngo", "no_ngo", "rape", "norape")
 
 for (sg in subgroups) {
 

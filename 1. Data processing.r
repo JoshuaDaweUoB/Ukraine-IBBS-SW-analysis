@@ -1550,8 +1550,7 @@ sw_combined_raw <- sw_combined_raw %>%
         TRUE ~ NA_real_
       ),
       levels = c(0, 1, 2),
-      labels = c("No", "Yes", "Missing / Unknown")
-    ))
+      labels = c("No", "Yes", "Missing / Unknown")))
 table(sw_combined_raw$idu_12m_3cat, sw_combined_raw$year, useNA = "ifany")
 
 sw_combined_raw <- sw_combined_raw %>%
@@ -1585,8 +1584,21 @@ sw_combined_raw <- sw_combined_raw %>%
       labels = c("No", "Yes")
     ))
 
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    idu_12m_bin = factor(
+      case_when(
+      idu_12m_3cat == "No" ~ 0,
+      idu_12m_3cat == "Yes" ~ 1,
+      idu_ever_bin == "No" ~ 0,
+      TRUE ~ NA_real_
+      ),
+      levels = c(0, 1),
+      labels = c("No", "Yes")))
+      
+table(sw_combined_raw$idu_12m_bin, sw_combined_raw$year, useNA = "ifany")
 table(sw_combined_raw$idu_ever_bin, sw_combined_raw$year, useNA = "ifany")
-table(sw_combined_raw$idu_ever_3cat, sw_combined_raw$year, useNA = "ifany")
+table(sw_combined_raw$idu_12m_bin, sw_combined_raw$idu_ever_bin, useNA = "ifany")
 
 sw_combined_raw <- sw_combined_raw %>%
   mutate(       

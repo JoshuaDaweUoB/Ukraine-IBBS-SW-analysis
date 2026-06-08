@@ -1,7 +1,7 @@
 # load packages
 pacman::p_load(dplyr, tidyr, stringr, tibble, writexl, readxl, forcats, labelled, 
                lubridate, broom, survival, ggplot2, scales, sandwich, lmtest, lme4,
-               broom.mixed, openxlsx, mediation, lavaan, semPlot) 
+               broom.mixed, openxlsx, mediation, lavaan, semPlot, knitr, purrr) 
 
 ## set wd
 setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/PhD Papers/Paper 3a - Ukraine Sex Work HIV/data/SW data")
@@ -11,101 +11,133 @@ sw_combined_clean <- readRDS("sw_combined_clean.rds")
 
 ## mediation using mediation package
 
-# street-based mediated through idu
+# function to run mediation model
+run_mediation <- function(data,
+                          treat,
+                          mediator,
+                          outcome = "hiv_test_rslt_bin",
+                          covariates = c("years_in_sw_3cat", "year", "city"),
+                          sims = 500,
+                          robustSE = TRUE,
+                          seed = 123) {
 
-total.effect <- glm(
-  hiv_test_rslt_bin ~ street_sw_bin + years_in_sw_3cat + 
-    year + city,
-  data = sw_combined_clean,
-  family = binomial
-)
+  set.seed(seed)
 
-med.fit <- glm(
-  idu_ever_bin ~ street_sw_bin + years_in_sw_3cat + 
-    year + city,
-  data = sw_combined_clean,
-  family = binomial
-)
+  covars <- paste(covariates, collapse = " + ")
 
-out.fit <- glm(
-  hiv_test_rslt_bin ~ idu_ever_bin + street_sw_bin + years_in_sw_3cat +
-    year + city,
-  data = sw_combined_clean,
-  family = binomial
-)
+  med.formula <- as.formula(paste(mediator, "~", treat, "+", covars))
+  out.formula <- as.formula(paste(outcome, "~", mediator, "+", treat, "+", covars))
 
-med.out <- mediate(
-  med.fit,
-  out.fit,
-  treat = "street_sw_bin",
-  mediator = "idu_ever_bin",
-  robustSE = TRUE,
-  sims = 500
-)
+  med.fit <- glm(med.formula, data = data, family = binomial)
+  out.fit <- glm(out.formula, data = data, family = binomial)
 
-summary(med.out)
+  med.out <- mediation::mediate(
+    model.m = med.fit,
+    model.y = out.fit,
+    treat = treat,
+    mediator = mediator,
+    robustSE = robustSE,
+    sims = sims
+  )
 
-# street-based mediated through rape
+  list(
+    model = med.out,
+    summary = summary(med.out)
+  )
+}
 
-med.fit2 <- glm(violence_rape_ever_bin ~ street_sw_bin + years_in_sw_3cat + year + city,
-                family = binomial, data = sw_combined_clean)
+# street-based → HIV via lifetime IDU
+m1 <- run_mediation(sw_combined_clean,
+                    treat = "street_sw_bin",
+                    mediator = "idu_ever_bin")
 
-out.fit2 <- glm(hiv_test_rslt_bin ~ violence_rape_ever_bin + street_sw_bin +
-                  years_in_sw_3cat + year + city,
-                family = binomial, data = sw_combined_clean)
+# street-based → HIV via 12m IDU
+m2 <- run_mediation(sw_combined_clean,
+                    treat = "street_sw_bin",
+                    mediator = "idu_12m_bin")
 
-med2 <- mediate(med.fit2, out.fit2,
-                treat = "street_sw_bin",
-                mediator = "violence_rape_ever_bin",
-                sims = 500)
+# street-based → HIV via rape
+m3 <- run_mediation(sw_combined_clean,
+                    treat = "street_sw_bin",
+                    mediator = "violence_rape_ever_bin")
 
-med.out2 <- mediate(
-  med.fit2,
-  out.fit2,
-  treat = "street_sw_bin",
-  mediator = "violence_rape_ever_bin",
-  robustSE = TRUE,
-  sims = 500
-)
+# street-based → HIV via forced sex (12m)
+m4 <- run_mediation(sw_combined_clean,
+                    treat = "street_sw_bin",
+                    mediator = "violence_forced_any_12m_bin")
 
-summary(med.out2)
+# IDU (lifetime) → HIV via street-based SW
+m5 <- run_mediation(sw_combined_clean,
+                    treat = "idu_ever_bin",
+                    mediator = "street_sw_bin")
 
-# idu -> mediated through sb
+# IDU (12m) → HIV via street-based
+m6 <- run_mediation(sw_combined_clean,
+                    treat = "idu_12m_bin",
+                    mediator = "street_sw_bin")
 
-total.effect <- glm(
-  hiv_test_rslt_bin ~ idu_ever_bin + years_in_sw_3cat + 
-    year + city,
-  data = sw_combined_clean,
-  family = binomial
-)
+# IDU → HIV via rape
+m7 <- run_mediation(sw_combined_clean,
+                    treat = "idu_ever_bin",
+                    mediator = "violence_rape_ever_bin")
 
-med.fit <- glm(
-  street_sw_bin ~ idu_ever_bin  + years_in_sw_3cat + 
-    year + city,
-  data = sw_combined_clean,
-  family = binomial
-)
-
-out.fit <- glm(
-  hiv_test_rslt_bin ~ street_sw_bin + idu_ever_bin + years_in_sw_3cat +
-    year + city,
-  data = sw_combined_clean,
-  family = binomial
-)
-
-med.out <- mediate(
-  med.fit,
-  out.fit,
-  treat = "idu_ever_bin",
-  mediator = "street_sw_bin",
-  robustSE = TRUE,
-  sims = 500
-)
-
-summary(med.out)
+# IDU (12m) → HIV via rape
+m8 <- run_mediation(sw_combined_clean,
+                    treat = "idu_12m_bin",
+                    mediator = "violence_rape_ever_bin")
 
 
-# structural equation model with correlation between rape and idu
+# IDU (12m) → HIV via forced sex (12m)
+m9 <- run_mediation(sw_combined_clean,
+                    treat = "idu_12m_bin",
+                    mediator = "violence_forced_any_12m_bin")
+
+# IDU → HIV via forced sex (lifetime)
+m10 <- run_mediation(sw_combined_clean,
+                    treat = "idu_ever_bin",
+                    mediator = "violence_forced_any_ever_bin")
+
+# create table
+fmt_ci <- function(est, ci) {
+
+  ci <- as.numeric(ci)
+
+  paste0(
+    round(as.numeric(est), 5), " (",
+    round(ci[1], 5), ", ",
+    round(ci[2], 5), ")"
+  )
+}
+
+extract_med <- function(m) {
+
+  s <- summary(m$model)
+
+  data.frame(
+    exposure = m$model$treat,
+    mediator = m$model$mediator,
+
+    ACME = fmt_ci(s$d0, s$d0.ci),
+    ADE = fmt_ci(s$z0, s$z0.ci),
+    Total_Effect = fmt_ci(s$tau.coef, s$tau.coef.ci),
+    Prop_Mediated = fmt_ci(s$n0, s$n0.ci)
+  )
+}
+
+models <- list(m1, m2, m3, m4, m5, m6, m7, m8, m9, m10)
+
+results_sheet <- do.call(rbind, lapply(models, extract_med))
+
+results_sheet$model <- paste0("m", 1:9)
+
+results_sheet <- results_sheet[, c(
+  "model", "exposure", "mediator",
+  "ACME", "ADE", "Total_Effect", "Prop_Mediated"
+)]
+
+write.csv(results_sheet, "mediation_results_all_models.csv", row.names = FALSE)
+
+# structural equation model with rape and idu
 
 sw_combined_clean$years_in_sw_3cat <- as.numeric(sw_combined_clean$years_in_sw_3cat)
 
@@ -160,7 +192,7 @@ run_sem <- function(v) {
 
 results <- lapply(violence_vars, run_sem)
 
-# example: view results for first model
+# view results for first model
 results[[1]]$paths
 results[[1]]$mediation
 
@@ -170,6 +202,133 @@ all_med <- bind_rows(lapply(results, function(x) {
 }))
 
 kable(all_med, digits = 3)
+
+## moderation analysis of idu and rape
+
+# interaction term
+moderation.model.rape <- glm(
+  hiv_test_rslt_bin ~ idu_ever_bin*violence_rape_ever_bin + years_in_sw_3cat + 
+    year + city,
+  data = sw_combined_clean,
+  family = binomial
+)
+
+# moderation results
+mod_table <- tidy(
+  moderation.model.rape,
+  conf.int = TRUE,
+  exponentiate = TRUE
+) %>%
+  filter(term %in% c(
+    "idu_ever_binYes",
+    "violence_rape_ever_binYes",
+    "idu_ever_binYes:violence_rape_ever_binYes"
+  )) %>%
+  mutate(
+    term = c(
+      "IDU (Yes vs No)",
+      "Lifetime rape (Yes vs No)",
+      "IDU x Lifetime rape"
+    )
+  ) %>%
+  dplyr::select(term, estimate, conf.low, conf.high, p.value)
+
+kable(
+  mod_table,
+  digits = 2,
+  col.names = c(
+    "Variable",
+    "Odds Ratio",
+    "95% CI Lower",
+    "95% CI Upper",
+    "P-value"
+  )
+)
+
+# moderation of idu and street-based sw
+
+# interaction term
+moderation.model.street <- glm(
+  hiv_test_rslt_bin ~ idu_ever_bin*street_sw_bin + years_in_sw_3cat + 
+    year + city,
+  data = sw_combined_clean,
+  family = binomial
+)
+
+# moderation results
+mod_table <- tidy(
+  moderation.model.street,
+  conf.int = TRUE,
+  exponentiate = TRUE
+) %>%
+  filter(term %in% c(
+    "idu_ever_binYes",
+    "street_sw_binYes",
+    "idu_ever_binYes:street_sw_binYes"
+  )) %>%
+  mutate(
+    term = c(
+      "IDU (Yes vs No)",
+      "Street-based sex work (Yes vs No)",
+      "IDU x Street-based sex work"
+    )
+  ) %>%
+  dplyr::select(term, estimate, conf.low, conf.high, p.value)
+
+kable(
+  mod_table,
+  digits = 2,
+  col.names = c(
+    "Variable",
+    "Odds Ratio",
+    "95% CI Lower",
+    "95% CI Upper",
+    "P-value"
+  )
+)
+
+## moderation analysis of idu and forced sex
+
+# interaction term
+moderation.model.forced <- glm(
+  hiv_test_rslt_bin ~ idu_ever_bin*violence_forced_any_12m_bin + years_in_sw_3cat + 
+    year + city,
+  data = sw_combined_clean,
+  family = binomial
+)
+
+# moderation results
+mod_table <- tidy(
+  moderation.model.forced,
+  conf.int = TRUE,
+  exponentiate = TRUE
+) %>%
+  filter(term %in% c(
+    "idu_ever_binYes",
+    "violence_forced_any_12m_binYes",
+    "idu_ever_binYes:violence_forced_any_12m_binYes"
+  )) %>%
+  mutate(
+    term = c(
+      "IDU (Yes vs No)",
+      "Forced sex (Yes vs No)",
+      "IDU x Forced sex"
+    )
+  ) %>%
+  dplyr::select(term, estimate, conf.low, conf.high, p.value)
+
+kable(
+  mod_table,
+  digits = 2,
+  col.names = c(
+    "Variable",
+    "Odds Ratio",
+    "95% CI Lower",
+    "95% CI Upper",
+    "P-value"
+  )
+)
+
 
 # sensitivity: partially sequential modelling with IDU -> rape
 
