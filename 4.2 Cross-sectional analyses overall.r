@@ -83,7 +83,7 @@ subgroup_data <- list(
  ngo       = sw_combined_clean %>% filter(ngo_condom_rec_bin == 1),
  no_ngo    = sw_combined_clean %>% filter(ngo_condom_rec_bin == 0),
  rape      = sw_combined_clean %>% filter(violence_rape_ever_bin == 1),
- norape      = sw_combined_clean %>% filter(violence_rape_ever_bin == 0)
+ norape    = sw_combined_clean %>% filter(violence_rape_ever_bin == 0)
 )
 
 skip_pairs <- list(
@@ -215,6 +215,18 @@ model_results_df <- bind_rows(model_results)
   final_tables[[outcome]] <- final_table
 }
 
+# check models ran successfully
+cat("Rows in model_results_df:", nrow(model_results_df), "\n")
+cat("Outcomes:", n_distinct(model_results_df$outcome), "/", length(outcomes), "\n")
+cat("Subgroups:", n_distinct(model_results_df$subgroup), "/", length(subgroup_data), "\n")
+
+# check by outcome
+cat("\nModels per outcome:\n")
+print(table(model_results_df$outcome))
+
+# check for NAs
+cat("\nNAs in PR/CI:", sum(is.na(model_results_df$pr)), "\n")
+
 # subgroups to save
 subgroups <- c("overall", "idu", "no_idu", "street", "no_street", "ngo", "no_ngo", "rape", "norape")
 
@@ -238,7 +250,7 @@ for (sg in subgroups) {
 
   saveWorkbook(
     wb,
-    file = paste0("hiv_pr_results_", sg, ".xlsx"),
+    file = paste0("pr_results_", sg, ".xlsx"),
     overwrite = TRUE
   )
 }
