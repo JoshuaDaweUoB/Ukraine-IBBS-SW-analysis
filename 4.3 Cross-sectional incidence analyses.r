@@ -1,0 +1,2 @@
+https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0204793&type=printable
+https://journals.lww.com/jaids/abstract/10.1097/qai.0000000000003673~hiv-incidence-among-people-who-inject-drugs-san-francisco?an=00126334-990000000-00618&casa_token=oRsO6RxZKh0AAAAA%3ApzuWzEeF2UZo3kaKMZudZzq_6k1HIWNrsyr_a2uV0Zl-UNyi7WCNo5bdvKVVLUQVZEox14F4V3bo1Mzx63rVQDMDHOJNoA&redirectionsource=fulltextview
