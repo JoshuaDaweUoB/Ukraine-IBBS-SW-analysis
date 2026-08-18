@@ -7,6 +7,82 @@ setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/PhD Papers/Pa
 # load data
 sw_combined_clean <- readRDS("sw_combined_clean.rds")
 
+# summary of age
+
+sw_combined_clean$age_numeric <- suppressWarnings(as.numeric(sw_combined_clean$age))
+
+summary(sw_combined_clean$age_numeric)
+sd(sw_combined_clean$age_numeric, na.rm = TRUE)
+sum(is.na(sw_combined_clean$age_numeric))
+sum(sw_combined_clean$age_numeric < 18, na.rm = TRUE)
+table(sw_combined_clean$age_cat, sw_combined_clean$year, useNA = "ifany")
+
+# underage sex work and violence outcomes descrptives
+violence_vars <- c(
+  violence_any_ever_bin            = "Ever experienced violence during sex work",
+  violence_rape_ever_bin           = "Ever raped during sex work",
+  violence_beaten_ever_bin         = "Ever beaten during sex work",
+  violence_humiliated_ever_bin     = "Ever verbally humiliated during sex work",
+  violence_physical_abuse_ever_bin = "Ever physically abused during sex work",
+  violence_forced_free_ever_bin    = "Ever forced to provide sexual services free of charge",
+  violence_forced_perv_ever_bin    = "Ever forced provide sexual services in the form of perversion",
+  violence_forced_inject_ever_bin  = "Ever injected drugs against will",
+  violence_client_bin              = "Client inflicted violence",
+  violence_perm_partner_bin        = "Permanent partner inflicted violence",
+  violence_casual_partner_bin      = "Casual partner inflicted violence",
+  violence_forced_any_12m_bin      = "Forced to provide sex work past 12 months"
+)
+
+# make variables no or yes
+to01 <- function(x) {
+  case_when(
+    x %in% c("Yes", "1", 1) ~ 1,
+    x %in% c("No", "0", 0)  ~ 0,
+    TRUE ~ NA_real_
+  )
+}
+
+tbl_data <- sw_combined_clean %>%
+  transmute(
+    underage = to01(underage_first_sw_bin),
+    across(all_of(names(violence_vars)), to01)
+  ) %>%
+  filter(!is.na(underage))
+
+# format across three columns with percents
+build_var_block <- function(var, label) {
+
+  make_col <- function(df) {
+    n_yes <- sum(df[[var]] == 1, na.rm = TRUE)
+    n_no  <- sum(df[[var]] == 0, na.rm = TRUE)
+    total <- n_yes + n_no
+    c(
+      No  = sprintf("%d (%.1f%%)", n_no,  100 * n_no  / total),
+      Yes = sprintf("%d (%.1f%%)", n_yes, 100 * n_yes / total)
+    )
+  }
+
+  underage_col <- make_col(tbl_data %>% filter(underage == 1))
+  not_col      <- make_col(tbl_data %>% filter(underage == 0))
+  overall_col  <- make_col(tbl_data)
+
+  tibble(
+    Variable = c(label, "No", "Yes"),
+    `Started underage, n (%)`     = c("", underage_col["No"], underage_col["Yes"]),
+    `Did not start underage, n (%)` = c("", not_col["No"], not_col["Yes"]),
+    `Overall, n (%)`              = c("", overall_col["No"], overall_col["Yes"])
+  )
+}
+
+violence_table <- bind_rows(
+  lapply(names(violence_vars), function(v) build_var_block(v, violence_vars[[v]]))
+)
+
+print(violence_table, n = Inf)
+
+# save
+ write_xlsx(violence_table, "violence_by_underage_table.xlsx")
+
 # proportion of FSWs in each compartment
 sw_combined_clean <- sw_combined_clean[sw_combined_clean$idu_ever_bin != "Missing / Unknown", ]
 

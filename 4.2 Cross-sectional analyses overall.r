@@ -41,7 +41,7 @@ exposures <- c(
   "ngo_condom_rec_bin", "ngo_syringe_12m_bin", "ngo_condom_12m",
   "idu_ever_bin","idu_12m_bin", "street_sw_bin",
   "sw_clients_med_vs_low", "sw_clients_high_vs_low", 
-  "violence_any_ever_3cat", "violence_rape_ever_bin"
+  "violence_any_ever_3cat", "violence_rape_ever_bin", "underage_first_sw_bin"
 )
 
 # outcomes
