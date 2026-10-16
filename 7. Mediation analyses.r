@@ -1,397 +1,325 @@
 # load packages
-pacman::p_load(dplyr, tidyr, stringr, tibble, writexl, readxl, forcats, labelled, 
-               lubridate, broom, survival, ggplot2, scales, sandwich, lmtest, lme4,
-               broom.mixed, openxlsx, mediation, lavaan, semPlot, knitr, purrr) 
+pacman::p_load(dplyr, tidyr, boot, openxlsx, dagitty, ggdag, ggplot2)
 
-## set wd
-setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/PhD Papers/Paper 3a - Ukraine Sex Work HIV/data/SW data")
+# dag
+dag <- dagitty('dag {
+"Alcohol use" [pos="-1.027,-0.635"]
+"Condom use" [pos="0.374,0.696"]
+"Duration of sex work" [pos="-1.093,0.638"]
+"Education/ socioeconomic status" [pos="0.369,-0.647"]
+"Injecting drug use" [exposure,pos="-0.473,-1.026"]
+"NGO coverage" [pos="0.081,1.136"]
+"Street-based SW" [exposure,pos="-1.371,-0.152"]
+"Survey year" [pos="-1.101,1.194"]
+"Volume of clients" [pos="-0.399,1.305"]
+Age [pos="-0.186,0.044"]
+City [pos="-0.800,-0.341"]
+HIV [outcome,pos="0.682,-0.221"]
+Rape [exposure,pos="-0.414,0.540"]
+"Alcohol use" -> "Condom use"
+"Alcohol use" -> "Injecting drug use"
+"Alcohol use" -> HIV
+"Alcohol use" <-> "Education/ socioeconomic status"
+"Condom use" -> HIV
+"Duration of sex work" -> "Injecting drug use"
+"Duration of sex work" -> "Street-based SW"
+"Education/ socioeconomic status" -> "Injecting drug use"
+"Education/ socioeconomic status" -> Rape
+"Injecting drug use" -> HIV
+"NGO coverage" -> "Condom use"
+"NGO coverage" -> HIV
+"Street-based SW" -> "Alcohol use"
+"Street-based SW" -> "Injecting drug use"
+"Street-based SW" -> "NGO coverage"
+"Street-based SW" -> "Volume of clients"
+"Street-based SW" -> HIV
+"Street-based SW" -> Rape
+"Survey year" -> "Condom use"
+"Survey year" -> "Street-based SW"
+"Survey year" -> HIV
+"Volume of clients" -> "NGO coverage"
+"Volume of clients" -> HIV
+"Volume of clients" -> Rape
+Age -> "Duration of sex work"
+Age -> HIV
+City -> "Education/ socioeconomic status"
+City -> "NGO coverage"
+City -> "Street-based SW"
+City -> HIV
+Rape -> "Condom use"
+Rape -> "NGO coverage"
+Rape -> HIV
+}')
+
+# role of each variable in the analysis
+roles <- c(
+  "Street-based SW"                 = "Exposure",
+  "Injecting drug use"              = "Mediator",
+  "Rape"                            = "Mediator",
+  "HIV"                             = "Outcome",
+  "Age"                             = "Adjusted (all models)",
+  "Education/ socioeconomic status" = "Adjusted (all models)",
+  "Duration of sex work"            = "Adjusted (all models)",
+  "Survey year"                     = "Adjusted (all models)",
+  "City"                            = "Adjusted (all models)",
+  "Alcohol use"                     = "Adjusted (outcome model only)",
+  "Volume of clients"               = "Adjusted (outcome model only)",
+  "Condom use"                      = "Not adjusted",
+  "NGO coverage"                    = "Not adjusted"
+)
+
+dag_tidy <- tidy_dagitty(dag) %>%
+  mutate(role = factor(roles[name], levels = unique(roles)))
+
+# plot dag coloured by role
+dag_plot <- ggplot(dag_tidy, aes(x = x, y = y, xend = xend, yend = yend)) +
+  geom_dag_edges(edge_colour = "grey50") +
+  geom_dag_point(aes(colour = role), size = 12) +
+  geom_dag_label_repel(aes(label = name), size = 3.5, show.legend = FALSE) +
+  scale_colour_manual(values = c(
+    "Exposure"                      = "#E69F00",
+    "Mediator"                      = "#56B4E9",
+    "Outcome"                       = "#D55E00",
+    "Adjusted (all models)"         = "#009E73",
+    "Adjusted (outcome model only)" = "#80CDC1",
+    "Not adjusted"                  = "grey75"
+  )) +
+  labs(colour = NULL) +
+  theme_dag() +
+  theme(legend.position = "bottom")
+dag_plot
+
+# save dag to data folder
+ggsave("C:/Users/vl22683/OneDrive - University of Bristol/Documents/PhD Chapter Writing/Chapter 6 - Ukraine FSWs IDU violence and HIV/data/SW data/mediation_dag.png",
+       dag_plot, width = 12, height = 8, dpi = 300, bg = "white")
+
+# minimal adjustment sets for each path
+adjustmentSets(dag, "Street-based SW", "HIV", effect = "total")
+adjustmentSets(dag, "Street-based SW", "Injecting drug use", effect = "total")
+adjustmentSets(dag, "Street-based SW", "Rape", effect = "total")
+adjustmentSets(dag, "Injecting drug use", "HIV", effect = "total")
+adjustmentSets(dag, "Rape", "HIV", effect = "total")
+adjustmentSets(dag, "Street-based SW", "HIV", effect = "direct")
+
+# covariate sets
+base_set <- c("Age", "Education/ socioeconomic status", "Duration of sex work",
+              "Survey year", "City")
+y_set    <- c(base_set, "Alcohol use", "Volume of clients")
+
+# check there are no biasing paths
+isAdjustmentSet(dag, base_set, "Street-based SW", "HIV")
+isAdjustmentSet(dag, base_set, "Street-based SW", "Injecting drug use")
+isAdjustmentSet(dag, base_set, "Street-based SW", "Rape")
+isAdjustmentSet(dag, c(y_set, "Street-based SW", "Rape"), "Injecting drug use", "HIV")
+isAdjustmentSet(dag, c(y_set, "Street-based SW", "Injecting drug use"), "Rape", "HIV")
+
+# set wd
+setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/PhD Chapter Writing/Chapter 6 - Ukraine FSWs IDU violence and HIV/data/SW data")
 
 # load data
 sw_combined_clean <- readRDS("sw_combined_clean.rds")
 
-## mediation using mediation package
+# restrict to 2013 to 2021
+sw_combined_clean <- sw_combined_clean %>%
+  filter(as.numeric(as.character(year)) >= 2013)
 
-# function to run mediation model
-run_mediation <- function(data,
-                          treat,
-                          mediator,
-                          outcome = "hiv_test_rslt_bin",
-                          covariates = c("years_in_sw_3cat", "year", "city"),
-                          sims = 500,
-                          robustSE = TRUE,
-                          seed = 123) {
+# table 1 characteristics by survey year
 
-  set.seed(seed)
+# whole sample from the 2013 to 2021 survey rounds
+t1_dat <- sw_combined_clean
 
-  covars <- paste(covariates, collapse = " + ")
+# sample size by survey year and overall
+t1_n <- t1_dat %>% count(year)
+t1_n
+nrow(t1_dat)
 
-  med.formula <- as.formula(paste(mediator, "~", treat, "+", covars))
-  out.formula <- as.formula(paste(outcome, "~", mediator, "+", treat, "+", covars))
+# variables in table 1 with labels
+t1_rows <- c("Age (years)"          = "age_cat",
+             "HIV infection"        = "hiv_test_rslt_bin",
+             "Street-based SW"      = "street_sw_bin",
+             "Injecting drug use"   = "idu_12m_bin",
+             "Rape"                 = "violence_rape_ever_bin",
+             "Condom use"           = "client_condom_lastsex_bin",
+             "NGO client"           = "ngo_client_lifetime_bin",
+             "Education"            = "education_3cat",
+             "Volume of clients"    = "sw_partners_clients_30d_3cat",
+             "Duration of sex work" = "years_in_sw_3cat")
 
-  med.fit <- glm(med.formula, data = data, family = binomial)
-  out.fit <- glm(out.formula, data = data, family = binomial)
+# labels for categories
+t1_labels <- c("Underage" = "<18", "18-24" = "18–24", "25-34" = "25–34", "35+" = "≥35",
+               "Negative" = "No", "Positive" = "Yes",
+               "Primary" = "Primary education", "Secondary" = "Secondary education", "Higher" = "Higher education",
+               "0-19" = "0–19", "20-49" = "20–49", "50+" = "≥50",
+               "0-3" = "≤3 years", "4-9" = "4–9 years", "10+" = "≥10 years")
 
-  med.out <- mediation::mediate(
-    model.m = med.fit,
-    model.y = out.fit,
-    treat = treat,
-    mediator = mediator,
-    robustSE = robustSE,
-    sims = sims
-  )
+# function for n (%) by survey year and overall
+t1_var <- function(var) {
+  lv <- c(levels(factor(t1_dat[[var]])), "Missing")
+  d  <- t1_dat %>%
+    mutate(year  = as.character(year),
+           level = as.character(.data[[var]]),
+           level = factor(if_else(is.na(level), "Missing", level), levels = lv))
 
-  list(
-    model = med.out,
-    summary = summary(med.out)
-  )
+  bind_rows(d, d %>% mutate(year = "Overall")) %>%
+    mutate(year = factor(year, levels = c(sort(unique(as.character(t1_dat$year))), "Overall"))) %>%
+    count(year, level, .drop = FALSE) %>%
+    group_by(year) %>%
+    mutate(cell = sprintf("%s (%.1f)", formatC(n, big.mark = ",", format = "d"), 100 * n / sum(n))) %>%
+    ungroup() %>%
+    select(-n) %>%
+    pivot_wider(names_from = year, values_from = cell) %>%
+    mutate(level = as.character(level))
 }
 
-# street-based → HIV via lifetime IDU
-m1 <- run_mediation(sw_combined_clean,
-                    treat = "street_sw_bin",
-                    mediator = "idu_ever_bin")
+# build table 1
+table1 <- bind_rows(lapply(names(t1_rows), function(nm) {
+  bind_rows(tibble(level = nm), t1_var(t1_rows[[nm]]))
+})) %>%
+  mutate(level = recode(level, !!!t1_labels)) %>%
+  rename(Characteristic = level)
 
-# street-based → HIV via 12m IDU
-m2 <- run_mediation(sw_combined_clean,
-                    treat = "street_sw_bin",
-                    mediator = "idu_12m_bin")
+# add sample size to column names
+names(table1)[names(table1) %in% t1_n$year] <- sprintf("%s (N=%s)", t1_n$year, formatC(t1_n$n, big.mark = ",", format = "d"))
+names(table1)[names(table1) == "Overall"] <- sprintf("Overall (N=%s)", formatC(nrow(t1_dat), big.mark = ",", format = "d"))
+names(table1) <- sub("^2017 ", "2017/18 ", names(table1))
+table1
 
-# street-based → HIV via rape
-m3 <- run_mediation(sw_combined_clean,
-                    treat = "street_sw_bin",
-                    mediator = "violence_rape_ever_bin")
+# save table 1
+openxlsx::write.xlsx(table1, "table1_characteristics.xlsx")
 
-# street-based → HIV via forced sex (12m)
-m4 <- run_mediation(sw_combined_clean,
-                    treat = "street_sw_bin",
-                    mediator = "violence_forced_any_12m_bin")
+# variables
+outcome   <- "hiv_test_rslt_bin"
+exposure  <- "street_sw_bin"
+mediators <- c("idu_12m_bin", "violence_rape_ever_bin")
 
-# IDU (lifetime) → HIV via street-based SW
-m5 <- run_mediation(sw_combined_clean,
-                    treat = "idu_ever_bin",
-                    mediator = "street_sw_bin")
+# confounders from dag
+covariates <- c("age_cat", "education_3cat", "alcohol_30d_bin",
+                "sw_partners_clients_30d_3cat", "years_in_sw_3cat", "year", "city")
 
-# IDU (12m) → HIV via street-based
-m6 <- run_mediation(sw_combined_clean,
-                    treat = "idu_12m_bin",
-                    mediator = "street_sw_bin")
-
-# IDU → HIV via rape
-m7 <- run_mediation(sw_combined_clean,
-                    treat = "idu_ever_bin",
-                    mediator = "violence_rape_ever_bin")
-
-# IDU (12m) → HIV via rape
-m8 <- run_mediation(sw_combined_clean,
-                    treat = "idu_12m_bin",
-                    mediator = "violence_rape_ever_bin")
-
-
-# IDU (12m) → HIV via forced sex (12m)
-m9 <- run_mediation(sw_combined_clean,
-                    treat = "idu_12m_bin",
-                    mediator = "violence_forced_any_12m_bin")
-
-# IDU → HIV via forced sex (lifetime)
-m10 <- run_mediation(sw_combined_clean,
-                    treat = "idu_ever_bin",
-                    mediator = "violence_forced_any_ever_bin")
-
-# create table
-fmt_ci <- function(est, ci) {
-
-  ci <- as.numeric(ci)
-
-  paste0(
-    round(as.numeric(est), 5), " (",
-    round(ci[1], 5), ", ",
-    round(ci[2], 5), ")"
-  )
+# convert yes/no variables to 0/1
+to01 <- function(x) {
+  if (is.numeric(x)) return(x)
+  ifelse(is.na(x), NA_integer_, as.integer(x %in% c("Yes", "Positive")))
 }
 
-extract_med <- function(m) {
+# complete case data
+dat <- sw_combined_clean %>%
+  dplyr::select(all_of(c(outcome, exposure, mediators, covariates))) %>%
+  mutate(across(all_of(c(outcome, exposure, mediators)), to01)) %>%
+  drop_na() %>%
+  mutate(across(all_of(covariates), ~ droplevels(as.factor(.x))))
 
-  s <- summary(m$model)
+# dummy code covariates
+X <- model.matrix(~ ., data = dat[covariates])[, -1, drop = FALSE]
+colnames(X) <- gsub("[^A-Za-z0-9_]", "_", colnames(X))
 
-  data.frame(
-    exposure = m$model$treat,
-    mediator = m$model$mediator,
+dat <- bind_cols(select(dat, -all_of(covariates)), as.data.frame(X))
 
-    ACME = fmt_ci(s$d0, s$d0.ci),
-    ADE = fmt_ci(s$z0, s$z0.ci),
-    Total_Effect = fmt_ci(s$tau.coef, s$tau.coef.ci),
-    Prop_Mediated = fmt_ci(s$n0, s$n0.ci)
-  )
+# covariates from dag
+y_only    <- grep("^alcohol_30d_bin|^sw_partners_clients_30d_3cat", colnames(X), value = TRUE)
+covs_base <- paste(setdiff(colnames(X), y_only), collapse = " + ")
+covs_y    <- paste(colnames(X), collapse = " + ")
+
+# check sample
+nrow(dat)
+table(dat[[outcome]], dat[[exposure]])
+
+# product of coefficients
+
+# model formulas
+f_t  <- as.formula(paste("hiv_test_rslt_bin ~ street_sw_bin +", covs_base))
+f_m1 <- as.formula(paste("idu_12m_bin ~ street_sw_bin +", covs_base))
+f_m2 <- as.formula(paste("violence_rape_ever_bin ~ street_sw_bin +", covs_base))
+f_y  <- as.formula(paste("hiv_test_rslt_bin ~ street_sw_bin + idu_12m_bin + violence_rape_ever_bin +", covs_y))
+
+# design matrices
+mmt <- model.matrix(f_t, dat)
+mm1 <- model.matrix(f_m1, dat)
+mm2 <- model.matrix(f_m2, dat)
+mmy <- model.matrix(f_y, dat)
+
+# average risk difference from logistic model
+ame <- function(X, beta, var) {
+  X1 <- X; X1[, var] <- 1
+  X0 <- X; X0[, var] <- 0
+  mean(plogis(X1 %*% beta) - plogis(X0 %*% beta))
 }
 
-models <- list(m1, m2, m3, m4, m5, m6, m7, m8, m9, m10)
+# main analysis
 
-results_sheet <- do.call(rbind, lapply(models, extract_med))
+# function to fit models and calculate indirect effects and proportion mediated
+rd_fun <- function(d, i) {
+  tot <- glm.fit(mmt[i, ], d$hiv_test_rslt_bin[i], family = binomial())$coefficients
+  m1  <- lm.fit(mm1[i, ], d$idu_12m_bin[i])$coefficients
+  m2  <- lm.fit(mm2[i, ], d$violence_rape_ever_bin[i])$coefficients
+  y   <- glm.fit(mmy[i, ], d$hiv_test_rslt_bin[i], family = binomial())$coefficients
 
-results_sheet$model <- paste0("m", 1:9)
+  # average risk differences from logistic models
+  c_total <- ame(mmt[i, ], tot, "street_sw_bin")
+  cprime  <- ame(mmy[i, ], y, "street_sw_bin")
+  b1      <- ame(mmy[i, ], y, "idu_12m_bin")
+  b2      <- ame(mmy[i, ], y, "violence_rape_ever_bin")
 
-results_sheet <- results_sheet[, c(
-  "model", "exposure", "mediator",
-  "ACME", "ADE", "Total_Effect", "Prop_Mediated"
-)]
+  # paths to mediators
+  a1 <- m1[["street_sw_bin"]]
+  a2 <- m2[["street_sw_bin"]]
 
-write.csv(results_sheet, "mediation_results_all_models.csv", row.names = FALSE)
-
-# structural equation model with rape and idu
-
-sw_combined_clean$years_in_sw_3cat <- as.numeric(sw_combined_clean$years_in_sw_3cat)
-
-violence_vars <- c(
-  "violence_forced_any_ever_bin",
-  "violence_rape_ever_bin"
-)
-
-run_sem <- function(v) {
-
-  model <- paste0('
-    idu_ever_bin ~ a1*street_sw_bin +
-                   years_in_sw_3cat + year + city
-
-    ', v, ' ~ a2*street_sw_bin +
-              years_in_sw_3cat + year + city
-
-    hiv_test_rslt_bin ~ cprime*street_sw_bin +
-                        b1*idu_ever_bin +
-                        b2*', v, ' +
-                        years_in_sw_3cat + year + city
-
-    ind_idu := a1*b1
-    ind_violence := a2*b2
-
-    total_ind := ind_idu + ind_violence
-    total := cprime + total_ind
-  ')
-
-  fit <- sem(
-    model,
-    data = sw_combined_clean,
-    ordered = c("idu_ever_bin", v, "hiv_test_rslt_bin"),
-    estimator = "WLSMV"
-  )
-
-  path_table <- lavaan::parameterEstimates(fit, standardized = TRUE) %>%
-    dplyr::filter(op == "~") %>%
-    dplyr::select(lhs, rhs, est, se, z, pvalue, ci.lower, ci.upper, std.all)
-
-  med_table <- lavaan::parameterEstimates(fit, standardized = TRUE) %>%
-    dplyr::filter(op == ":=") %>%
-    dplyr::select(lhs, est, se, z, pvalue, ci.lower, ci.upper, std.all)
-
-  list(
-    model = v,
-    fit = fit,
-    paths = path_table,
-    mediation = med_table
-  )
+  # total, direct and indirect effects and proportion mediated
+  c(c_total = c_total,
+    a1 = a1, a2 = a2, b1 = b1, b2 = b2,
+    cprime     = cprime,
+    ind_idu    = a1*b1,
+    ind_rape   = a2*b2,
+    total_ind  = a1*b1 + a2*b2,
+    prop_idu   = a1*b1 / c_total,
+    prop_rape  = a2*b2 / c_total,
+    prop_total = (a1*b1 + a2*b2) / c_total,
+    # log odds
+    c_total_lo = tot[["street_sw_bin"]],
+    cprime_lo  = y[["street_sw_bin"]],
+    b1_lo      = y[["idu_12m_bin"]],
+    b2_lo      = y[["violence_rape_ever_bin"]])
 }
 
-results <- lapply(violence_vars, run_sem)
+# parallel bootstrap
+n_cores <- max(1, parallel::detectCores() - 1)
+cl <- parallel::makeCluster(n_cores)
+parallel::clusterExport(cl, c("mmt", "mm1", "mm2", "mmy", "ame"))
 
-# view results for first model
-results[[1]]$paths
-results[[1]]$mediation
+# bootstrap confidence intervals
+set.seed(123)
+bt_rd <- boot(dat, rd_fun, R = 1000, parallel = "snow", ncpus = n_cores, cl = cl)
 
-# combine mediation tables for all models
-all_med <- bind_rows(lapply(results, function(x) {
-  x$mediation %>% mutate(model = x$model)
-}))
-
-kable(all_med, digits = 3)
-
-## moderation analysis of idu and rape
-
-# interaction term
-moderation.model.rape <- glm(
-  hiv_test_rslt_bin ~ idu_ever_bin*violence_rape_ever_bin + years_in_sw_3cat + 
-    year + city,
-  data = sw_combined_clean,
-  family = binomial
+# main results
+rd_results <- data.frame(
+  label = names(bt_rd$t0),
+  est   = bt_rd$t0,
+  ci.lower = apply(bt_rd$t, 2, quantile, 0.025, na.rm = TRUE),
+  ci.upper = apply(bt_rd$t, 2, quantile, 0.975, na.rm = TRUE),
+  row.names = NULL
 )
 
-# moderation results
-mod_table <- tidy(
-  moderation.model.rape,
-  conf.int = TRUE,
-  exponentiate = TRUE
-) %>%
-  filter(term %in% c(
-    "idu_ever_binYes",
-    "violence_rape_ever_binYes",
-    "idu_ever_binYes:violence_rape_ever_binYes"
-  )) %>%
-  mutate(
-    term = c(
-      "IDU (Yes vs No)",
-      "Lifetime rape (Yes vs No)",
-      "IDU x Lifetime rape"
-    )
-  ) %>%
-  dplyr::select(term, estimate, conf.low, conf.high, p.value)
+# odds ratios for the log odds rows
+rd_results <- rd_results %>%
+  mutate(across(c(est, ci.lower, ci.upper), ~ if_else(grepl("_lo$", label), exp(.x), .x)),
+         label = sub("_lo$", "_or", label))
+rd_results
 
-kable(
-  mod_table,
-  digits = 2,
-  col.names = c(
-    "Variable",
-    "Odds Ratio",
-    "95% CI Lower",
-    "95% CI Upper",
-    "P-value"
-  )
-)
+# save main results
+write.csv(rd_results, "mediation_main_results.csv", row.names = FALSE)
 
-# moderation of idu and street-based sw
+# check fitted probabilities 0 to 1
+fit_m1 <- lm(f_m1, data = dat)
+fit_m2 <- lm(f_m2, data = dat)
 
-# interaction term
-moderation.model.street <- glm(
-  hiv_test_rslt_bin ~ idu_ever_bin*street_sw_bin + years_in_sw_3cat + 
-    year + city,
-  data = sw_combined_clean,
-  family = binomial
-)
+summary(fitted(fit_m1))
+summary(fitted(fit_m2))
 
-# moderation results
-mod_table <- tidy(
-  moderation.model.street,
-  conf.int = TRUE,
-  exponentiate = TRUE
-) %>%
-  filter(term %in% c(
-    "idu_ever_binYes",
-    "street_sw_binYes",
-    "idu_ever_binYes:street_sw_binYes"
-  )) %>%
-  mutate(
-    term = c(
-      "IDU (Yes vs No)",
-      "Street-based sex work (Yes vs No)",
-      "IDU x Street-based sex work"
-    )
-  ) %>%
-  dplyr::select(term, estimate, conf.low, conf.high, p.value)
+# proportion of fitted values outside 0 to 1
+mean(fitted(fit_m1) < 0 | fitted(fit_m1) > 1)
+mean(fitted(fit_m2) < 0 | fitted(fit_m2) > 1)
 
-kable(
-  mod_table,
-  digits = 2,
-  col.names = c(
-    "Variable",
-    "Odds Ratio",
-    "95% CI Lower",
-    "95% CI Upper",
-    "P-value"
-  )
-)
-
-## moderation analysis of idu and forced sex
-
-# interaction term
-moderation.model.forced <- glm(
-  hiv_test_rslt_bin ~ idu_ever_bin*violence_forced_any_12m_bin + years_in_sw_3cat + 
-    year + city,
-  data = sw_combined_clean,
-  family = binomial
-)
-
-# moderation results
-mod_table <- tidy(
-  moderation.model.forced,
-  conf.int = TRUE,
-  exponentiate = TRUE
-) %>%
-  filter(term %in% c(
-    "idu_ever_binYes",
-    "violence_forced_any_12m_binYes",
-    "idu_ever_binYes:violence_forced_any_12m_binYes"
-  )) %>%
-  mutate(
-    term = c(
-      "IDU (Yes vs No)",
-      "Forced sex (Yes vs No)",
-      "IDU x Forced sex"
-    )
-  ) %>%
-  dplyr::select(term, estimate, conf.low, conf.high, p.value)
-
-kable(
-  mod_table,
-  digits = 2,
-  col.names = c(
-    "Variable",
-    "Odds Ratio",
-    "95% CI Lower",
-    "95% CI Upper",
-    "P-value"
-  )
-)
-
-
-# sensitivity: partially sequential modelling with IDU -> rape
-
-sw_combined_clean$years_in_sw_3cat <- as.numeric(sw_combined_clean$years_in_sw_3cat)
-
-violence_vars <- c(
-  "violence_forced_any_ever_bin",
-  "violence_rape_ever_bin"
-)
-
-run_sem <- function(v) {
-
-  model <- paste0('
-    idu_ever_bin ~ a1*street_sw_bin +
-                   years_in_sw_3cat + year + city
-
-    ', v, ' ~ a2*street_sw_bin +
-              d*idu_ever_bin +
-              years_in_sw_3cat + year + city
-
-    hiv_test_rslt_bin ~ cprime*street_sw_bin +
-                        b1*idu_ever_bin +
-                        b2*', v, ' +
-                        years_in_sw_3cat + year + city
-
-    ind_idu := a1*b1
-
-    ind_violence := a2*b2
-
-    ind_chain := a1*d*b2
-
-    total_ind := ind_idu + ind_violence + ind_chain
-
-    total := cprime + total_ind
-  ')
-
-  fit <- sem(
-    model,
-    data = sw_combined_clean,
-    ordered = c("idu_ever_bin", v, "hiv_test_rslt_bin"),
-    estimator = "WLSMV"
-  )
-
-  path_table <- lavaan::parameterEstimates(fit, standardized = TRUE) %>%
-    dplyr::filter(op == "~") %>%
-    dplyr::select(lhs, rhs, est, se, z, pvalue, ci.lower, ci.upper, std.all)
-
-  med_table <- lavaan::parameterEstimates(fit, standardized = TRUE) %>%
-    dplyr::filter(op == ":=") %>%
-    dplyr::select(lhs, est, se, z, pvalue, ci.lower, ci.upper, std.all)
-
-  list(
-    model = v,
-    fit = fit,
-    paths = path_table,
-    mediation = med_table
-  )
-}
-
-results <- lapply(violence_vars, run_sem)
-
-all_med <- bind_rows(lapply(results, function(x) {
-  x$mediation %>% mutate(model = x$model)
-}))
-
-kable(all_med, digits = 3)
+# check exposure by mediator interaction in the hiv model
+int_fit <- glm(update(f_y, . ~ . + street_sw_bin:idu_12m_bin + street_sw_bin:violence_rape_ever_bin),
+               data = dat, family = binomial)
+summary(int_fit)$coefficients[c("street_sw_bin:idu_12m_bin", "street_sw_bin:violence_rape_ever_bin"), ]

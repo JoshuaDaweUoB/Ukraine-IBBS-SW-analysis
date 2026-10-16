@@ -2,7 +2,7 @@
 pacman::p_load(dplyr, tidyr, stringr, tibble, writexl, readxl, forcats, labelled, lubridate, janitor)
 
 ## set wd
-setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/PhD Papers/Paper 3a - Ukraine Sex Work HIV/data/SW data")
+setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/PhD Chapter Writing/Chapter 6 - Ukraine FSWs IDU violence and HIV/data/SW data")
 
 # month multiplier
 days_in_month <- 30/7
@@ -104,6 +104,7 @@ sw_data_2008_clean <- sw_data_2008_clean %>%
 
 
 table(sw_data_2008_clean$hiv_tested_12m)
+table(sw_data_2008_clean$idu_12m_bin)
 
 # load 2009 data
 sw_data_2009_raw <- read_excel("2009_IBBS_FSW_TLS AND RDS_Data.xlsx")
@@ -227,6 +228,8 @@ sw_data_2009_clean <- sw_data_2009_clean %>%
     )
   )
 table(sw_data_2009_clean$hiv_status_selfreport, useNA = "ifany")
+table(sw_data_2009_clean$drugs_30d_bin, useNA = "ifany")
+table(sw_data_2009_clean$used_syringe_last, useNA = "ifany")
 
 # load 2011 data
 sw_data_2011_raw <- read_excel("2011_IBBS_FSW_TLS AND RDS_Data.xlsx")
@@ -310,7 +313,8 @@ rename_map_2011 <- c(
   art_current = "F15. Are you participating in ART program?",
   blood_screen_bin = "І1. Was blood screening conducted or not?",
   hiv_test_rslt = "І3. HIV testing result",
-  syphilis_test_rslt = "S3. Syphilis testing result"
+  syphilis_test_rslt = "S3. Syphilis testing result",
+  hcv_test_rslt = "HС3. Hepatitis С testing result"
 )
 
 # map to vars
@@ -509,7 +513,8 @@ rename_map_2013 <- c(
   hiv_tested_result = "G11. I am not asking you about the result, but did you get your result of the last test?",
   hiv_status_selfreport = "G13.1.If «yes», it was:",
   art_current = "С5. Are you participating in the antiretroviral therapy program (ART)?",
-  hiv_test_rslt = "Т2. Indicate the result of respondent's HIV-test."
+  hiv_test_rslt = "Т2. Indicate the result of respondent's HIV-test.",
+  hcv_test_rslt = "Т3. Indicate the result of respondent's Hepatitis C test."
 )
 
 # map to vars
@@ -529,6 +534,7 @@ if (length(missing_renamed) == 0) {
 table(sw_data_2013_clean$violence_any_ever)
 table(sw_data_2013_clean$used_syringe_last)
 table(sw_data_2013_clean$ngo_syringe_12m)
+table(sw_data_2013_clean$idu_12m_bin)
 
 # load 2015 data
 sw_data_2015_raw <- read_excel("2015_IBBS_SW_TLS AND RDS_Data.xlsx")
@@ -667,7 +673,8 @@ rename_map_2015 <- c(
   blood_screen_bin = "Т1. Did a respondent have pre-test counseling?",
   hiv_test_rslt = "Т2_1. Indicate the results of respondent's tests: HIV",
   hiv_vl = "VL_result",
-  syphilis_test_rslt = "Т2_4. Indicate the results of respondent's tests: yphilis"
+  syphilis_test_rslt = "Т2_4. Indicate the results of respondent's tests: yphilis",
+  hcv_test_rslt = "Т2_3. Indicate the results of respondent's tests: Hepatitis C"
 )
 
 # map to vars
@@ -687,6 +694,8 @@ if (length(missing_renamed) == 0) {
 table(sw_data_2015_clean$violence_any_ever, useNA = "ifany")
 table(sw_data_2015_clean$used_syringe_last)
 table(sw_data_2015_clean$ngo_condom_6m)
+table(sw_data_2015_clean$idu_12m_bin)
+table(sw_data_2015_clean$violence_any_ever)
 
 # load 2017 data
 sw_data_2017_raw <- read_excel("2017-2018_IBBS_SW_TLS AND RDS_Data.xlsx")
@@ -812,7 +821,8 @@ rename_map_2017 <- c(
   blood_screen_bin = "Т1. Did a respondent have pre-test counselling?",
   hiv_test_rslt = "T5_1 Yes, the result was",
   hiv_vl = "VL result",
-  hiv_recent_infection = "Recent infection test in lab"
+  hiv_recent_infection = "Recent infection test in lab",
+  hcv_test_rslt = "Т2_2 Hepatitis C"
 )
 
 # map to vars
@@ -834,6 +844,8 @@ table(sw_data_2017_clean$violence_forced_free_ever, useNA = "ifany")
 table(sw_data_2017_clean$violence_forced_perv_ever, useNA = "ifany")
 
 table(sw_data_2017_clean$used_syringe_last)
+table(sw_data_2017_clean$idu_12m_bin)
+
 prop.table(table(sw_data_2017_clean$idu_12m_bin, sw_data_2017_clean$city), margin = 2)
 
 # load 2021 data
@@ -997,7 +1009,8 @@ rename_map_2021 <- c(
   hiv_vl = "FINAL LAB Viral Load Result (copies/ml)",
   hiv_recent_infection = "LAB: RECENTLY INFECTION TEST",
   syphilis_test_rslt = "Rapid test: SYPHILIS test result",
-  prep_start = "PREP Start of PREP"
+  prep_start = "PREP Start of PREP",
+  hcv_test_rslt = "Rapid test: HEPATITIS C test result"
 )
 
 # map to vars
@@ -1025,7 +1038,7 @@ sw_data_2021_clean <- sw_data_2021_clean %>%
 
 ## append data
 
-# List of all datasets
+# list of all datasets
 datasets <- list(
   sw_data_2008_clean,
   sw_data_2009_clean,
@@ -1036,14 +1049,14 @@ datasets <- list(
   sw_data_2021_clean
 )
 
-# Only keep columns from your rename maps
+# keep columns from rename maps
 all_vars <- unique(c(
   names(rename_map_2008), names(rename_map_2009), names(rename_map_2011),
   names(rename_map_2013), names(rename_map_2015), names(rename_map_2017),
   names(rename_map_2021)
 ))
 
-# Align datasets: add missing columns and reorder
+# add missing columns and reorder
 datasets_aligned <- lapply(datasets, function(df) {
   missing_cols <- setdiff(all_vars, names(df))
   if(length(missing_cols) > 0) df[missing_cols] <- NA
@@ -1053,7 +1066,7 @@ datasets_aligned <- lapply(datasets, function(df) {
   df
 })
 
-# Combine datasets
+# combine datasets
 sw_combined_raw <- bind_rows(datasets_aligned, .id = "source_year")
 
 # check and save
@@ -1763,10 +1776,21 @@ table(sw_combined_raw$ngo_condom_rec_bin, sw_combined_raw$year, useNA = "ifany")
 table(sw_combined_raw$ngo_condom_6m, sw_combined_raw$year, useNA = "ifany")
 table(sw_combined_raw$ngo_syringe_12m_bin, useNA = "ifany")
 
-# hiv and syphilis test results
+# hiv hcv and syphilis test results
 sw_combined_raw <- sw_combined_raw %>%
   mutate(
-    hiv_test_rslt_bin = case_when(
+    hcv_test_rslt_bin = case_when(
+      year == 2017 & (grepl("No answer|No question asked", hcv_test_rslt, ignore.case = TRUE) | is.na(hcv_test_rslt)) ~ "Negative",
+      grepl("^Negative$", hcv_test_rslt, ignore.case = TRUE) ~ "Negative",
+      grepl("^Positive$", hcv_test_rslt, ignore.case = TRUE) ~ "Positive",
+      grepl("No answer|No question asked", hcv_test_rslt, ignore.case = TRUE) | is.na(hcv_test_rslt) ~ NA_character_,
+      TRUE ~ NA_character_
+    ),
+    hcv_test_rslt_bin = factor(
+      hcv_test_rslt_bin,
+      levels = c("Negative", "Positive")
+    ),
+      hiv_test_rslt_bin = case_when(
       year == 2017 & (grepl("No answer|No question asked", hiv_test_rslt, ignore.case = TRUE) | is.na(hiv_test_rslt)) ~ "Negative",
       grepl("^Negative$", hiv_test_rslt, ignore.case = TRUE) ~ "Negative",
       grepl("^Positive$", hiv_test_rslt, ignore.case = TRUE) ~ "Positive",
@@ -1789,6 +1813,7 @@ sw_combined_raw <- sw_combined_raw %>%
     )
   )
 
+table(sw_combined_raw$year, sw_combined_raw$hcv_test_rslt_bin, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$hiv_test_rslt_bin, useNA = "ifany")
 table(sw_combined_raw$year, sw_combined_raw$syphilis_test_rslt_3cat, useNA = "ifany")
 

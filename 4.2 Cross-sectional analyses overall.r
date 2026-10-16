@@ -48,7 +48,7 @@ exposures <- c(
 outcomes <- c(
   "hiv_test_rslt_bin", "idu_ever_bin", "street_sw_bin", "art_current_bin",
   "violence_any_ever_bin", "violence_rape_ever",
-  "client_condom_lastsex_bin", "ngo_condom_rec_bin", "ngo_client_lifetime_bin"
+  "client_condom_lastsex_bin", "ngo_condom_rec_bin", "ngo_client_lifetime_bin", "underage_first_sw_bin"
 )
 
 # binary function
@@ -75,15 +75,17 @@ for (i in exposures) {
 
 ## overall datasets
 subgroup_data <- list(
- overall   = sw_combined_clean,
- idu       = sw_combined_clean %>% filter(idu_ever_bin == 1),
- no_idu    = sw_combined_clean %>% filter(idu_ever_bin == 0),
- street    = sw_combined_clean %>% filter(street_sw_bin == 1),
- no_street = sw_combined_clean %>% filter(street_sw_bin == 0),
- ngo       = sw_combined_clean %>% filter(ngo_condom_rec_bin == 1),
- no_ngo    = sw_combined_clean %>% filter(ngo_condom_rec_bin == 0),
- rape      = sw_combined_clean %>% filter(violence_rape_ever_bin == 1),
- norape    = sw_combined_clean %>% filter(violence_rape_ever_bin == 0)
+ overall     = sw_combined_clean,
+ idu         = sw_combined_clean %>% filter(idu_ever_bin == 1),
+ no_idu      = sw_combined_clean %>% filter(idu_ever_bin == 0),
+ street      = sw_combined_clean %>% filter(street_sw_bin == 1),
+ no_street   = sw_combined_clean %>% filter(street_sw_bin == 0),
+ ngo         = sw_combined_clean %>% filter(ngo_condom_rec_bin == 1),
+ no_ngo      = sw_combined_clean %>% filter(ngo_condom_rec_bin == 0),
+ rape        = sw_combined_clean %>% filter(violence_rape_ever_bin == 1),
+ no_rape     = sw_combined_clean %>% filter(violence_rape_ever_bin == 0),
+ underage    = sw_combined_clean %>% filter(underage_first_sw_bin == 1),
+ no_underage = sw_combined_clean %>% filter(underage_first_sw_bin == 0)
 )
 
 skip_pairs <- list(
@@ -94,7 +96,9 @@ skip_pairs <- list(
   ngo = c("ngo_condom_rec_bin"),
   no_ngo = c("ngo_condom_rec_bin"),
   rape = c("violence_rape_ever_bin"),
-  norape = c("violence_rape_ever_bin")
+  no_rape = c("violence_rape_ever_bin"),
+  underage = c("underage_first_sw_bin"),
+  no_underage = c("underage_first_sw_bin")
 )
 
 # prevalence ratio modelling
@@ -228,7 +232,7 @@ print(table(model_results_df$outcome))
 cat("\nNAs in PR/CI:", sum(is.na(model_results_df$pr)), "\n")
 
 # subgroups to save
-subgroups <- c("overall", "idu", "no_idu", "street", "no_street", "ngo", "no_ngo", "rape", "norape")
+subgroups <- c("overall", "idu", "no_idu", "street", "no_street", "ngo", "no_ngo", "rape", "no_rape", "underage", "no_underage")
 
 for (sg in subgroups) {
 
