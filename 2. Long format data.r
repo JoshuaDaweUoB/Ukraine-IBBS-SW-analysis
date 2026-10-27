@@ -2,7 +2,7 @@
 pacman::p_load(dplyr, tidyr, stringr, tibble, writexl, readxl, forcats, labelled, lubridate, purrr, openxlsx)
 
 ## set wd
-setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/PhD Papers/Paper 3a - Ukraine Sex Work HIV/data/SW data")
+setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/PhD Chapter Writing/Chapter 6 - Ukraine FSWs IDU violence and HIV/data/SW data")
 
 # load clean cross sectional data
 sw_combined_clean <- readRDS("sw_combined_clean.rds")
@@ -104,10 +104,6 @@ sw_data_long <- linkage_long %>%
   ) %>%
   arrange(id, year)
 
-# delete those with missing survey years
-sw_data_long <- sw_data_long %>%
-  filter(skip_any == "FALSE")
-
 # check number of unique participants
 length(unique(sw_data_long$id))
 nrow(sw_data_long)
@@ -133,7 +129,7 @@ baseline_df <- sw_data_long %>%
   ungroup() %>%
   transmute(
     id,
-    first_idu = idu_ever_bin,
+    first_idu = idu_12m_bin,
     first_street = street_sw_bin,
     first_ngo = ngo_client_lifetime_bin,
     first_rape = violence_rape_ever_bin
@@ -143,7 +139,7 @@ baseline_df <- sw_data_long %>%
 sw_data_long <- sw_data_long %>%
   left_join(baseline_df, by = "id")
 
-## baseline-defined datasets (corrected)
+## baseline-defined datasets
 
 sw_data_long_idu <- sw_data_long %>% filter(first_idu == "Yes")
 sw_data_long_noidu <- sw_data_long %>% filter(first_idu == "No")
@@ -198,19 +194,20 @@ calc_transition_rate <- function(data,
   state <- sym(state_var)
   
   # baseline
-  first <- data %>%
-    arrange(!!id, !!date) %>%
-    group_by(!!id) %>%
-    slice_min(!!date, n = 1) %>%
-    ungroup()
-  
-  baseline_ids <- first %>%
-    filter(!!state == baseline_state) %>%
-    pull(!!id)
-  
-  # cohort
+  if (!is.null(baseline_state)) {
+    baseline_ids <- data %>%
+      arrange(!!id, !!date) %>%
+      group_by(!!id) %>%
+      slice_min(!!date, n = 1) %>%
+      ungroup() %>%
+      filter(!!state == baseline_state) %>%
+      pull(!!id)
+
+    data <- data %>% filter((!!id) %in% baseline_ids)
+  }
+
+  # cohort: all intervals starting in start_state (time-updated)
   cohort <- data %>%
-    filter((!!id) %in% baseline_ids) %>%
     arrange(!!id, !!date) %>%
     group_by(!!id) %>%
     mutate(
@@ -224,6 +221,7 @@ calc_transition_rate <- function(data,
     filter(visit_number != 1) %>%
     filter(state_start == start_state) %>%
     filter(!is.na(state_end)) %>%
+
     mutate(
       event = ifelse(state_start == start_state & state_end == end_state, 1, 0),
       days_risk = ifelse(
@@ -270,6 +268,34 @@ calc_transition_rate <- function(data,
   ))
 }
 
+## rates and bounds for the calibrated multipliers in 9. Entry and exit into model.r
+
+# IDU -> non-IDU, all intervals 2013-2021
+eps_all <- calc_transition_rate(sw_data_long, state_var = "idu_12m_bin", baseline_state = NULL,
+                                start_state = "Yes", end_state = "No")
+
+# street -> indoor, all intervals 2013-2021
+rho_all <- calc_transition_rate(sw_data_long, state_var = "street_sw_bin", baseline_state = NULL,
+                                start_state = "Yes", end_state = "No")
+
+# street -> indoor, 2013-15 and 2015-17 intervals only
+rho_13_15 <- calc_transition_rate(sw_data_long %>% filter(year %in% c(2013, 2015)),
+                                  state_var = "street_sw_bin", baseline_state = NULL,
+                                  start_state = "Yes", end_state = "No")
+
+rho_15_17 <- calc_transition_rate(sw_data_long %>% filter(year %in% c(2015, 2017)),
+                                  state_var = "street_sw_bin", baseline_state = NULL,
+                                  start_state = "Yes", end_state = "No")
+
+# multiplier bounds
+c(eps_all$lower_ci, eps_all$upper_ci) / eps_all$rate       # theta_eps
+c(rho_15_17$lower_ci, rho_15_17$upper_ci) / rho_all$rate   # theta_rho,post
+rho_13_15$rate / rho_all$rate                              # fixed 2014 multiplier on moving indoors
+
+c(rho_all = rho_all$rate, rho_13_15 = rho_13_15$rate,
+  rho_15_17 = rho_15_17$rate, rho_15_17_lower = rho_15_17$lower_ci, rho_15_17_upper = rho_15_17$upper_ci,
+  eps_all = eps_all$rate, eps_lower = eps_all$lower_ci, eps_upper = eps_all$upper_ci)
+
 ## function to run over all combinations of subgroups
 
 datasets_list <- list(
@@ -314,10 +340,10 @@ transition_states <- list(
 baseline_states <- list(
   overall = "Negative",
   hiv = "Negative",
-  idu = "No",
-  noidu = "Yes",
-  street = "No",
-  indoor = "Yes",
+  idu = NULL,     # time-updated: all intervals starting not injecting
+  noidu = NULL,   # time-updated: all intervals starting injecting
+  street = NULL,  # time-updated: all intervals starting indoor
+  indoor = NULL,  # time-updated: all intervals starting street-based
   ngo = "No",
   nongo = "Yes",
   rape = "No",
@@ -502,3 +528,33 @@ writeData(wb, "rape_rr", rr_rape)
 
 # save file
 saveWorkbook(wb, "rr_results.xlsx", overwrite = TRUE)
+
+for (s in c("street", "indoor", "idu", "noidu")) {
+  cat("\n", s, "\n")
+  print(
+    all_sheets[[s]] %>%
+      filter(dataset == "sw_data_long",
+             subgroup %in% c("overall", "idu", "noidu", "street", "indoor")) %>%
+      select(subgroup, events, person_years, IR_95CI),
+    row.names = FALSE
+  )
+}
+
+res_indoor <- calc_transition_rate(
+  data = sw_data_long,
+  state_var = "street_sw_bin",
+  baseline_state = NULL,
+  start_state = "Yes",
+  end_state = "No"
+)
+
+res_indoor$cohort %>%
+  group_by(year) %>%
+  summarise(
+    events = sum(event),
+    person_years = sum(py),
+    rate = events / person_years * 100,
+    lower = qchisq(0.025, 2 * events) / 2 / person_years * 100,
+    upper = qchisq(0.975, 2 * (events + 1)) / 2 / person_years * 100,
+    .groups = "drop"
+  )

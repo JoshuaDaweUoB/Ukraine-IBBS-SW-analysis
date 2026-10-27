@@ -179,7 +179,7 @@ run_cox_mediation_analysis <- function(data,
   
   df <- data
   
-  # Outcome recoding
+  # outcome recoding
   df[[outcome_var]] <- ifelse(
     df[[outcome_var]] %in% c("Yes", "Positive", 1, "1"),
     1, 0
@@ -187,7 +187,7 @@ run_cox_mediation_analysis <- function(data,
   
   df[[outcome_var]] <- as.numeric(df[[outcome_var]])
   
-  # Binary variables
+  # binary variables
   if (!is.null(binary_vars)) {
     df <- df %>%
       mutate(across(all_of(binary_vars),
@@ -195,7 +195,7 @@ run_cox_mediation_analysis <- function(data,
                              levels = c("No", "Yes"))))
   }
   
-  # Covariates
+  # covariates
   if (!is.null(adjust_vars)) {
     df <- df %>%
       mutate(across(all_of(adjust_vars), as.factor))

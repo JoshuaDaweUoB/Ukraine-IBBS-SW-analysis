@@ -613,6 +613,7 @@ rename_map_2015 <- c(
   city_travel_12m = "А12. Have you ever left this city for more than 1 month [30 days] during THE LAST 12 MONTHS to provide sexual services?",
   country_travel_12m = "A12_2 Where have you been? In another country",
   sw_days_total_7d = "А20. How many days in the LAST WEEK [7 days] did you provide sexual services?",
+  sw_num_30d = "Please remember sexual intercourses with all clients during last month (30 days)/ How many sexual intercourses did you have during last month (including vaginal, anal and oral intercourses)?",
   sw_partners_reg_clients_30d_raw = "sw_partners_reg_clients_30d_raw",
   sw_partners_irreg_clients_30d_raw = "sw_partners_irreg_clients_30d_raw",
   sw_partners_perm_30d_raw = "sw_partners_perm_30d_raw",
@@ -696,6 +697,12 @@ table(sw_data_2015_clean$used_syringe_last)
 table(sw_data_2015_clean$ngo_condom_6m)
 table(sw_data_2015_clean$idu_12m_bin)
 table(sw_data_2015_clean$violence_any_ever)
+
+sw_data_2015_clean %>%
+  summarise(median_acts = median(sw_num_30d, na.rm = TRUE),
+            median_clients = median(sw_partners_clients_30d, na.rm = TRUE),
+            median_total_partners = median(sw_partners_total_30d, na.rm = TRUE))
+summary(as.numeric(sw_data_2015_clean$sw_num_30d))
 
 # load 2017 data
 sw_data_2017_raw <- read_excel("2017-2018_IBBS_SW_TLS AND RDS_Data.xlsx")
@@ -848,6 +855,11 @@ table(sw_data_2017_clean$idu_12m_bin)
 
 prop.table(table(sw_data_2017_clean$idu_12m_bin, sw_data_2017_clean$city), margin = 2)
 
+sw_data_2017_clean %>%
+  summarise(median_acts = median(sw_num_30d, na.rm = TRUE),
+            median_clients = median(sw_partners_clients_30d, na.rm = TRUE),
+            median_total_partners = median(sw_partners_total_30d, na.rm = TRUE))
+
 # load 2021 data
 sw_data_2021_raw <- read_excel("2021_IBBS_SW_TLS_Data.xlsx")
 
@@ -924,6 +936,8 @@ rename_map_2021 <- c(
   interview_dte = "interview_dte",
   gender = "a7 Respondent’s gender",
   sw_days_total_7d = "b18_1 How many days during the last week (days) you Provided commercial sex services",
+  sw_clients_7d_b19 = "b19 To how many different clients you provided commercial sex services in the last 7 days?",
+  sw_num_7d = "b20 How many sexual contacts with clients you had during these days?",
   education = "a9 What is your education level",
   residence_12m = "a11 What place of residence have you had for the last 12 months",
   marital_status = "a12 From the proposed options, choose the one that reflects your marital status at the moment",
@@ -1033,6 +1047,10 @@ table(sw_data_2021_clean$hiv_tested_12m)
 table(sw_data_2021_clean$violence_forced_free_ever)
 table(sw_data_2021_clean$violence_forced_perv_ever)
 
+sw_data_2021_clean %>%
+  summarise(median_acts_7d = median(as.numeric(sw_num_7d), na.rm = TRUE),
+            median_clients_7d = median(as.numeric(sw_clients_7d_b19), na.rm = TRUE))
+
 sw_data_2021_clean <- sw_data_2021_clean %>%
   mutate(idu_12m_bin = idu_ever_bin)
 
@@ -1123,6 +1141,211 @@ sw_combined_raw <- readRDS("sw_combined_raw.rds")
 # year variable
 year_map <- c("1"=2008,"2"=2009,"3"=2011,"4"=2013,"5"=2015,"6"=2017,"7"=2021)
 sw_combined_raw$year <- year_map[sw_combined_raw$source_year]
+
+
+## injecting drug use
+
+# keep raw answers, as idu_12m_bin and idu_ever_bin are overwritten with cleaned versions below
+# idu_ever_bin is only asked in 2021, where idu_12m_bin was copied from it on loading
+if (!"idu_12m_raw" %in% names(sw_combined_raw)) {
+  sw_combined_raw <- sw_combined_raw %>%
+    mutate(idu_12m_raw  = idu_12m_bin,
+           idu_ever_raw = idu_ever_bin)
+}
+
+# answers to injecting question (idu_12m_raw)
+idu_current <- c(
+  "Yes",
+  "Yes, I have used during last 12 months (not last 30 days)",
+  "Yes, I have used during last 30 days",
+  "Yes, I have been using them for the last 30 days",
+  "Так, я вживав/ла протягом останніх 12 місяців (але не протягом 30 днів)"
+)
+idu_past <- c(
+  "Used in the past, but not in the last 12 months",
+  "Yes, I have used more than 12 months ago",
+  "Yes, I used it, but more than 12 months ago"
+)
+idu_never   <- c("Never used", "Never used or never even tried")
+idu_not_12m <- "No"   # 2008, 2011-2015: not in past 12 months, assumed never injected
+idu_missing <- c(
+  "Difficult to answer", "Difficult to answer/don’t remember", "Difficult to say",
+  "Don't know/don't remember", "No answer", "Refusal to answer", "Refuse to answer"
+)
+
+# answers to drug use question (drugs_30d_bin)
+drugs_no      <- c("No", "Never used", "I used before, now I don’t")
+drugs_missing <- c("No answer", "Difficult to answer")
+
+# answers to last injection question (used_syringe_last) that mean the respondent has injected
+syringe_injector <- c("Yes", "Yes, I did", "No", "No, I did not",
+                      "I don't know how the syringe was filled", "Don’t remember")
+
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    # current use of any drugs
+    drugs_30d_bin_3cat = factor(case_when(
+      drugs_30d_bin == "Yes"           ~ 1,
+      drugs_30d_bin %in% drugs_no      ~ 0,
+      drugs_30d_bin %in% drugs_missing ~ 2,
+      TRUE ~ NA_real_
+    ), levels = 0:2, labels = c("No", "Yes", "Missing / Unknown")),
+
+    # injected in past 12 months
+    idu_12m_3cat = factor(case_when(
+      idu_12m_raw %in% idu_current                         ~ 1,
+      ngo_syringe_12m == "Yes"                             ~ 1,   # received syringes from NGO in past 12 months
+      idu_12m_raw %in% c(idu_past, idu_never, idu_not_12m) ~ 0,
+      idu_12m_raw %in% idu_missing                         ~ 2,
+      drugs_30d_bin == "Difficult to answer"               ~ 2,
+      TRUE ~ NA_real_
+    ), levels = 0:2, labels = c("No", "Yes", "Missing / Unknown")),
+
+    # ever injected
+    idu_ever_3cat = factor(case_when(
+      idu_12m_3cat == "Yes"                    ~ 1,
+      idu_12m_raw %in% idu_past                ~ 1,
+      used_syringe_last %in% syringe_injector  ~ 1,   # answered question about last injection
+      idu_12m_raw %in% c(idu_never, idu_not_12m) ~ 0,
+      drugs_30d_bin %in% c("No", "Never used", "No question asked") ~ 0,
+      used_syringe_last == "No question asked" ~ 0,
+      idu_12m_raw %in% idu_missing             ~ 2,
+      TRUE ~ NA_real_
+    ), levels = 0:2, labels = c("No", "Yes", "Missing / Unknown"))
+  )
+
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    idu_ever_bin = factor(case_when(
+      idu_ever_3cat == "No"  ~ 0,
+      idu_ever_3cat == "Yes" ~ 1,
+      TRUE ~ NA_real_
+    ), levels = 0:1, labels = c("No", "Yes")),
+
+    idu_12m_bin = factor(case_when(
+      idu_12m_3cat == "No"  ~ 0,
+      idu_12m_3cat == "Yes" ~ 1,
+      idu_ever_bin == "No"  ~ 0,
+      TRUE ~ NA_real_
+    ), levels = 0:1, labels = c("No", "Yes"))
+  )
+
+## shared injecting equipment at last injection
+# 2008-2013 asked about using shared equipment; 2015-2021 asked about using sterile equipment
+# (different question, different groups asked, and no "No" answers in 2017), so set to NA for 2015-2021
+syringe_yes     <- c("Yes", "Yes, I did")
+syringe_no      <- c("No", "No, I did not", "Never")
+syringe_missing <- c("No answer", "I don't know how the syringe was filled", "Don’t remember",
+                     "Refusal to answer", "Don't know/don't remember")
+
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    used_syringe_last_3cat = factor(case_when(
+      year %in% c(2015, 2017, 2021)            ~ NA_real_,
+      used_syringe_last == "No question asked" ~ 0,   # not asked (did not inject)
+      used_syringe_last %in% syringe_missing   ~ 2,
+      used_syringe_last %in% syringe_yes       ~ 1,   # used shared
+      used_syringe_last %in% syringe_no        ~ 0,   # did not use shared
+      TRUE ~ NA_real_
+    ), levels = 0:2, labels = c("No", "Yes", "Missing / Unknown")),
+
+    used_syringe_last_bin = factor(case_when(
+      used_syringe_last_3cat == "No"  ~ 0,
+      used_syringe_last_3cat == "Yes" ~ 1,
+      TRUE ~ NA_real_
+    ), levels = 0:1, labels = c("No", "Yes"))
+  )
+
+## QA checks
+
+# answers not assigned to any group (should all be character(0))
+setdiff(unique(na.omit(sw_combined_raw$idu_12m_raw)),
+        c(idu_current, idu_past, idu_never, idu_not_12m, idu_missing))
+setdiff(unique(na.omit(sw_combined_raw$drugs_30d_bin)),
+        c("Yes", drugs_no, drugs_missing, "No question asked"))
+setdiff(unique(na.omit(sw_combined_raw$used_syringe_last)),
+        c(syringe_injector, "No question asked"))
+
+# cleaned variables by year
+table(sw_combined_raw$year, sw_combined_raw$idu_12m_bin, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$idu_ever_bin, useNA = "ifany")
+
+# injected in past 12 months must also have ever injected (should be 0)
+sum(sw_combined_raw$idu_12m_bin == "Yes" & sw_combined_raw$idu_ever_bin == "No", na.rm = TRUE)
+table(sw_combined_raw$idu_12m_bin, sw_combined_raw$idu_ever_bin, useNA = "ifany")
+
+# past injectors (ever but not past 12 months) by year - only identifiable in some rounds
+table(sw_combined_raw$year,
+      sw_combined_raw$idu_ever_bin == "Yes" & sw_combined_raw$idu_12m_bin == "No",
+      useNA = "ifany")
+
+# past 12 months injecting coded only from NGO syringe receipt, by year
+table(sw_combined_raw$year,
+      !(sw_combined_raw$idu_12m_raw %in% idu_current) & sw_combined_raw$ngo_syringe_12m %in% "Yes")
+
+# prevalence by year
+sw_combined_raw %>%
+  group_by(year) %>%
+  summarise(
+    idu_12m  = mean(idu_12m_bin == "Yes", na.rm = TRUE),
+    idu_ever = mean(idu_ever_bin == "Yes", na.rm = TRUE),
+    .groups = "drop"
+  )
+
+## injecting frequency, past 30 days (2008, 2015)
+idu_30d_freq <- c(
+  "Never"                     = 0,
+  "No question asked"         = 0,
+  "Only once a month"         = 1,
+  "2-3 times a month"         = 2.5,
+  "On average once a week"    = 4,
+  "2-3 times a week"          = 10,
+  "4-6 times a week"          = 20,
+  "On average once a day"     = 30,
+  "2-3 times a day"           = 60,
+  "At least four times a day" = 120
+)
+
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    idu_30d_num_numeric = case_when(
+      idu_30d_num %in% names(idu_30d_freq) ~ unname(idu_30d_freq[idu_30d_num]),
+      TRUE ~ suppressWarnings(as.numeric(idu_30d_num))   # numeric answers; "No answer" -> NA
+    ),
+    idu_30d_use_3cat = factor(case_when(
+      idu_30d_num_numeric == 0  ~ 0,
+      idu_30d_num_numeric < 5   ~ 1,
+      idu_30d_num_numeric < 15  ~ 2,
+      idu_30d_num_numeric >= 15 ~ 3,
+      is.na(idu_30d_num_numeric) ~ 4
+    ), levels = 0:4,
+    labels = c("None [0]", "Low use [1–4]", "Moderate use [5–14]", "High use [15+]", "Missing / Unknown [NA]"))
+  )
+
+## shared injecting equipment at last injection
+syringe_yes     <- c("Yes", "Yes, I did")
+syringe_no      <- c("No", "No, I did not", "Never")
+syringe_missing <- c("No answer", "I don't know how the syringe was filled", "Don’t remember",
+                     "Refusal to answer", "Don't know/don't remember")
+
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    used_syringe_last_3cat = factor(case_when(
+      year %in% c(2015, 2017, 2021)          ~ NA_real_,
+      used_syringe_last == "No question asked" ~ 0,   # not asked (did not inject)
+      used_syringe_last %in% syringe_missing ~ 2,
+      used_syringe_last %in% syringe_yes     ~ 1,   # used shared
+      used_syringe_last %in% syringe_no      ~ 0,   # did not use shared
+      TRUE ~ NA_real_
+    ), levels = 0:2, labels = c("No", "Yes", "Missing / Unknown")),
+
+    used_syringe_last_bin = factor(case_when(
+      used_syringe_last_3cat == "No"  ~ 0,
+      used_syringe_last_3cat == "Yes" ~ 1,
+      TRUE ~ NA_real_
+    ), levels = 0:1, labels = c("No", "Yes"))
+  )
+
 
 # relevel education
 sw_combined_raw <- sw_combined_raw %>%
@@ -1255,6 +1478,21 @@ sw_combined_raw <- sw_combined_raw %>%
     sw_partners_clients_30d, sw_partners_perm_30d, sw_partners_nonperm_30d, sw_partners_total_30d, partners_sw_24h,
     sw_partners_clients_7d, sw_partners_perm_7d, sw_partners_nonperm_7d, sw_partners_nonclients_7d, sw_partners_total_7d
   ), as.numeric))
+
+# sex acts per client (2015, 2017: past 30 days; 2021: past 7 days)
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    across(c(sw_num_30d, sw_num_7d, sw_clients_7d_b19),
+           ~ as.numeric(ifelse(.x %in% c("No answer", "Do not remember", "Refusal to answer", "No question asked", 998, 999), NA, .x))),
+    sw_num_30d = ifelse(sw_num_30d < sw_partners_clients_30d, NA, sw_num_30d),
+    sw_num_7d = ifelse(sw_num_7d < sw_clients_7d_b19, NA, sw_num_7d),
+    sw_acts_per_client = case_when(
+      year %in% c(2015, 2017) & sw_partners_clients_30d > 0 ~ sw_num_30d / sw_partners_clients_30d,
+      year == 2021 & sw_clients_7d_b19 > 0 ~ sw_num_7d / sw_clients_7d_b19,
+      TRUE ~ NA_real_
+    )
+  )
+summary(sw_combined_raw$sw_acts_per_client)
 
 sw_combined_raw <- sw_combined_raw %>%
   mutate(
@@ -1530,155 +1768,6 @@ table(sw_combined_raw$alcohol_30d_use_5cat, useNA = "ifany")
 
 unique(sw_combined_raw$used_syringe_last[sw_combined_raw$year == 2009])
 table(sw_combined_raw$year, sw_combined_raw$used_syringe_last, useNA = "ifany")
-
-# drug use variables
-sw_combined_raw <- sw_combined_raw %>%
-  mutate(
-    drugs_30d_bin_3cat = factor(
-      case_when(
-        grepl("^No$", drugs_30d_bin, ignore.case = TRUE) ~ 0,
-        grepl("^Yes$", drugs_30d_bin, ignore.case = TRUE) ~ 1,
-        grepl("I used before, now I don’t|Never used|No answer|Difficult to answer", 
-              drugs_30d_bin, ignore.case = TRUE) ~ 2,
-        TRUE ~ NA_real_
-      ),
-      levels = c(0, 1, 2),
-      labels = c("No", "Yes", "Missing / Unknown")))
-
-sw_combined_raw <- sw_combined_raw %>%
-  mutate(
-     idu_12m_3cat = factor(
-      case_when(
-        grepl("Yes|Yes, I have used during last 12 months \\(not last 30 days\\)|Yes, I have used during last 30 days", 
-              idu_12m_bin, ignore.case = TRUE) ~ 1,
-        grepl("Yes, I have been using them for the last 30 days|Так, я вживав/ла протягом останніх 12 місяців (але не протягом 30 днів)", 
-              idu_ever_bin, ignore.case = TRUE) ~ 1,
-        ngo_syringe_12m == "Yes" ~ 1,
-        grepl("^No$|Never used|Used in the past, but not in the last 12 months|Yes, I have used more than 12 months ago|Used in the past, but not in the last 12 months", 
-              idu_12m_bin, ignore.case = TRUE) ~ 0,       
-        grepl("No answer|Difficult to answer|Difficult to answer/don’t remember|Refuse to answer|Difficult to say", 
-              idu_12m_bin, ignore.case = TRUE) ~ 2,
-        grepl("Difficult to answer", 
-              drugs_30d_bin, ignore.case = TRUE) ~ 2,
-        TRUE ~ NA_real_
-      ),
-      levels = c(0, 1, 2),
-      labels = c("No", "Yes", "Missing / Unknown")))
-table(sw_combined_raw$idu_12m_3cat, sw_combined_raw$year, useNA = "ifany")
-
-sw_combined_raw <- sw_combined_raw %>%
-  mutate(
-    idu_ever_3cat = factor(
-      case_when(
-        used_syringe_last %in% c("Yes", "No", "I don't know how the syringe was filled", "Don’t remember", "No, I did not") ~ 1,
-        grepl("Yes, I have used during last 12 months \\(not last 30 days\\)|Yes, I have used during last 30 days|Used in the past, but not in the last 12 months|Yes, I have used more than 12 months ago|Так, я вживав|Yes, I used it, but more than 12 months ago|Yes, I have been using them for the last 30 days", idu_12m_bin, ignore.case = TRUE) ~ 1,
-        grepl("Yes, I have been using them for the last 30 days|Yes, I used it, but more than 12 months ago|Так, я вживав/ла протягом останніх 12 місяців (але не протягом 30 днів)", idu_ever_bin, ignore.case = TRUE) ~ 1,
-        ngo_syringe_12m == "Yes" ~ 1,
-        idu_12m_3cat == "Yes" ~ 1,
-        grepl("^No$|Never used", idu_12m_bin, ignore.case = TRUE) ~ 0,
-        drugs_30d_bin %in% c("No question asked", "No") ~ 0,
-        used_syringe_last %in% c("No question asked") ~ 0,
-        grepl("No answer|Difficult to answer|Difficult to answer/don’t remember|Refuse to answer|Never used", idu_12m_bin, ignore.case = TRUE) ~ 2,
-        TRUE ~ NA_real_
-      ),
-      levels = c(0, 1, 2),
-      labels = c("No", "Yes", "Missing / Unknown")
-    ))
-
-sw_combined_raw <- sw_combined_raw %>%
-  mutate(
-    idu_ever_bin = factor(
-      case_when(
-        idu_ever_3cat == "No" ~ 0,
-        idu_ever_3cat == "Yes" ~ 1,
-        TRUE ~ NA_real_
-      ),
-      levels = c(0, 1),
-      labels = c("No", "Yes")
-    ))
-
-sw_combined_raw <- sw_combined_raw %>%
-  mutate(
-    idu_12m_bin = factor(
-      case_when(
-      idu_12m_3cat == "No" ~ 0,
-      idu_12m_3cat == "Yes" ~ 1,
-      idu_ever_bin == "No" ~ 0,
-      TRUE ~ NA_real_
-      ),
-      levels = c(0, 1),
-      labels = c("No", "Yes")))
-      
-table(sw_combined_raw$idu_12m_bin, sw_combined_raw$year, useNA = "ifany")
-table(sw_combined_raw$idu_ever_bin, sw_combined_raw$year, useNA = "ifany")
-table(sw_combined_raw$idu_12m_bin, sw_combined_raw$idu_ever_bin, useNA = "ifany")
-
-sw_combined_raw <- sw_combined_raw %>%
-  mutate(       
-    idu_30d_num_numeric = case_when(
-      grepl("^Never$", idu_30d_num, ignore.case = TRUE) ~ 0,
-      grepl("^No answer$", idu_30d_num, ignore.case = TRUE) ~ NA_real_,
-      grepl("^No question asked$", idu_30d_num, ignore.case = TRUE) ~ 0,
-      grepl("^Only once a month$", idu_30d_num, ignore.case = TRUE) ~ 1,
-      grepl("^2-3 times a month$", idu_30d_num, ignore.case = TRUE) ~ 2.5,
-      grepl("^On average once a week$", idu_30d_num, ignore.case = TRUE) ~ 4,
-      grepl("^2-3 times a week$", idu_30d_num, ignore.case = TRUE) ~ 10,
-      grepl("^4-6 times a week$", idu_30d_num, ignore.case = TRUE) ~ 20,
-      grepl("^On average once a day$", idu_30d_num, ignore.case = TRUE) ~ 30,
-      grepl("^2-3 times a day$", idu_30d_num, ignore.case = TRUE) ~ 60,
-      grepl("^At least four times a day$", idu_30d_num, ignore.case = TRUE) ~ 120,
-      grepl("\\d+", idu_30d_num) ~ as.numeric(idu_30d_num),
-      TRUE ~ NA_real_
-    ))
-
-sw_combined_raw <- sw_combined_raw %>%
-  mutate(    
-    idu_30d_use_3cat = factor(
-      case_when(
-        idu_30d_num_numeric == 0 ~ 0,
-        idu_30d_num_numeric >= 1 & idu_30d_num_numeric <= 4 ~ 1,
-        idu_30d_num_numeric >= 5 & idu_30d_num_numeric <= 14 ~ 2,
-        idu_30d_num_numeric >= 15 ~ 3,
-        is.na(idu_30d_num_numeric) ~ 4
-      ),
-      levels = c(0, 1, 2, 3, 4),
-      labels = c("None [0]", "Low use [1–4]", "Moderate use [5–14]", "High use [15+]", "Missing / Unknown [NA]")
-    ))
-
-sw_combined_raw <- sw_combined_raw %>%
-  mutate(    
-    used_syringe_last_3cat = factor(
-      case_when(
-        grepl("^No$|No, I did not|Never$|No question asked$", used_syringe_last, ignore.case = TRUE) ~ 0,
-        grepl("^Yes$|Yes, I did$", used_syringe_last, ignore.case = TRUE) ~ 1,
-        grepl("No answer|I don't know how the syringe was filled|Don’t remember|Refusal to answer|Don't know/don't remember", used_syringe_last, ignore.case = TRUE) ~ 2,
-        TRUE ~ NA_real_
-      ),
-      levels = c(0, 1, 2),
-      labels = c("No", "Yes", "Missing / Unknown")
-    ),
-    used_syringe_last_bin = factor(
-      case_when(
-        used_syringe_last_3cat == "No" ~ 0,
-        used_syringe_last_3cat == "Yes" ~ 1,
-        TRUE ~ NA_real_
-      ),
-      levels = c(0, 1),
-      labels = c("No", "Yes")
-    ))
-
-sw_combined_raw <- sw_combined_raw %>%
-  mutate(    
-    used_syringe_30d_bin_3cat = factor(
-      case_when(
-        grepl("^No$|Never$|No question asked$", used_syringe_30d_bin, ignore.case = TRUE) ~ 0,
-        grepl("Always|Not always, but more than in a half of cases \\(>50% cases\\)|In a half of cases \\(50% cases\\)|Less than in a half of cases \\(<50% cases\\)", used_syringe_30d_bin, ignore.case = TRUE) ~ 1,
-        grepl("No answer|I don't know how the syringe was filled|Don’t remember|Refusal to answer|Don't know/don't remember", used_syringe_30d_bin, ignore.case = TRUE) ~ 2,
-        TRUE ~ NA_real_
-      ),
-      levels = c(0, 1, 2),
-      labels = c("No", "Yes", "Missing / Unknown")
-    ))
 
 ## ngo variables
 sw_combined_raw <- sw_combined_raw %>%
@@ -2049,8 +2138,9 @@ sw_combined_raw <- sw_combined_raw %>%
     art_current_3cat = factor(
       case_when(
         grepl("^Yes|Yes, currently|I’m currently participating", art_current, ignore.case = TRUE) ~ 1,  # On ART
-        grepl("^No$|Participated, but now don’t receive|I used to earlier|No, but|NO, but", art_current, ignore.case = TRUE) ~ 0,  # Not on ART
-        grepl("No question asked|No answer|I have used but stopped", art_current, ignore.case = TRUE) ~ 2,  # Missing / Unknown
+        grepl("^No$|Participated, but now don’t receive|I used to earlier|No, but|NO, but|I have used but stopped", art_current, ignore.case = TRUE) ~ 0,  # Not on ART
+        art_current == "No question asked" & hiv_test_rslt_bin == "Positive" ~ 0,  # tested HIV-positive but not asked (unaware of status), assumed not on ART
+        grepl("No question asked|No answer", art_current, ignore.case = TRUE) ~ 2,  # Missing / Unknown
         TRUE ~ 2
       ),
       levels = c(0, 1, 2),
@@ -2067,6 +2157,11 @@ sw_combined_raw <- sw_combined_raw %>%
       labels = c("No", "Yes")      
     )
   )
+
+table(sw_combined_raw$art_current[sw_combined_raw$year == 2013],
+      sw_combined_raw$hiv_test_rslt_bin[sw_combined_raw$year == 2013],
+      useNA = "ifany")
+
 
 table(sw_combined_raw$year, sw_combined_raw$art_current_3cat, useNA = "ifany")
 
@@ -2368,25 +2463,298 @@ sw_combined_raw <- sw_combined_raw %>%
 
 table(sw_combined_raw$gender, sw_combined_raw$year)
 
-sw_combined_raw_subset <- sw_combined_raw %>%
-  filter(city %in% c("Cherkasy", "Dnipro", "Kharkiv", "Kropyvnytskyi", "Lviv", "Odesa", "Mariupol"))
-
-sw_combined_raw_odesa <- sw_combined_raw %>%
-  filter(city == "Odesa")
-
-sw_combined_raw_kharkiv <- sw_combined_raw %>%
-  filter(city == "Kharkiv")
-
-sw_combined_raw_kropyvnytskyi <- sw_combined_raw %>%
-  filter(city == "Kropyvnytskyi")
-
 # check and save appended cleaned datasets
 dim(sw_combined_raw)
 names(sw_combined_raw)
 table(sw_combined_raw$year)
-table(sw_combined_raw_subset$year)
 saveRDS(sw_combined_raw, "sw_combined_clean.rds")
-saveRDS(sw_combined_raw_subset, "sw_combined_clean_subset.rds")
-saveRDS(sw_combined_raw_odesa, "sw_combined_clean_odesa.rds")
-saveRDS(sw_combined_raw_kharkiv, "sw_combined_clean_kharkiv.rds")
-saveRDS(sw_combined_raw_kropyvnytskyi, "sw_combined_clean_kropyvnytskyi.rds")
+
+## client surveys
+
+clients_2009_raw <- read_excel("2009_FSW clients_Data.xlsx")
+
+# variables to rename
+rename_map_clients_2009 <- c(
+  age = "A1. Your age: ____ years",
+  age_first_paid = "B1 How old were you when you first used commercial sexual services, for which you paid (money or other)?",
+  paid_sex_freq_12m = "B2 How often did you use commercial sex services from women in the last 12 months?",
+  fsw_partners_12m = "B3.1 How many of your female sexual partners in the last 12 months were: Different female sex workers to whom you paid (money or other)",
+  fsw_partner_condom_lastsex = "B4 Recall your last sexual contact with a female sex worker in the last 12 months. Did you use a condom during this encounter?",
+  hiv_test_rslt = "I3. HIV test result:",
+  aids_center = "E7. Are you registered at an AIDS center?",
+  idu_12m = "C3. Some people try to use drugs that are injected with a syringe. Have you used injectable drugs in the last 12 months?",
+  drugs_12m = "C2. Some people try to use different drugs. Do you use drugs?"
+)
+
+# map to vars
+clients_2009_clean <- clients_2009_raw %>%
+  rename(!!!setNames(rename_map_clients_2009, names(rename_map_clients_2009))) %>%
+  select(all_of(names(rename_map_clients_2009)))
+
+# check raw answers
+table(clients_2009_clean$paid_sex_freq_12m, useNA = "ifany")
+table(clients_2009_clean$fsw_partner_condom_lastsex, useNA = "ifany")
+table(clients_2009_clean$hiv_test_rslt, useNA = "ifany")
+table(clients_2009_clean$aids_center, useNA = "ifany")
+
+# paid sex contacts per year
+paid_sex_freq_map <- c(
+  "Every week or almost every week" = 52,
+  "Two to three times a month"      = 30,    # 2.5 x 12
+  "Once a month"                    = 12,
+  "Once every two to three months"  = 4.8,   # 12 / 2.5
+  "Once every six months"           = 2,
+  "Less than once every six months" = 1
+)
+
+# age, age first paid for sex, years buying sex
+clients_2009_clean <- clients_2009_clean %>%
+  mutate(
+    age_numeric = suppressWarnings(as.numeric(age)),
+    age_numeric = ifelse(age_numeric < 14 | age_numeric > 90, NA, age_numeric),
+    age_first_paid_numeric = suppressWarnings(as.numeric(age_first_paid)),
+    age_first_paid_numeric = ifelse(age_first_paid_numeric < 10 | age_first_paid_numeric > 90, NA, age_first_paid_numeric),
+    years_buying = age_numeric - age_first_paid_numeric,
+    years_buying = ifelse(years_buying < 0, NA, years_buying),
+    years_buying_3cat = factor(case_when(
+      years_buying <= 3 ~ 0,
+      years_buying > 3 & years_buying <= 9 ~ 1,
+      years_buying >= 10 ~ 2,
+      TRUE ~ NA_real_
+    ), levels = c(0, 1, 2), labels = c("0-3", "4-9", "10+"))
+  )
+
+summary(clients_2009_clean$age_numeric)
+summary(clients_2009_clean$years_buying)
+table(clients_2009_clean$years_buying_3cat, useNA = "ifany")
+
+# paid sex contacts per year and number of different FSWs paid in past 12 months
+clients_2009_clean <- clients_2009_clean %>%
+  mutate(
+    paid_sex_contacts_12m = unname(paid_sex_freq_map[paid_sex_freq_12m]),
+    fsw_partners_12m_numeric = suppressWarnings(as.numeric(fsw_partners_12m)),
+    fsw_partners_12m_numeric = ifelse(fsw_partners_12m_numeric %in% c(97, 98, 99, 997, 998, 999), NA, fsw_partners_12m_numeric),
+    acts_per_partner = paid_sex_contacts_12m / fsw_partners_12m_numeric
+  )
+
+table(clients_2009_clean$paid_sex_freq_12m, clients_2009_clean$paid_sex_contacts_12m, useNA = "ifany")
+summary(clients_2009_clean$fsw_partners_12m_numeric)
+summary(clients_2009_clean$acts_per_partner)
+
+# condom at last sex with FSW
+clients_2009_clean <- clients_2009_clean %>%
+  mutate(
+    fsw_partner_condom_lastsex_bin = factor(case_when(
+      grepl("^No$", fsw_partner_condom_lastsex, ignore.case = TRUE) ~ 0,
+      grepl("^Yes$", fsw_partner_condom_lastsex, ignore.case = TRUE) ~ 1,
+      TRUE ~ NA_real_
+    ), levels = c(0, 1), labels = c("No", "Yes"))
+  )
+
+table(clients_2009_clean$fsw_partner_condom_lastsex, clients_2009_clean$fsw_partner_condom_lastsex_bin, useNA = "ifany")
+
+# HIV test result
+clients_2009_clean <- clients_2009_clean %>%
+  mutate(
+    hiv_test_rslt_bin = factor(case_when(
+      hiv_test_rslt == "Negative" ~ 0,
+      hiv_test_rslt == "Positive" ~ 1,
+      TRUE ~ NA_real_
+    ), levels = c(0, 1), labels = c("Negative", "Positive"))
+  )
+
+table(clients_2009_clean$hiv_test_rslt_bin, useNA = "ifany")
+
+# registered at AIDS center
+table(clients_2009_clean$aids_center, useNA = "ifany")
+
+clients_2009_clean <- clients_2009_clean %>%
+  mutate(
+    aids_center_bin = factor(case_when(
+      grepl("^No$", aids_center, ignore.case = TRUE) ~ 0,
+      grepl("^Yes$", aids_center, ignore.case = TRUE) ~ 1,
+      TRUE ~ NA_real_
+    ), levels = c(0, 1), labels = c("No", "Yes"))
+  )
+
+table(clients_2009_clean$aids_center, clients_2009_clean$aids_center_bin, useNA = "ifany")
+table(clients_2009_clean$hiv_test_rslt_bin, clients_2009_clean$aids_center_bin, useNA = "ifany")
+
+# injected drugs in past 12 months (not asked if no drug use, so coded as not injecting)
+table(clients_2009_clean$drugs_12m, clients_2009_clean$idu_12m, useNA = "ifany")
+
+clients_2009_clean <- clients_2009_clean %>%
+  mutate(
+    idu_12m_bin = factor(case_when(
+      grepl("^Yes$", idu_12m, ignore.case = TRUE) ~ 1,
+      grepl("^No$", idu_12m, ignore.case = TRUE) ~ 0,
+      grepl("^No$", drugs_12m, ignore.case = TRUE) ~ 0,   # no drug use, not asked C3
+      TRUE ~ NA_real_
+    ), levels = c(0, 1), labels = c("No", "Yes"))
+  )
+
+table(clients_2009_clean$idu_12m_bin, useNA = "ifany")
+
+# save
+saveRDS(clients_2009_clean, "clients_2009_clean.rds")
+
+clients_2014_raw <- read_excel("2014_FSW clients_Data.xlsx")
+
+# find columns by question number (each must match exactly one column)
+find_col <- function(df, pattern) {
+  col <- grep(pattern, names(df), value = TRUE)
+  if (length(col) != 1) stop(pattern, " matched ", length(col), " columns: ", paste(col, collapse = " | "))
+  col
+}
+
+# variables to rename
+rename_map_clients_2014 <- c(
+  age                        = find_col(clients_2014_raw, "^A1\\."),
+  age_first_paid             = find_col(clients_2014_raw, "^B2\\."),
+  paid_sex_freq_12m          = find_col(clients_2014_raw, "^B3\\."),
+  fsw_partners_12m           = find_col(clients_2014_raw, "^B4\\."),
+  fsw_partner_condom_lastsex = find_col(clients_2014_raw, "^B11\\."),
+  hiv_test_rslt              = find_col(clients_2014_raw, "^M4\\."),
+  art_current                = find_col(clients_2014_raw, "^E11\\."),
+  idu_12m                    = find_col(clients_2014_raw, "^C3\\."),
+  drugs_12m                  = find_col(clients_2014_raw, "^C2\\."),
+  weight_city                = find_col(clients_2014_raw, "(?i)weight for cities"),
+  weight_total               = find_col(clients_2014_raw, "(?i)weight for total")
+)
+
+rename_map_clients_2014   # check the matched column names
+
+# map to vars
+clients_2014_clean <- clients_2014_raw %>%
+  rename(!!!setNames(rename_map_clients_2014, names(rename_map_clients_2014))) %>%
+  select(all_of(names(rename_map_clients_2014)))
+
+# check raw answers
+table(clients_2014_clean$fsw_partner_condom_lastsex, useNA = "ifany")
+table(clients_2014_clean$hiv_test_rslt, useNA = "ifany")
+
+# age, age first paid for sex, years buying sex
+clients_2014_clean <- clients_2014_clean %>%
+  mutate(
+    age_numeric = suppressWarnings(as.numeric(age)),
+    age_numeric = ifelse(age_numeric < 14 | age_numeric > 90, NA, age_numeric),
+    age_first_paid_numeric = suppressWarnings(as.numeric(age_first_paid)),
+    age_first_paid_numeric = ifelse(age_first_paid_numeric < 10 | age_first_paid_numeric > 90, NA, age_first_paid_numeric),
+    years_buying = age_numeric - age_first_paid_numeric,
+    years_buying = ifelse(years_buying < 0, NA, years_buying),
+    years_buying_3cat = factor(case_when(
+      years_buying <= 3 ~ 0,
+      years_buying > 3 & years_buying <= 9 ~ 1,
+      years_buying >= 10 ~ 2,
+      TRUE ~ NA_real_
+    ), levels = c(0, 1, 2), labels = c("0-3", "4-9", "10+"))
+  )
+
+summary(clients_2014_clean$age_numeric)
+summary(clients_2014_clean$years_buying)
+table(clients_2014_clean$years_buying_3cat, useNA = "ifany")
+
+# paid sex contacts per year and number of different FSWs paid in past 12 months
+table(clients_2014_clean$paid_sex_freq_12m, useNA = "ifany")
+
+paid_sex_freq_map_2014 <- c(
+  "Once"               = 1,
+  "Two to five times"  = 3.5,   # midpoint
+  "Six to ten times"   = 8,     # midpoint
+  "More than 10 times" = 15     # open-ended category, assumption
+)
+
+clients_2014_clean <- clients_2014_clean %>%
+  mutate(
+    paid_sex_contacts_12m = unname(paid_sex_freq_map_2014[paid_sex_freq_12m]),
+    fsw_partners_12m_numeric = suppressWarnings(as.numeric(fsw_partners_12m)),
+    fsw_partners_12m_numeric = ifelse(fsw_partners_12m_numeric %in% c(97, 98, 99, 997, 998, 999), NA, fsw_partners_12m_numeric),
+    acts_per_partner = paid_sex_contacts_12m / fsw_partners_12m_numeric
+  )
+
+summary(clients_2014_clean$paid_sex_contacts_12m)
+summary(clients_2014_clean$fsw_partners_12m_numeric)
+summary(clients_2014_clean$acts_per_partner)
+
+# condom at last sex with FSW
+clients_2014_clean <- clients_2014_clean %>%
+  mutate(
+    fsw_partner_condom_lastsex_bin = factor(case_when(
+      grepl("^No$", fsw_partner_condom_lastsex, ignore.case = TRUE) ~ 0,
+      grepl("^Yes$", fsw_partner_condom_lastsex, ignore.case = TRUE) ~ 1,
+      TRUE ~ NA_real_
+    ), levels = c(0, 1), labels = c("No", "Yes"))
+  )
+
+table(clients_2014_clean$fsw_partner_condom_lastsex, clients_2014_clean$fsw_partner_condom_lastsex_bin, useNA = "ifany")
+
+# HIV test result
+clients_2014_clean <- clients_2014_clean %>%
+  mutate(
+    hiv_test_rslt_bin = factor(case_when(
+      grepl("^Negative$", hiv_test_rslt, ignore.case = TRUE) ~ 0,
+      grepl("^Positive$", hiv_test_rslt, ignore.case = TRUE) ~ 1,
+      TRUE ~ NA_real_
+    ), levels = c(0, 1), labels = c("Negative", "Positive"))
+  )
+
+table(clients_2014_clean$hiv_test_rslt, clients_2014_clean$hiv_test_rslt_bin, useNA = "ifany")
+
+# currently on ART
+table(clients_2014_clean$art_current, useNA = "ifany")
+
+clients_2014_clean <- clients_2014_clean %>%
+  mutate(
+    art_current_bin = factor(case_when(
+      grepl("^No$", art_current, ignore.case = TRUE) ~ 0,
+      grepl("^Yes$", art_current, ignore.case = TRUE) ~ 1,
+      TRUE ~ NA_real_
+    ), levels = c(0, 1), labels = c("No", "Yes"))
+  )
+
+table(clients_2014_clean$art_current, clients_2014_clean$art_current_bin, useNA = "ifany")
+table(clients_2014_clean$hiv_test_rslt_bin, clients_2014_clean$art_current_bin, useNA = "ifany")
+
+# injected drugs in past 12 months (not asked if no drug use, so coded as not injecting)
+table(clients_2014_clean$drugs_12m, clients_2014_clean$idu_12m, useNA = "ifany")
+
+clients_2014_clean <- clients_2014_clean %>%
+  mutate(
+    idu_12m_bin = factor(case_when(
+      grepl("^Yes$", idu_12m, ignore.case = TRUE) ~ 1,
+      grepl("^No$", idu_12m, ignore.case = TRUE) ~ 0,
+      grepl("^No$", drugs_12m, ignore.case = TRUE) ~ 0,   # no drug use, not asked C3
+      TRUE ~ NA_real_
+    ), levels = c(0, 1), labels = c("No", "Yes"))
+  )
+
+table(clients_2014_clean$idu_12m_bin, useNA = "ifany")
+
+# save
+saveRDS(clients_2014_clean, "clients_2014_clean.rds")
+
+## combine client surveys
+clients_combined_clean <- bind_rows(
+  clients_2009_clean %>% mutate(across(c(age, age_first_paid, paid_sex_freq_12m, fsw_partners_12m), as.character)),
+  clients_2014_clean %>% mutate(across(c(age, age_first_paid, paid_sex_freq_12m, fsw_partners_12m), as.character)),
+  .id = "source"
+) %>%
+  mutate(year = ifelse(source == "1", 2009, 2014)) %>%
+  select(-source) %>%
+  relocate(year)
+
+table(clients_combined_clean$year, useNA = "ifany")
+table(clients_combined_clean$year, clients_combined_clean$hiv_test_rslt_bin, useNA = "ifany")
+table(clients_combined_clean$year, clients_combined_clean$fsw_partner_condom_lastsex_bin, useNA = "ifany")
+
+# proportion of clients injecting, and HIV prevalence by injecting status, by year
+table(clients_combined_clean$year, clients_combined_clean$idu_12m_bin, useNA = "ifany")
+
+clients_combined_clean %>%
+  filter(!is.na(idu_12m_bin), !is.na(hiv_test_rslt_bin)) %>%
+  group_by(year, idu_12m_bin) %>%
+  summarise(n = n(), prev = mean(hiv_test_rslt_bin == "Positive"), .groups = "drop")
+
+# save
+saveRDS(clients_combined_clean, "clients_combined_clean.rds")
+clients_combined_clean <- readRDS("clients_combined_clean.rds")

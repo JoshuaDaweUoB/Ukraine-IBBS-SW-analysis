@@ -152,16 +152,19 @@ t1_labels <- c("Underage" = "<18", "18-24" = "18–24", "25-34" = "25–34", "35
                "0-19" = "0–19", "20-49" = "20–49", "50+" = "≥50",
                "0-3" = "≤3 years", "4-9" = "4–9 years", "10+" = "≥10 years")
 
-# function for n (%) by survey year and overall
-t1_var <- function(var) {
-  lv <- c(levels(factor(t1_dat[[var]])), "Missing")
-  d  <- t1_dat %>%
+# build table 1, one variable at a time: n (%) by survey year and overall
+yr_levels <- c(sort(unique(as.character(t1_dat$year))), "Overall")
+table1 <- tibble()
+for (nm in names(t1_rows)) {
+  var <- t1_rows[[nm]]
+  lv  <- c(levels(factor(t1_dat[[var]])), "Missing")
+  d   <- t1_dat %>%
     mutate(year  = as.character(year),
            level = as.character(.data[[var]]),
            level = factor(if_else(is.na(level), "Missing", level), levels = lv))
 
-  bind_rows(d, d %>% mutate(year = "Overall")) %>%
-    mutate(year = factor(year, levels = c(sort(unique(as.character(t1_dat$year))), "Overall"))) %>%
+  tab <- bind_rows(d, d %>% mutate(year = "Overall")) %>%
+    mutate(year = factor(year, levels = yr_levels)) %>%
     count(year, level, .drop = FALSE) %>%
     group_by(year) %>%
     mutate(cell = sprintf("%s (%.1f)", formatC(n, big.mark = ",", format = "d"), 100 * n / sum(n))) %>%
@@ -169,12 +172,12 @@ t1_var <- function(var) {
     select(-n) %>%
     pivot_wider(names_from = year, values_from = cell) %>%
     mutate(level = as.character(level))
+
+  # variable name as a header row, then its categories
+  table1 <- bind_rows(table1, tibble(level = nm), tab)
 }
 
-# build table 1
-table1 <- bind_rows(lapply(names(t1_rows), function(nm) {
-  bind_rows(tibble(level = nm), t1_var(t1_rows[[nm]]))
-})) %>%
+table1 <- table1 %>%
   mutate(level = recode(level, !!!t1_labels)) %>%
   rename(Characteristic = level)
 
@@ -196,16 +199,11 @@ mediators <- c("idu_12m_bin", "violence_rape_ever_bin")
 covariates <- c("age_cat", "education_3cat", "alcohol_30d_bin",
                 "sw_partners_clients_30d_3cat", "years_in_sw_3cat", "year", "city")
 
-# convert yes/no variables to 0/1
-to01 <- function(x) {
-  if (is.numeric(x)) return(x)
-  ifelse(is.na(x), NA_integer_, as.integer(x %in% c("Yes", "Positive")))
-}
-
-# complete case data
+# complete case data, yes/no variables converted to 0/1
 dat <- sw_combined_clean %>%
   dplyr::select(all_of(c(outcome, exposure, mediators, covariates))) %>%
-  mutate(across(all_of(c(outcome, exposure, mediators)), to01)) %>%
+  mutate(across(all_of(c(outcome, exposure, mediators)),
+                ~ if_else(is.na(.x), NA_integer_, as.integer(.x %in% c("Yes", "Positive"))))) %>%
   drop_na() %>%
   mutate(across(all_of(covariates), ~ droplevels(as.factor(.x))))
 

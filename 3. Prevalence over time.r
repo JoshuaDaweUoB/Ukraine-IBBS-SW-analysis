@@ -2,7 +2,7 @@
 pacman::p_load(dplyr, tidyr, stringr, tibble, writexl, readxl, forcats, labelled, lubridate, broom, survival, ggplot2, scales, openxlsx, readr, magick)
 
 ## set wd
-setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/PhD Papers/Paper 3a - Ukraine Sex Work HIV/data/SW data")
+setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/PhD Chapter Writing/Chapter 6 - Ukraine FSWs IDU violence and HIV/data/SW data")
 
 # load data
 sw_combined_clean <- readRDS("sw_combined_clean.rds")
@@ -82,135 +82,6 @@ print(violence_table, n = Inf)
 
 # save
  write_xlsx(violence_table, "violence_by_underage_table.xlsx")
-
-# proportion of FSWs in each compartment
-sw_combined_clean <- sw_combined_clean[sw_combined_clean$idu_ever_bin != "Missing / Unknown", ]
-
-years_cats <- c("0-3", "4-9", "10+")
-
-for (i in years_cats) {
-
-# restrict to new SWs
-df <- sw_combined_clean %>%
-  filter(years_in_sw_3cat == i)
-
-table(df$years_in_sw_3cat)
-
-# Create contingency table
-tab <- table(df$idu_ever_bin, df$street_sw_bin)
-
-# Total N
-N <- sum(tab)
-
-# calculate proportions
-omega_nonIDU_nonSB <- tab["No", "No"] / N
-omega_nonIDU_SB    <- tab["No", "Yes"] / N
-omega_IDU_nonSB    <- tab["Yes", "No"] / N
-omega_IDU_SB       <- tab["Yes", "Yes"] / N
-
-omega <- c(
-  omega_nonIDU_nonSB = omega_nonIDU_nonSB,
-  omega_nonIDU_SB    = omega_nonIDU_SB,
-  omega_IDU_nonSB    = omega_IDU_nonSB,
-  omega_IDU_SB       = omega_IDU_SB
-)
-
-# results
-print(omega)
-}
-
-# years in SW 
-sw_combined_clean %>%
-  group_by(idu_ever_bin) %>%
-  summarise(
-    n = sum(!is.na(years_in_sw)),
-    mean = mean(years_in_sw, na.rm = TRUE),
-    median = median(years_in_sw, na.rm = TRUE),
-    sd = sd(years_in_sw, na.rm = TRUE),
-    var = var(years_in_sw, na.rm = TRUE),
-    min = min(years_in_sw, na.rm = TRUE),
-    max = max(years_in_sw, na.rm = TRUE),
-    .groups = "drop"
-  )
-
-## function to calculate exit rate
-exit_rate <- function(mean_years, var) {
-  1 / (mean_years + (var/mean_years))
-}
-
-## values
-idu_mean <- 9.3
-idu_var <- 35.9
-no_idu_mean <- 6.8
-no_idu_var <- 25.8
-
-## run function
-idu_exit <- exit_rate(idu_mean, idu_var)
-idu_exit
-no_idu_exit <- exit_rate(no_idu_mean, no_idu_var)
-no_idu_exit
-
-# rate of moving from younger to older FSW
-sw_combined_clean %>%
-  group_by(idu_ever_bin) %>%
-  summarise(
-    mean = mean(age_first_sw_numeric, na.rm = TRUE),
-    .groups = "drop")
-
-young_to_old <- function(age_first_sw) {
-  25 - age_first_sw
-}
-
-idu_mean <- 22.7
-non_idu_mean <- 21.6
-
-idu_yto <- young_to_old(idu_mean)
-idu_yto
-
-non_idu_yto <- young_to_old(non_idu_mean)
-non_idu_yto
-
-# years in SW 
-sw_combined_clean %>%
-  group_by(idu_ever_bin) %>%
-  summarise(
-    mean = mean(sw_partners_clients_30d, na.rm = TRUE),
-    .groups = "drop"
-  )
-
-## rate moving from non-NGO client to NGO clients
-
-# rate of ngo access by year
-sw_combined_clean <- sw_combined_clean %>%
-  mutate(
-    years_adj = ifelse(years_in_sw == 0, 0.5, years_in_sw),
-    ngo_ever = ifelse(ngo_client_lifetime_bin == "Yes", 1,
-                 ifelse(ngo_client_lifetime_bin == "No", 0, NA)),
-    rate_ngo = ngo_ever/years_adj,
-
-  )
-
-sw_combined_clean %>%
-  summarise(
-    p_ngo = mean(ngo_ever, na.rm = TRUE),
-    mean_years = mean(years_in_sw, na.rm = TRUE),
-    lambda_ngo = -log(1 - p_ngo) / mean_years,
-    )
-
-lambda_func <- function(p, years, var_p, var_years) {
-  
-  lambda <- -log(1 - p) / years
-  
-  var_lambda <- (1 / (years * (1 - p)))^2 * var_p +
-                (log(1 - p) / years^2)^2 * var_years  
-  
-  ci <- c(
-    lambda - 1.96 * sqrt(var_lambda),
-    lambda + 1.96 * sqrt(var_lambda)
-  )
-
-  return(list(lambda = lambda, ci = ci))
-}
 
 # factor
 sw_combined_clean <- sw_combined_clean %>%
@@ -1070,4 +941,3 @@ row1 <- image_append(c(img9, img10), stack = FALSE)
 row2 <- image_append(c(img11, img12), stack = FALSE)
 combined <- image_append(c(row1, row2), stack = TRUE)
 image_write(combined, "ngo_trend_plots/combined_hiv.png")
-

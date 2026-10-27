@@ -2237,3 +2237,402 @@ cross_results <- run_cross_sectional_mediation_screen(
 
 
 
+# load packages
+pacman::p_load(deSolve, dplyr, tidyr, ggplot2, scales)
+
+# set wd
+setwd("C:/Users/vl22683/OneDrive - University of Bristol/Documents/PhD Chapter Writing/Chapter 6 - Ukraine FSWs IDU violence and HIV/data/PWID data")
+
+# load data
+pwid <- read_excel("PWID_combined_clean_updated.xlsx")
+
+# restrict to fsw
+pwid_fsw <- pwid %>%
+  filter(sw_sell_90d_bin == 1, sex == 2)
+
+# tab out OAT
+table(pwid_fsw$oat_ever, useNA = "ifany")
+table(pwid_fsw$oat_12m, useNA = "ifany")
+table(pwid_fsw$oat_current, useNA = "ifany")
+
+# load raw data
+pwid_2009 <- read_excel("PWID_2009_eng_final.xlsx")
+pwid_2011 <- read_excel("PWID_2011_eng_final.xlsx")
+pwid_2013 <- read_excel("PWID_2013_eng_final.xlsx")
+pwid_2015 <- read_excel("PWID_2015_eng_final.xlsx")
+pwid_2017 <- read_excel("PWID_2017_eng_final.xlsx")
+pwid_2020 <- read_excel("2020 IBBS PWID_RDS_data.xlsx")
+
+# var names in dataframes
+pwid_list1 <- list(`2009` = pwid_2009, `2011` = pwid_2011, `2013` = pwid_2013)
+pwid_list2 <- list(`2015` = pwid_2015, `2017` = pwid_2017, `2020` = pwid_2020)
+
+for (y in names(pwid_list1)) {
+  cat("\n====", y, "====\n")
+  print(names(pwid_list1[[y]]))
+}
+
+for (y in names(pwid_list2)) {
+  cat("\n====", y, "====\n")
+  print(names(pwid_list2[[y]]))
+}
+
+# helpers
+num <- function(x) suppressWarnings(as.numeric(x))
+
+clean_num <- function(x) {
+  x <- num(x)
+  if_else(x < 0 | x >= 97, NA_real_, x)
+}
+
+sex_cat <- function(x) {
+  case_when(x %in% c(1, "1", "Ч") ~ 1,
+            x %in% c(2, "2", "Ж") ~ 2,
+            TRUE ~ NA_real_)
+}
+
+yes_no <- function(x, dk = NULL) {
+  x <- num(x)
+  case_when(x == 1 ~ "Yes",
+            x == 2 ~ "No",
+            x %in% dk ~ "Don't know",
+            TRUE ~ NA_character_)
+}
+
+sw_cat <- function(x, diff = 3, none = 97) {
+  x <- num(x)
+  case_when(x == 1 ~ "Yes",
+            x == 2 ~ "No",
+            x %in% diff ~ "Difficult to answer",
+            x %in% none ~ "No sexual contacts",
+            TRUE ~ NA_character_)
+}
+
+hiv_cat <- function(x) {
+  x <- num(x)
+  case_when(x == 1 ~ "Positive",
+            x == 2 ~ "Negative",
+            TRUE ~ NA_character_)
+}
+
+art_cat <- function(x, past, never) {
+  x <- num(x)
+  case_when(x == 1 ~ "Current",
+            x %in% past ~ "Past",
+            x %in% never ~ "Never",
+            TRUE ~ NA_character_)
+}
+
+city_labels <- c("Simferopol", "Vinnytsya", "Lutsk", "Dnipropetrovsk", "Donetsk", "Zhytomyr",
+                 "Uzhgorod", "Zaporizhzhya", "Ivano-Frankivsk", "Bila Tserkva", "Kyiv",
+                 "Kirovohrad", "Luhansk", "Lviv", "Mykolaiv", "Odesa", "Poltava", "Rivne",
+                 "Sumy", "Ternopil", "Kharkiv", "Kherson", "Khmelnytskyi", "Cherkasy",
+                 "Chernivtsi", "Chernigiv", "Fastiv", "Vasylkiv", "Sevastopol",
+                 "Kryvyi Rig", "Melitopol")
+
+city_old <- function(x) {
+  x <- num(x)
+  city_labels[if_else(x == 101, 29, x)]
+}
+
+city_new <- function(x) {
+  x <- num(x)
+  city_labels[case_when(x == 27 ~ 29, x == 29 ~ 27, x == 41 ~ 30, x == 81 ~ 31, TRUE ~ x)]
+}
+
+# 2009
+pwid_2009_clean <- pwid_2009 %>%
+  transmute(
+    year                    = 2009,
+    age                     = clean_num(p07),
+    sex                     = sex_cat(a01),
+    age_noninject           = clean_num(b02_1),
+    inject_freq_7d          = NA_real_,
+    inject_freq_30d         = NA_real_,
+    used_syringe_30d        = yes_no(b07, dk = 3),
+    sw_sell_90d             = case_when(num(c10) == 1 | num(c10_int) %in% 1:4 | num(c22_int) %in% 1:4 ~ "Yes",
+                                        num(c10_int) == 97 ~ "No",
+                                        num(c10_int) == 99 ~ "Difficult to answer",
+                                        TRUE ~ NA_character_),
+    hiv_test_ever           = yes_no(f06),
+    hiv_status              = hiv_cat(f12_1d),
+    art_use                 = NA_character_,
+    used_syringe_lastinject = NA_character_,
+    city                    = city_old(gorod),
+    syringes_12m            = NA_character_,
+    condoms_12m             = NA_character_
+  )
+
+# 2011
+pwid_2011_clean <- pwid_2011 %>%
+  transmute(
+    year                    = 2011,
+    age                     = clean_num(age),
+    sex                     = sex_cat(a01),
+    age_noninject           = clean_num(b02_1),
+    inject_freq_7d          = num(b03_2n),
+    inject_freq_30d         = num(b03_3n),
+    used_syringe_30d        = yes_no(b10, dk = 3),
+    sw_sell_90d             = sw_cat(c11, none = 97),
+    hiv_test_ever           = yes_no(g05),
+    hiv_status              = hiv_cat(g11_1),
+    art_use                 = art_cat(g13, past = 2, never = 3),
+    used_syringe_lastinject = yes_no(syringe),
+    city                    = city_old(gorod),
+    syringes_12m            = NA_character_,
+    condoms_12m             = NA_character_
+  )
+
+# 2013
+pwid_2013_clean <- pwid_2013 %>%
+  transmute(
+    year                    = 2013,
+    age                     = clean_num(p06),
+    sex                     = sex_cat(a01),
+    age_noninject           = NA_real_,
+    inject_freq_7d          = num(b03_2),
+    inject_freq_30d         = num(b03_3),
+    used_syringe_30d        = yes_no(b09, dk = 3),
+    sw_sell_90d             = sw_cat(c15, none = c(96, 97)),
+    hiv_test_ever           = yes_no(g05),
+    hiv_status              = hiv_cat(g11_1),
+    art_use                 = art_cat(g13, past = 2, never = 3),
+    used_syringe_lastinject = yes_no(syringe),
+    city                    = city_old(gorod),
+    syringes_12m            = yes_no(f05),
+    condoms_12m             = yes_no(f06)
+  )
+
+# 2015
+pwid_2015_clean <- pwid_2015 %>%
+  transmute(
+    year                    = 2015,
+    age                     = clean_num(p06_1),
+    sex                     = sex_cat(a01),
+    age_noninject           = clean_num(b02_1),
+    inject_freq_7d          = clean_num(b03_2),
+    inject_freq_30d         = clean_num(b03_3),
+    used_syringe_30d        = yes_no(b10n, dk = -99),
+    sw_sell_90d             = sw_cat(C15, diff = -99, none = -999),
+    hiv_test_ever           = yes_no(g05),
+    hiv_status              = hiv_cat(G11_1),
+    art_use                 = art_cat(G14, past = 3, never = c(2, 4)),
+    used_syringe_lastinject = yes_no(b09),
+    city                    = city_new(City),
+    syringes_12m            = yes_no(f05),
+    condoms_12m             = yes_no(f06)
+  )
+
+# 2017
+pwid_2017_clean <- pwid_2017 %>%
+  transmute(
+    year                    = 2017,
+    age                     = clean_num(age),
+    sex                     = sex_cat(sex),
+    age_noninject           = clean_num(B02_1),
+    inject_freq_7d          = num(B03_2),
+    inject_freq_30d         = num(B03_3),
+    used_syringe_30d        = yes_no(B10, dk = 3),
+    sw_sell_90d             = sw_cat(C15, none = 97),
+    hiv_test_ever           = yes_no(G04_Ever_tested),
+    hiv_status              = hiv_cat(G11_1_Know_HIV),
+    art_use                 = art_cat(G14_Art, past = 3, never = c(2, 4)),
+    used_syringe_lastinject = yes_no(B09),
+    city                    = city_new(City),
+    syringes_12m            = yes_no(F03_2_1),
+    condoms_12m             = yes_no(F03_2_2)
+  )
+
+# 2020
+find_col <- function(df, pattern) {
+  p <- sub("^\\^", "^\\\\s*", pattern)
+  p <- gsub("A", "[AА]", p, fixed = TRUE)
+  p <- gsub("B", "[BВ]", p, fixed = TRUE)
+  p <- gsub("C", "[CС]", p, fixed = TRUE)
+  p <- gsub("I", "[IІ]", p, fixed = TRUE)
+  hit <- grep(p, names(df), value = TRUE)
+  if (length(hit) != 1) {
+    message(pattern, " matched ", length(hit), " columns")
+    return(NA_character_)
+  }
+  hit
+}
+
+cols_2020 <- c(
+  age                     = "^A6\\.",
+  sex                     = "^A7\\.",
+  city                    = "^City$",
+  age_noninject           = "try non-injectable drugs for the first time",
+  inject_freq_7d          = "^B6_3\\.",
+  inject_freq_30d         = "^B6_5\\.",
+  used_syringe_lastinject = "^B14\\.",
+  used_syringe_30d        = "^B16\\.",
+  sw_sell_30d_num         = "^C11\\..*who remunerated you",
+  hiv_test_ever           = "^I3\\.",
+  hiv_status              = "^I10\\.",
+  art_use                 = "^I13\\.",
+  syringes_12m            = "^F5\\..*Sterile",
+  condoms_12m             = "^F5\\..*Condoms"
+)
+
+matched <- sapply(cols_2020, find_col, df = pwid_2020)
+matched
+
+pwid_2020_raw <- pwid_2020 %>%
+  select(all_of(matched))
+
+for (v in c("sex", "city", "used_syringe_lastinject", "used_syringe_30d", "sw_sell_30d_num",
+            "hiv_test_ever", "hiv_status", "art_use", "syringes_12m", "condoms_12m")) {
+  cat("\n--", v, "--\n")
+  print(table(pwid_2020_raw[[v]], useNA = "ifany"))
+}
+
+# oat in 2020
+
+oat_2020 <- oat_2020 %>%
+  mutate(
+    oat_ever = case_when(
+      startsWith(oat_ever, "Yes") ~ "Yes",
+      startsWith(oat_ever, "No")  ~ "No",
+      TRUE ~ NA_character_),
+    oat_12m = case_when(
+      oat_12m == "Yes" ~ "Yes",
+      oat_12m == "No"  ~ "No",
+      TRUE ~ NA_character_),
+    oat_current = case_when(
+      oat_current == "Yes" ~ "Yes",
+      oat_current == "No"  ~ "No",
+      TRUE ~ NA_character_)
+  )
+
+k6_no <- startsWith(k6, "No") | startsWith(k6, "Don")
+
+oat_2020 <- oat_2020 %>%
+  mutate(across(c(oat_ever, oat_12m, oat_current),
+                ~ if_else(is.na(.x) & k6_no %in% TRUE, "No", .x)))
+
+
+table(oat_2020$oat_ever, useNA = "ifany")
+table(oat_2020$oat_12m, useNA = "ifany")
+table(oat_2020$oat_current, useNA = "ifany")
+
+pwid_clean <- bind_rows(pwid_2009_clean, pwid_2011_clean, pwid_2013_clean,
+                        pwid_2015_clean, pwid_2017_clean) %>%
+  mutate(
+    sw_sell_90d_bin      = case_when(sw_sell_90d == "Yes" ~ 1, sw_sell_90d == "No" ~ 0),
+    used_syringe_30d_bin = case_when(used_syringe_30d == "Yes" ~ 1, used_syringe_30d == "No" ~ 0),
+    art_use_bin          = case_when(art_use == "Current" ~ 1, art_use %in% c("Past", "Never") ~ 0)
+  )
+
+table(pwid_clean$year, pwid_clean$sw_sell_90d_bin, useNA = "ifany")
+
+# oat in other years
+pwid_2011_clean <- pwid_2011_clean %>%
+  mutate(oat_ever    = yes_no(pwid_2011$f11),
+         oat_12m     = NA_character_,
+         oat_current = NA_character_)
+
+pwid_2013_clean <- pwid_2013_clean %>%
+  mutate(oat_ever    = yes_no(pwid_2013$f09),
+         oat_12m     = NA_character_,
+         oat_current = NA_character_)
+
+pwid_2015_clean <- pwid_2015_clean %>%
+  mutate(oat_ever    = yes_no(pwid_2015$F13),
+         oat_12m     = if_else(num(pwid_2015$F13) %in% 2, "No", yes_no(pwid_2015$F14)),
+         oat_current = if_else(num(pwid_2015$F13) %in% 2, "No", yes_no(pwid_2015$F15)))
+
+pwid_2017_clean <- pwid_2017_clean %>%
+  mutate(oat_ever    = yes_no(pwid_2017$F11),
+         oat_12m     = if_else(num(pwid_2017$F11) %in% 2, "No", yes_no(pwid_2017$F12)),
+         oat_current = if_else(num(pwid_2017$F11) %in% 2, "No", yes_no(pwid_2017$F13)))
+
+
+# 2020
+sex_2020 <- pwid_2020[[find_col(pwid_2020, "^A7\\.")]]
+c11_2020 <- num(pwid_2020[[find_col(pwid_2020, "^C11\\..*who remunerated you")]])
+
+pwid_2020_clean <- tibble(
+  year        = 2020,
+  sex         = case_when(sex_2020 %in% c(1, "1", "Ч") | grepl("^(m|ч)", sex_2020, ignore.case = TRUE) ~ 1,
+                          sex_2020 %in% c(2, "2", "Ж") | grepl("^(f|ж)", sex_2020, ignore.case = TRUE) ~ 2),
+  sw_sell_90d = case_when(c11_2020 > 0 ~ "Yes", c11_2020 == 0 ~ "No"),
+  oat_ever    = oat_2020$oat_ever,
+  oat_12m     = oat_2020$oat_12m,
+  oat_current = oat_2020$oat_current
+)
+
+# oat in 2020
+oat_2020 <- pwid_2020 %>%
+  transmute(
+    oat_ever    = .data[[find_col(pwid_2020, "^K8\\.")]],
+    oat_12m     = .data[[find_col(pwid_2020, "^K10\\.")]],
+    oat_current = .data[[find_col(pwid_2020, "^K11\\.")]]
+  ) %>%
+  mutate(
+    oat_ever    = case_when(startsWith(oat_ever, "Yes") ~ "Yes",
+                            startsWith(oat_ever, "No")  ~ "No"),
+    oat_12m     = case_when(oat_12m == "Yes" ~ "Yes", oat_12m == "No" ~ "No"),
+    oat_current = case_when(oat_current == "Yes" ~ "Yes", oat_current == "No" ~ "No")
+  )
+
+k6    <- pwid_2020[[find_col(pwid_2020, "^K6\\.")]]
+k6_no <- startsWith(k6, "No") | startsWith(k6, "Don")
+
+oat_2020 <- oat_2020 %>%
+  mutate(across(c(oat_ever, oat_12m, oat_current),
+                ~ if_else(is.na(.x) & k6_no %in% TRUE, "No", .x)))
+
+# 2020 clean
+sex_2020 <- pwid_2020[[find_col(pwid_2020, "^A7\\.")]]
+c11_2020 <- num(pwid_2020[[find_col(pwid_2020, "^C11\\..*who remunerated you")]])
+
+pwid_2020_clean <- tibble(
+  year        = 2020,
+  sex         = case_when(sex_2020 %in% c(1, "1", "Ч") | grepl("^(m|ч)", sex_2020, ignore.case = TRUE) ~ 1,
+                          sex_2020 %in% c(2, "2", "Ж") | grepl("^(f|ж)", sex_2020, ignore.case = TRUE) ~ 2),
+  sw_sell_90d = case_when(c11_2020 > 0 ~ "Yes", c11_2020 == 0 ~ "No"),
+  oat_ever    = oat_2020$oat_ever,
+  oat_12m     = oat_2020$oat_12m,
+  oat_current = oat_2020$oat_current
+)
+
+# 2020
+sex_2020 <- pwid_2020[[find_col(pwid_2020, "^A7\\.")]]
+c11_2020 <- num(pwid_2020[[find_col(pwid_2020, "^C11\\..*who remunerated you")]])
+
+pwid_2020_clean <- tibble(
+  year        = 2020,
+  sex         = case_when(sex_2020 %in% c(1, "1", "Ч") | grepl("^(m|ч)", sex_2020, ignore.case = TRUE) ~ 1,
+                          sex_2020 %in% c(2, "2", "Ж") | grepl("^(f|ж)", sex_2020, ignore.case = TRUE) ~ 2),
+  sw_sell_90d = case_when(c11_2020 > 0 ~ "Yes", c11_2020 == 0 ~ "No"),
+  oat_ever    = oat_2020$oat_ever,
+  oat_12m     = oat_2020$oat_12m,
+  oat_current = oat_2020$oat_current
+)
+
+# combine and restrict to women who sell sex
+pwid_all <- bind_rows(pwid_2011_clean, pwid_2013_clean, pwid_2015_clean,
+                      pwid_2017_clean, pwid_2020_clean) %>%
+  mutate(sw_sell_90d_bin = case_when(sw_sell_90d == "Yes" ~ 1, sw_sell_90d == "No" ~ 0))
+
+pwid_fsw <- pwid_all %>%
+  filter(sex == 2, sw_sell_90d_bin == 1)
+
+table(pwid_fsw$year)
+
+# oat by year and overall
+oat_tab <- function(var) {
+  by_year <- pwid_fsw %>%
+    filter(!is.na(.data[[var]])) %>%
+    group_by(year = as.character(year)) %>%
+    summarise(n = n(), yes = sum(.data[[var]] == "Yes"), .groups = "drop")
+  overall <- by_year %>%
+    summarise(year = "Overall", n = sum(n), yes = sum(yes))
+  bind_rows(by_year, overall) %>%
+    mutate(pct = round(100 * yes / n, 1))
+}
+
+oat_tab("oat_ever")
+oat_tab("oat_12m")
+oat_tab("oat_current")
