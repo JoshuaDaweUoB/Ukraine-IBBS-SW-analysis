@@ -109,6 +109,37 @@ table(sw_data_2008_clean$idu_12m_bin)
 # load 2009 data
 sw_data_2009_raw <- read_excel("2009_IBBS_FSW_TLS AND RDS_Data.xlsx")
 
+# work out what is happening with idu variable
+names(sw_data_2009_raw)
+table(sw_data_2009_raw$`С2. Some people try to use various drugs. Do you use any drugs?`)
+table(sw_data_2009_raw$`С3.1.2 Drugs taken in the past 30 days? Heroin`,
+      !is.na(sw_data_2009_raw$`С3.2.2 Drugs taken via injection in the past 30 days? Heroin`),
+      useNA = "ifany")
+table(sw_data_2009_raw$`С3.2.2 Drugs taken via injection in the past 30 days? Heroin`)
+table(sw_data_2009_raw$`С3.3.2 Drugs taken in the past 12 months? Heroin`)
+
+# per-drug columns
+inj_30d_cols <- grep("3\\.2\\.\\d+ Drugs taken via injection in the past 30 days", names(sw_data_2009_raw), value = TRUE)
+use_30d_cols <- grep("3\\.1\\.\\d+ Drugs taken in the past 30 days", names(sw_data_2009_raw), value = TRUE)
+drug_use_col <- grep("2\\. Some people try to use various drugs", names(sw_data_2009_raw), value = TRUE)
+
+# injected any drug in the past 30 days
+sw_data_2009_raw <- sw_data_2009_raw %>%
+  mutate(
+    inj_30d_yes = rowSums(across(all_of(inj_30d_cols), ~ .x %in% "Yes")) > 0,
+    inj_30d_dk  = rowSums(across(all_of(c(inj_30d_cols, use_30d_cols)), ~ .x %in% "Difficult to answer")) > 0,
+    idu_30d_2009 = case_when(
+      inj_30d_yes                                         ~ "Yes",   # injected at least one drug
+      .data[[drug_use_col]] %in% "Difficult to answer"    ~ NA_character_,
+      inj_30d_dk                                          ~ NA_character_,   # unsure about use or injection of a drug, none injected
+      TRUE                                                ~ "No"     # no drug use, or used but did not inject
+    )
+  ) %>%
+  select(-inj_30d_yes, -inj_30d_dk)
+
+# checks
+table(sw_data_2009_raw$idu_30d_2009, useNA = "ifany")
+
 # derive volume variables
 sw_data_2009_raw <- sw_data_2009_raw %>%
   mutate(
@@ -170,6 +201,7 @@ rename_map_2009 <- c(
   cas_partner_condom_lastsex = "В13. Remember your last sexual contact with a CASUAL partner from whom you RECEIVED NO FEE. Did you use a condom?",
   perm_partner_condom_30d = "В18.2 Think again about events of the LAST 30 DAYS. Did you have a case of NOT using a condom with a PERMANENT PARTNER?",
   cas_partner_condom_30d = "В20.2 Think again about events of the LAST 30 DAYS. Did you have a case of NOT using a condom with CASUAL PARTNERS?",
+  client_inject_12m = "В10.2 DID you happen to provide sexual services IN THE LAST 12 MONTHS to:... Injecting Drugs Users",
   ngo_client_lifetime = "D3.1 Are you a client of any public organization (have a card or an individual code) that works with female sex workers or injecting drug users?",
   typology_primary_6m = "А14.2 Please, tell me, which of the ways to find clients you indicated is the primary one for you?",
   aids_center_bin = "F14. Please tell if you are registered with an AIDS center?",
@@ -177,6 +209,7 @@ rename_map_2009 <- c(
   ngo_condom_12m = "D5. What help or services did you receive from NGOs in the LAST 12 MONTHS? Obtaining condoms",
   alcohol_30d_num = "С1. How often did you use alcohol in the LAST MONTH [30 days]?",
   drugs_30d_bin = "С2. Some people try to use various drugs. Do you use any drugs?",
+  idu_12m_bin = "idu_30d_2009",   # 2009: injected any drug in past 30 days (no 12-month question)
   used_syringe_last = "С4. Did you use common injection equipment (syringe or needle already used by someone) during your MOST RECENT INJECTION?",
   hiv_tested_lifetime = "F6. I don’t ask you about the result but I want to ask if you underwent HIV testing?",
   hiv_tested_12m = "F8. Let’s specify if that was during the RECENT 12 MONTHS?",
@@ -234,6 +267,13 @@ table(sw_data_2009_clean$used_syringe_last, useNA = "ifany")
 # load 2011 data
 sw_data_2011_raw <- read_excel("2011_IBBS_FSW_TLS AND RDS_Data.xlsx")
 
+# work out what is happening with idu variable
+d <- sw_data_2011_raw
+table(d[["C3.2.2 Have you used drugs by injection in the last 12 months?"]],
+      !is.na(d[["С4.1 Did you use common injection equipment (syringe or needle already used by someone) during your MOST RECENT INJECTION?"]]),
+      useNA = "ifany")
+grep("inject|syringe|needle", names(d), value = TRUE, ignore.case = TRUE)
+
 # derive volume variables
 sw_data_2011_raw <- sw_data_2011_raw %>%
   mutate(
@@ -289,6 +329,7 @@ rename_map_2011 <- c(
   sw_partners_total_30d = "sw_partners_total_30d",
   partners_sw_24h = "В5. How many different CLIENTS whom you provided sexual services for a fee did you have FOR THE LAST WORKING DAY (24 HOURS)?",
   partners_age_6m = "В3.Б2. Among the age groups you indicated, representatives of which one have you met most often?",
+  client_inject_12m = "В10.2 DID you happen to provide sexual services IN THE LAST 12 MONTHS to: Injecting Drugs Users",
   client_condom_lastsex = "В6.1 Remember your sexual contact with your MOST RECENT CLIENT. Did you use a condom?",
   perm_partner_condom_lastsex = "В13. Remember your last sexual contact with a PERMANENT partner from whom you RECEIVED NO FEE. Did you use a condom?",
   cas_partner_condom_lastsex = "В17. Remember your last sexual contact with CASUAL partner from whom you RECEIVED NO FEE. Did you use a condom?",
@@ -386,6 +427,16 @@ table(sw_data_2011_clean$hiv_status_selfreport, useNA = "ifany")
 # load 2013 data
 sw_data_2013_raw <- read_excel("2013_IBBS_FSW_TLS AND RDS_Data.xlsx")
 
+# work out idu variables
+d <- sw_data_2013_raw
+
+table(d[["С3. Have you injected drugs (withthesyringe) in the last 12 months?"]],
+      d[["С4.2. Did you inject a drug with the injecting equipment (syringe, needle) previously used by another person or drugs that were prepared in the common pot or you don’t know how the syringe has been filled?"]],
+      useNA = "ifany")
+
+
+grep("inject|syringe|needle", names(d), value = TRUE, ignore.case = TRUE)
+
 # derive volume variables
 sw_data_2013_raw <- sw_data_2013_raw %>%
   mutate(
@@ -477,8 +528,9 @@ rename_map_2013 <- c(
   perm_partner_condom_lastsex = "В15. Remember your last sexual contact with a PERMANENT partner from whom you received no remuneration. Did you used a condom?",
   perm_client_condom_lastsex = "В12. Remember your last sexual contact with a PERMANENT CLIENT. Did you or your partner use a condom?",
   cas_partner_condom_lastsex = "В21.Remember your last sexual contact with a CASUAL partner from whom you received no remuneration. Did you used a condom?",
+  client_inject_30d = "В28_2 Did you happen to provide sexual services during the last month (30 days) to....Injecting Drugs Users",
   group_sex_30d = "В30. Have you practiced GROUP SEX in the last 30 days?",
-  condom_access_12m = "D2. Did you receive condoms free of charge in the LAST 12 MONTHS (e.g. in NGOs, counseling centers, centers of social services for family, children and youth, during actions, etc.)?",
+condom_access_12m = "D2. Did you receive condoms free of charge in the LAST 12 MONTHS (e.g. in NGOs, counseling centers, centers of social services for family, children and youth, during actions, etc.)?",
   typology_primary_30d = "B3.7 . Please tell me, among the following ways to find your clients what is the PRIMARY for you?",
   aids_center_bin = "G14. Please say if you are registered in the AIDS centre?",
   alcohol_30d_num = "С1. How often did you use alcohol or Alco pops in the LAST MONTH [30 days]?",
@@ -538,6 +590,17 @@ table(sw_data_2013_clean$idu_12m_bin)
 
 # load 2015 data
 sw_data_2015_raw <- read_excel("2015_IBBS_SW_TLS AND RDS_Data.xlsx")
+
+# work out idu variables
+d <- sw_data_2015_raw
+
+table(d[["С3. Have you injected drugs (with the syringe) in the last 12 months?"]],
+      d[["С4.2. Did you used sterile syringe and needle when you last injected drug?"]],
+      useNA = "ifany")
+
+grep("inject|syringe|needle", names(d), value = TRUE, ignore.case = TRUE)
+
+grep("^.2", names(d), value = TRUE)
 
 # derive volume variables
 sw_data_2015_raw <- sw_data_2015_raw %>%
@@ -636,6 +699,7 @@ rename_map_2015 <- c(
   client_condom_lastsex = "В6.1. Remember your sexual contact with your LAST CLIENT. Did you use a condom?",
   perm_partner_condom_lastsex = "В15. Remember your last sexual contact with a PERMANENT partner from whom you received no remuneration. Did you used a condom?",
   cas_partner_condom_lastsex = "В21. Remember your last sexual contact with a CASUAL partner from whom you received no remuneration. Did you used a condom?",
+  client_inject_30d = "В28_2 Did you happen to provide sexual services during the last month (30 days) to...Injection drug users",
   group_sex_30d = "В30.Have you practiced GROUP SEX in the last 30 days?",
   condom_access_12m = "D2. Did you receive condoms free of charge in the LAST 12 MONTHS (e.g. in NGOs, counseling centers, centers of social services for family, children and youth, during actions, etc.)?",
   typology_primary_30d = "B3.7 . Please tell me , among the following ways to find your clients what is the PRIMARY for you?",
@@ -787,6 +851,7 @@ rename_map_2017 <- c(
   sw_partners_total_7d = "sw_partners_total_7d",
   sw_partners_total_30d = "sw_partners_total_30d",
   partners_age_30d = "В3.4. Among the age groups you indicated, representatives of which one have you met most often in the LAST month (30 days)?",
+  client_inject_30d = "В3.5_2 Have your clients during the LAST month (30 month) were… Injection drug users",
   client_condom_lastsex = "В8. Remember your sexual contact with your LAST CLIENT. Did you use a condom?",
   client_condom_bin_7d = "B14. Think about your LAST WORKING WEEK (7 days), when you provided sexual services for remuneration. Were there cases of not using a condom?",
   perm_partner_condom_lastsex = "В19. Remember your last sexual contact with a PERMANENT partner from whom you received no remuneration. Did you used a condom?",
@@ -967,6 +1032,7 @@ rename_map_2021 <- c(
   sw_partners_total_30d = "sw_partners_total_30d",  
   partners_sw_24h = "b22 How many different clients have you had for the past working day (24 hours)?",
   partners_age_30d = "b7 Among the representatives of age groups indicated by you, whom you come across most often in the last month (30 days)?",
+  client_inject_30d = "b8_2 Did you happen to provide services in the last 30 days to - Injecting drug users",
   client_condom_lastsex = "b24 Did you use condom during the last sex or not?",
   group_sex_30d = "b42 Have you had sex with several partners at once (group sex) in the last month (30 days)?",
   condom_access_12m = "f1_1 Have you received condoms for free (from a representative of NGO, a medical worker, in nightclubs, at parties, etc.) In 12 months",
@@ -979,6 +1045,7 @@ rename_map_2021 <- c(
   ngo_condom_12m = "f6_1 Have you received following free items, from NGO or social worker within the last 12 months? - Male condoms",
   ngo_condom_female_12m = "f7_2 Have you received following free items, from NGO or social worker within the last 30 days? - Female condoms",
   ngo_syringe_12m = "f6_10 Have you received following free items, from NGO or social worker within the last 12 months? - Sterile needles/syringes",
+  syringe_need_30d ="e2_2 In the past 30 days, did you need  …. Clean syringes/needles",
   age_inject = "c10_2 At what age did you try injectable drugs  for the first time",
   mental_health = "g0 PHQ9 level",
   anxiety = "g1 GAD7 level",
@@ -1142,18 +1209,22 @@ sw_combined_raw <- readRDS("sw_combined_raw.rds")
 year_map <- c("1"=2008,"2"=2009,"3"=2011,"4"=2013,"5"=2015,"6"=2017,"7"=2021)
 sw_combined_raw$year <- year_map[sw_combined_raw$source_year]
 
+# FSW services to clients who inject, levels by year
+table(sw_combined_raw$year, sw_combined_raw$client_inject_12m, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$client_inject_30d, useNA = "ifany")
 
 ## injecting drug use
 
-# keep raw answers, as idu_12m_bin and idu_ever_bin are overwritten with cleaned versions below
-# idu_ever_bin is only asked in 2021, where idu_12m_bin was copied from it on loading
+# idu
 if (!"idu_12m_raw" %in% names(sw_combined_raw)) {
   sw_combined_raw <- sw_combined_raw %>%
-    mutate(idu_12m_raw  = idu_12m_bin,
-           idu_ever_raw = idu_ever_bin)
+    mutate(idu_12m_raw  = idu_12m_bin, # make raw var
+           idu_ever_raw = idu_ever_bin) # make raw var
 }
 
 # answers to injecting question (idu_12m_raw)
+table(sw_combined_raw$idu_12m_raw, sw_combined_raw$year, useNA = "ifany")
+
 idu_current <- c(
   "Yes",
   "Yes, I have used during last 12 months (not last 30 days)",
@@ -1161,13 +1232,17 @@ idu_current <- c(
   "Yes, I have been using them for the last 30 days",
   "Так, я вживав/ла протягом останніх 12 місяців (але не протягом 30 днів)"
 )
+
 idu_past <- c(
   "Used in the past, but not in the last 12 months",
   "Yes, I have used more than 12 months ago",
   "Yes, I used it, but more than 12 months ago"
 )
+
 idu_never   <- c("Never used", "Never used or never even tried")
+
 idu_not_12m <- "No"   # 2008, 2011-2015: not in past 12 months, assumed never injected
+
 idu_missing <- c(
   "Difficult to answer", "Difficult to answer/don’t remember", "Difficult to say",
   "Don't know/don't remember", "No answer", "Refusal to answer", "Refuse to answer"
@@ -1230,9 +1305,23 @@ sw_combined_raw <- sw_combined_raw %>%
     ), levels = 0:1, labels = c("No", "Yes"))
   )
 
-## shared injecting equipment at last injection
-# 2008-2013 asked about using shared equipment; 2015-2021 asked about using sterile equipment
-# (different question, different groups asked, and no "No" answers in 2017), so set to NA for 2015-2021
+# idu three levels for modelling
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(
+    idu_status_3cat = factor(case_when(
+      year %in% c(2009, 2011, 2013, 2015)                   ~ NA_character_,   # never and former not distinguishable
+      idu_12m_bin == "Yes"                                  ~ "Current",
+      idu_ever_bin == "Yes" & idu_12m_bin == "No"           ~ "Former",
+      idu_ever_bin == "No"                                  ~ "Never",
+      TRUE                                                  ~ NA_character_
+    ), levels = c("Never", "Current", "Former"))
+  )
+
+table(sw_combined_raw$year, sw_combined_raw$idu_status_3cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$idu_12m_bin, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$idu_ever_bin, useNA = "ifany")
+
+# shared injecting equipment at last injection
 syringe_yes     <- c("Yes", "Yes, I did")
 syringe_no      <- c("No", "No, I did not", "Never")
 syringe_missing <- c("No answer", "I don't know how the syringe was filled", "Don’t remember",
@@ -1346,7 +1435,6 @@ sw_combined_raw <- sw_combined_raw %>%
     ), levels = 0:1, labels = c("No", "Yes"))
   )
 
-
 # relevel education
 sw_combined_raw <- sw_combined_raw %>%
   mutate(
@@ -1401,11 +1489,11 @@ sw_combined_raw <- sw_combined_raw %>%
       TRUE ~ NA_real_
     ), levels = c(0, 1), labels = c("No", "Yes")),
     years_in_sw_3cat = factor(case_when(
-      years_in_sw <= 3 ~ 0,
-      years_in_sw > 3 & years_in_sw <= 9 ~ 1,
+      years_in_sw <= 2 ~ 0,
+      years_in_sw > 2 & years_in_sw <= 9 ~ 1,
       years_in_sw >= 10 ~ 2,
       TRUE ~ NA_real_
-    ), levels = c(0, 1, 2), labels = c("0-3", "4-9", "10+")),
+    ), levels = c(0, 1, 2), labels = c("0-2", "3-9", "10+")),
     age_first_sex_cat = factor(case_when(
       age_first_sex_numeric < 18 ~ 0,
       age_first_sex_numeric >= 18 & age_first_sex_numeric <= 24 ~ 1,
@@ -2165,6 +2253,26 @@ table(sw_combined_raw$art_current[sw_combined_raw$year == 2013],
 
 table(sw_combined_raw$year, sw_combined_raw$art_current_3cat, useNA = "ifany")
 
+# services to clients who inject
+sw_combined_raw <- sw_combined_raw %>%
+  mutate(across(
+    c(client_inject_12m, client_inject_30d),
+    ~ factor(
+      case_when(
+        grepl("^No$", .x, ignore.case = TRUE) ~ 0,
+        grepl("^Yes$", .x, ignore.case = TRUE) ~ 1,
+        grepl("know|Difficult|No answer|Refusal", .x, ignore.case = TRUE) ~ 2,  # includes refusals
+        TRUE ~ NA_real_
+      ),
+      levels = c(0, 1, 2),
+      labels = c("No", "Yes", "Don't know / no answer")
+    ),
+    .names = "{.col}_3cat"
+  ))
+
+table(sw_combined_raw$year, sw_combined_raw$client_inject_12m_3cat, useNA = "ifany")
+table(sw_combined_raw$year, sw_combined_raw$client_inject_30d_3cat, useNA = "ifany")
+
 # violence variables
 table(sw_combined_raw$year, sw_combined_raw$violence_any_ever, useNA = "ifany")
 
@@ -2473,6 +2581,10 @@ saveRDS(sw_combined_raw, "sw_combined_clean.rds")
 
 clients_2009_raw <- read_excel("2009_FSW clients_Data.xlsx")
 
+# idu
+table(clients_2009_raw[["C3. Some people try to use drugs that are injected with a syringe. Have you used injectable drugs in the last 12 months?"]], useNA = "ifany")
+grep("inject|syringe|needle", names(clients_2009_raw), value = TRUE, ignore.case = TRUE)
+
 # variables to rename
 rename_map_clients_2009 <- c(
   age = "A1. Your age: ____ years",
@@ -2600,6 +2712,10 @@ saveRDS(clients_2009_clean, "clients_2009_clean.rds")
 
 clients_2014_raw <- read_excel("2014_FSW clients_Data.xlsx")
 
+# idu
+table(clients_2014_raw[[rename_map_clients_2014[["idu_12m"]]]], useNA = "ifany")
+grep("inject|syringe|needle", names(clients_2014_raw), value = TRUE, ignore.case = TRUE)
+
 # find columns by question number (each must match exactly one column)
 find_col <- function(df, pattern) {
   col <- grep(pattern, names(df), value = TRUE)
@@ -2618,6 +2734,7 @@ rename_map_clients_2014 <- c(
   art_current                = find_col(clients_2014_raw, "^E11\\."),
   idu_12m                    = find_col(clients_2014_raw, "^C3\\."),
   drugs_12m                  = find_col(clients_2014_raw, "^C2\\."),
+  paid_fsw_inject_12m        = find_col(clients_2014_raw, "^C7\\..*Women for commercial sex.*injectable drugs"),
   weight_city                = find_col(clients_2014_raw, "(?i)weight for cities"),
   weight_total               = find_col(clients_2014_raw, "(?i)weight for total")
 )
@@ -2708,6 +2825,7 @@ clients_2014_clean <- clients_2014_clean %>%
     art_current_bin = factor(case_when(
       grepl("^No$", art_current, ignore.case = TRUE) ~ 0,
       grepl("^Yes$", art_current, ignore.case = TRUE) ~ 1,
+      art_current == "No question asked" & hiv_test_rslt_bin == "Positive" ~ 0,  # tested HIV-positive but not asked (unaware of status), assumed not on ART
       TRUE ~ NA_real_
     ), levels = c(0, 1), labels = c("No", "Yes"))
   )

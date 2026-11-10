@@ -125,8 +125,9 @@ sw_combined_clean <- sw_combined_clean %>%
 
 # table 1 characteristics by survey year
 
-# whole sample from the 2013 to 2021 survey rounds
-t1_dat <- sw_combined_clean
+# whole sample from the 2013 to 2021 survey rounds, excluding FSWs with 0 years in sex work (missing duration kept)
+t1_dat <- sw_combined_clean %>%
+  filter(is.na(years_in_sw) | years_in_sw >= 1)
 
 # sample size by survey year and overall
 t1_n <- t1_dat %>% count(year)
@@ -150,7 +151,7 @@ t1_labels <- c("Underage" = "<18", "18-24" = "18–24", "25-34" = "25–34", "35
                "Negative" = "No", "Positive" = "Yes",
                "Primary" = "Primary education", "Secondary" = "Secondary education", "Higher" = "Higher education",
                "0-19" = "0–19", "20-49" = "20–49", "50+" = "≥50",
-               "0-3" = "≤3 years", "4-9" = "4–9 years", "10+" = "≥10 years")
+               "0-2" = "≤2 years", "3-9" = "3–9 years", "10+" = "≥10 years")
 
 # build table 1, one variable at a time: n (%) by survey year and overall
 yr_levels <- c(sort(unique(as.character(t1_dat$year))), "Overall")
@@ -187,6 +188,12 @@ names(table1)[names(table1) == "Overall"] <- sprintf("Overall (N=%s)", formatC(n
 names(table1) <- sub("^2017 ", "2017/18 ", names(table1))
 table1
 
+nrow(sw_combined_clean)
+nrow(t1_dat)
+nrow(sw_combined_clean)
+nrow(t1_dat)
+sum(sw_combined_clean$years_in_sw == 0, na.rm = TRUE)
+
 # save table 1
 openxlsx::write.xlsx(table1, "table1_characteristics.xlsx")
 
@@ -201,10 +208,13 @@ covariates <- c("age_cat", "education_3cat", "alcohol_30d_bin",
 
 # complete case data, yes/no variables converted to 0/1
 dat <- sw_combined_clean %>%
-  dplyr::select(all_of(c(outcome, exposure, mediators, covariates))) %>%
+  dplyr::select(all_of(c(outcome, exposure, mediators, covariates, "years_in_sw"))) %>%
   mutate(across(all_of(c(outcome, exposure, mediators)),
                 ~ if_else(is.na(.x), NA_integer_, as.integer(.x %in% c("Yes", "Positive"))))) %>%
   drop_na() %>%
+  # drop FSWs with 0 years in sex work
+  filter(years_in_sw >= 1) %>%
+  select(-years_in_sw) %>%
   mutate(across(all_of(covariates), ~ droplevels(as.factor(.x))))
 
 # dummy code covariates
@@ -221,6 +231,11 @@ covs_y    <- paste(colnames(X), collapse = " + ")
 # check sample
 nrow(dat)
 table(dat[[outcome]], dat[[exposure]])
+
+# hiv prevalence by street-based sex work
+sw_combined_clean_cc %>%
+  group_by(street_sw_bin) %>%
+  summarise(n = n(), hiv = sum(hiv_test_rslt_bin), prev = mean(hiv_test_rslt_bin))
 
 # product of coefficients
 
