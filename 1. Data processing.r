@@ -2873,6 +2873,8 @@ clients_combined_clean %>%
   group_by(year, idu_12m_bin) %>%
   summarise(n = n(), prev = mean(hiv_test_rslt_bin == "Positive"), .groups = "drop")
 
+table(clients_combined_clean$paid_sex_freq_12m)
+
 # save
 saveRDS(clients_combined_clean, "clients_combined_clean.rds")
 clients_combined_clean <- readRDS("clients_combined_clean.rds")

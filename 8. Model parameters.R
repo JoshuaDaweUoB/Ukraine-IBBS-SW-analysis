@@ -42,9 +42,9 @@ sb_ends       <- estimates$sb_ends
 beta_sb_idu   <- estimates$beta_sb_idu
 obs_shares    <- targets$obs_shares
 years_prior   <- estimates$years_prior
-T_C           <- estimates$T_C
-T_C_lower     <- estimates$T_C_lower
-T_C_upper     <- estimates$T_C_upper
+T_C           <- estimates$T_C$T_C
+T_C_lower     <- estimates$T_C$lower
+T_C_upper     <- estimates$T_C$upper
 
 # entry proportions by year (2009-2021): constant phi, non-IDU SB linear on the logit scale between 2009 and 2021, IDU SB shifted by beta_sb_idu
 omega_entry <- function(phi, s_ends) {
@@ -75,42 +75,21 @@ zeta <- estimates$zeta$zeta
 
 ## fixed parameters
 
-# fsw non-HIV mortality (mu): 1 / remaining life expectancy at mean age of starting SW, plus excess for injecting
-age_first_sw <- estimates$age_first_sw_avg
-e_x          <- 53.2                          # remaining life expectancy, Ukrainian women at age round(age_first_sw) (ref)
-mort_le_f    <- 1 / e_x                       # non-HIV mortality, all FSWs
-
-cmr_pwid_ci  <- c(0.91, 0.68, 1.14)           # non-AIDS CMR per 100 PY, female PWID (rate, lower, upper) (Mathers & Degenhardt 2014, Table 3)
-cmr_pwid     <- cmr_pwid_ci[1] / 100
-excess_inj   <- cmr_pwid                      # excess non-AIDS mortality from injecting (PWID CMR; background deaths at young ages negligible)
-RR_street    <- 1                             # mortality rate ratio, street-based (no data)
-
-mu <- (mort_le_f + excess_inj * inj) * RR_street^street
+# fsw non-HIV mortality (mu), by IDU, from script 7
+mu_fsw <- estimates$mu_fsw
+mu     <- mu_fsw$mu[match(inj, c(0, 1))]
 mu
 
-# cessation of sex work (gamma) = total exit (1 / mean years in SW) minus non-HIV mortality
-exit_total <- 1 / years_prior$mean
-gamma <- exit_total - mu
-if (any(gamma <= 0)) warning("background mortality >= total exit for some strata")
+# cessation of sex work (gamma), by IDU, from script 7 (same value for indoor and street-based)
+duration_sw <- estimates$duration_sw
+gamma_fsw   <- estimates$gamma_fsw
+years_s     <- duration_sw$mean[match(inj, c(0, 1))]
+gamma       <- gamma_fsw$gamma[match(inj, c(0, 1))]
 gamma
 
-# 95% CI for cessation, from the 95% CI of mean years in SW
-# (longer time in SW = lower cessation, so the upper years limit gives the lower gamma limit)
-years_lower <- years_prior$mean - 1.96 * years_prior$sd / sqrt(years_prior$n)
-years_upper <- years_prior$mean + 1.96 * years_prior$sd / sqrt(years_prior$n)
-
-gamma_ci <- tibble(
-  stratum = strata,
-  gamma   = gamma,
-  lower   = 1 / years_upper - mu,
-  upper   = 1 / years_lower - mu
-)
-
-gamma_ci
 
 # client non-HIV mortality (mu_C) and cessation of buying sex (gamma_C)
-mort_rate_m <- 388.8 / 100000   # Ukraine age-specific mortality, men 30-34, mean 2009-2021 (ref)
-mu_C <- mort_rate_m
+mu_C <- estimates$mu_C
 
 gamma_C <- 1 / T_C - mu_C
 gamma_C
@@ -158,8 +137,8 @@ draw_params <- function() {
   draw$rho_post <- runif(1, rho_2015_17[2] / rho_overall, rho_2015_17[3] / rho_overall)      # 2015-17 CI
   draw$eps_post <- runif(1, eps_overall[2] / eps_overall[1], eps_overall[3] / eps_overall[1]) # 2013-21 CI
 
-  # non-AIDS CMR among female PWID: normal, per year
-  draw$cmr_pwid <- max(rnorm(1, cmr_pwid_ci[1], (cmr_pwid_ci[3] - cmr_pwid_ci[2]) / (2 * 1.96)), 0.01) / 100
+  # non-HIV mortality among IDU FSWs: normal, per year
+  draw$mu_idu <- max(rnorm(1, mu_fsw$mu[2], (mu_fsw$upper[2] - mu_fsw$lower[2]) / (2 * 1.96)), mu_fsw$mu[1])
 
   # mean years in SW: normal, using the standard error of the mean
   draw$years_in_sw <- rnorm(4, years_prior$mean, years_prior$sd / sqrt(years_prior$n))
@@ -182,8 +161,8 @@ draw_params <- function() {
 # returns NULL if cessation would be negative
 build_params <- function(draw) {
 
-  # non-HIV mortality: 1 / life expectancy, plus sampled excess for injecting
-  mu_s <- (mort_le_f + draw$cmr_pwid * inj) * RR_street^street
+  # non-HIV mortality: non-IDU fixed, IDU sampled
+  mu_s <- if_else(inj == 1, draw$mu_idu, mu_fsw$mu[1])
 
   # cessation: 1 / mean years in SW minus mortality
   gamma_s <- 1 / draw$years_in_sw - mu_s
@@ -220,7 +199,7 @@ print(T_C)
 
 # fixed parameters
 print(mu)
-print(gamma_ci)
+print(gamma_fsw)
 print(c(mu_C = mu_C, gamma_C = gamma_C))
 
 # priors
