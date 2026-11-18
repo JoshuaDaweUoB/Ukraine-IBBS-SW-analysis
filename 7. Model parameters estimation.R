@@ -249,7 +249,7 @@ boot_ratio <- replicate(2000, {
   mean(d$art_current_bin[d$new_fsw %in% TRUE] == "Yes") / mean(d$art_current_bin == "Yes")
 })
 
-r_F_zeta <- r_F_zeta %>%
+r_F_zeta <- art_ratio %>%
   mutate(lower = quantile(boot_ratio, 0.025),
          upper = quantile(boot_ratio, 0.975))
 
@@ -686,6 +686,22 @@ a <- diff(mixing$p_adj)
 a
 
 ## FSW parameters
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # years in sex work by stratum (for exit)
 years_summary <- strata_df %>%
